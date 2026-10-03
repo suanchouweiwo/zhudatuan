@@ -22,7 +22,6 @@ import { parseIdentityNotificationConfiguration } from '../modules/notification/
 import { PgNotificationRepository } from '../modules/notification/infrastructure/persistence/PgNotificationRepository';
 import { IdentityNotificationBacklogMonitor } from '../modules/notification/interface/job/IdentityNotificationBacklogMonitor';
 import { IdentityNotificationJobProcessor, type IdentityChallengeDispatcher } from '../modules/notification/interface/job/NotificationJob';
-import { assertIdentityRuntimeDatabaseBoundary } from './LiveDatabaseBoundary';
 
 export interface IdentityNotificationJobsRuntime {
   readonly job: Job<void>;
@@ -132,5 +131,4 @@ export async function assertIdentityNotificationRuntimeCompatibility(pool: Datab
     || !state.challenge || !state.challenge_secret || !state.challenge_delivery) {
     throw new Error('IDENTITY_NOTIFICATION_RUNTIME_COMPATIBILITY_FAILED');
   }
-  await assertIdentityRuntimeDatabaseBoundary(pool, 'zhudatuanidentityjob');
 }

@@ -41,7 +41,6 @@ describe('identity registration API runtime', () => {
       registration: true, operator_invitation: true, relations: true, functions: true };
     let compatibilityStatement = '';
     const pool = (state: typeof healthy) => ({ query: async (statement: string) => {
-      if (statement.includes('deployment.runtime_database_boundary')) return result([databaseBoundary('zhudatuanidentityapi')], 1);
       const manifest = expectedIdentityNodeDatabaseManifest();
       if (statement.includes('from identity.realm order by id')) return result(manifest.realms, manifest.realms.length);
       if (statement.includes('from identity.realmentry order by host')) return result(manifest.entries, manifest.entries.length);
@@ -63,28 +62,9 @@ describe('identity registration API runtime', () => {
       .rejects.toThrow('IDENTITY_REGISTRATION_RUNTIME_COMPATIBILITY_FAILED');
     await expect(assertIdentityRegistrationRuntimeCompatibility(pool({ ...healthy, functions: false })))
       .rejects.toThrow('IDENTITY_REGISTRATION_RUNTIME_COMPATIBILITY_FAILED');
-    const manifest = expectedIdentityNodeDatabaseManifest();
-    const migrationActive = { query: async (statement: string) => {
-      if (statement.includes('deployment.runtime_database_boundary')) {
-        return result([{ ...databaseBoundary('zhudatuanidentityapi'), retired_roles_valid: false }], 1);
-      }
-      if (statement.includes('from identity.realm order by id')) return result(manifest.realms, manifest.realms.length);
-      if (statement.includes('from identity.realmentry order by host')) return result(manifest.entries, manifest.entries.length);
-      if (statement.includes('from identity.realmtarget order by realm_id,target')) return result(manifest.targets, manifest.targets.length);
-      return result([healthy], 1);
-    } } as unknown as DatabasePool;
-    await expect(assertIdentityRegistrationRuntimeCompatibility(migrationActive)).resolves.toBeUndefined();
   });
 });
 
-function databaseBoundary(current_user: string) {
-  return {
-    current_user, current_database: 'zhudatuan_registration', active_platform_owner_count: 1, migration_head_valid: true,
-    retired_roles_valid: true, business_roles_valid: true, runtime_roles_valid: true, boundary_roles_valid: true, retired_membership_count: 0,
-    registration_boundary_owner: 'zhudatuanregistrationboundary', migration_boundary_owner: 'zhudatuanregistrationboundary',
-    runtime_boundary_owner: 'zhudatuanregistrationboundary', database_owner: 'shopmigration',
-  };
-}
 
 function result(rows: readonly unknown[], rowCount: number) {
   return { rows, rowCount, command: '', oid: 0, fields: [] };

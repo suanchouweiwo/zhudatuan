@@ -4,7 +4,6 @@ import { JOB_CATALOG } from '../app/jobs';
 import type { CacheState } from '../foundation/cache/Cache';
 import type { DatabasePool } from '../foundation/persistence/Pool';
 import type { ExtensionRegistry } from './ExtensionRegistry';
-import { assertLiveDatabaseBoundary } from './LiveDatabaseBoundary';
 
 interface DatabaseCompatibility {
   readonly writable: boolean;
@@ -75,6 +74,5 @@ export async function assertRuntimeCompatibility(pool: DatabasePool, extensions:
   cache?: CacheState): Promise<RuntimeCompatibilityState> {
   const state = await runtimeCompatibility(pool, extensions, workload, cache);
   if (!state.healthy) throw new Error('RUNTIME_COMPATIBILITY_FAILED:' + JSON.stringify(state));
-  if (workload === 'jobs') await assertLiveDatabaseBoundary(pool, 'shopjob');
   return state;
 }

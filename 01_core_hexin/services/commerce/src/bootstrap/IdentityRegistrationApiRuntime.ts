@@ -38,7 +38,6 @@ import { commerceTelemetry } from '../foundation/telemetry/Telemetry';
 import type { Container } from './Container';
 import { bindServerNodeManifestRegistry, runtimeNodeManifestRegistry } from './ApiBootstrap';
 import { ExtensionRegistry } from './ExtensionRegistry';
-import { assertIdentityRuntimeDatabaseBoundary } from './LiveDatabaseBoundary';
 import { assertIdentityNodeManifestRuntime, loadIdentityNodeRuntimeDefinition } from './IdentityNodeManifestRuntime';
 import { NODE_DATABASE_ROLE, NODE_MANIFEST } from './NodeRuntime';
 
@@ -204,10 +203,6 @@ export async function assertIdentityRegistrationRuntimeCompatibility(
   identityNode?: IdentityNodeDefinition,
 ): Promise<void> {
   await identityRegistrationRuntimeCompatibility(pool, expectedRole);
-  await assertIdentityRuntimeDatabaseBoundary(
-    pool,
-    expectedRole as 'zhudatuanidentityapi' | 'zhudatuanidentityjob',
-  );
   await assertIdentityNodeManifestRuntime(pool, manifest, identityNode);
 }
 

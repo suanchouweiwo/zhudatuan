@@ -63,24 +63,14 @@ describe('identity notification Jobs runtime', () => {
       current_user: 'zhudatuanidentityjob', writable: true, schema: true, contract: true, registration: true, runtime_job: true,
       challenge: true, challenge_secret: true, challenge_delivery: true,
     };
-    const pool = (state: typeof healthy) => ({ query: async (statement: string) => statement.includes('deployment.runtime_database_boundary')
-      ? result([databaseBoundary('zhudatuanidentityjob')], 1) : result([state], 1) }) as unknown as DatabasePool;
-    const decoupled = { query: async (statement: string) => statement.includes('deployment.runtime_database_boundary')
-      ? result([{ ...databaseBoundary('zhudatuanidentityjob'), business_roles_valid: false }], 1)
-      : result([healthy], 1) } as unknown as DatabasePool;
+    const pool = (state: typeof healthy) => ({ query: async () => result([state], 1) }) as unknown as DatabasePool;
     await expect(assertIdentityNotificationRuntimeCompatibility(pool(healthy))).resolves.toBeUndefined();
-    await expect(assertIdentityNotificationRuntimeCompatibility(decoupled)).resolves.toBeUndefined();
     await expect(assertIdentityNotificationRuntimeCompatibility(pool({ ...healthy, current_user: 'shopapp' })))
       .rejects.toThrow('IDENTITY_NOTIFICATION_RUNTIME_COMPATIBILITY_FAILED');
     await expect(assertIdentityNotificationRuntimeCompatibility(pool({ ...healthy, contract: false })))
       .resolves.toBeUndefined();
     await expect(assertIdentityNotificationRuntimeCompatibility(pool({ ...healthy, registration: false })))
       .rejects.toThrow('IDENTITY_NOTIFICATION_RUNTIME_COMPATIBILITY_FAILED');
-    const ownerMissing = { query: async (statement: string) => statement.includes('deployment.runtime_database_boundary')
-      ? result([{ ...databaseBoundary('zhudatuanidentityjob'), active_platform_owner_count: 0 }], 1)
-      : result([healthy], 1) } as unknown as DatabasePool;
-    await expect(assertIdentityNotificationRuntimeCompatibility(ownerMissing))
-      .rejects.toThrow('LIVE_DATABASE_BOUNDARY_ASSERTION_FAILED');
   });
 
   it('binds a node worker to the identity-enabled manifest and its own secret namespace', () => {
@@ -104,14 +94,6 @@ describe('identity notification Jobs runtime', () => {
   });
 });
 
-function databaseBoundary(current_user: string) {
-  return {
-    current_user, current_database: 'zhudatuan_registration', active_platform_owner_count: 1, migration_head_valid: true,
-    retired_roles_valid: true, business_roles_valid: true, runtime_roles_valid: true, boundary_roles_valid: true, retired_membership_count: 0,
-    registration_boundary_owner: 'zhudatuanregistrationboundary', migration_boundary_owner: 'zhudatuanregistrationboundary',
-    runtime_boundary_owner: 'zhudatuanregistrationboundary', database_owner: 'shopmigration',
-  };
-}
 
 function result(rows: readonly unknown[], rowCount: number) {
   return { rows, rowCount, command: '', oid: 0, fields: [] };
