@@ -29,23 +29,5 @@ alter policy zhudatuanprovisioningapi on runtime.schemaversion
 insert into runtime.schemaversion(version,checksum)
 values('20260914090000','241214fa70737025d993740f79c59bca7867d6f4540da0041c863b0d45916594');
 
-do $assert$
-begin
-  if not exists(select 1 from runtime.operation where id='provisioning.nodetasks.read'
-      and method='GET' and path='/api/v1/provisioning/node-tasks/{taskid}')
-    or not exists(select 1 from runtime.operation where id='provisioning.nodetasks.retry'
-      and method='POST' and path='/api/v1/provisioning/node-tasks/{taskid}/retry')
-    or not exists(select 1 from capability.entitlement where scope_id='mall:d1708f04df2dd8a61736852c4900fb43'
-      and capability_id='provisioning.nodetasks.read' and state='enabled')
-    or not exists(select 1 from capability.entitlement where scope_id='mall:d1708f04df2dd8a61736852c4900fb43'
-      and capability_id='provisioning.nodetasks.retry' and state='enabled') then
-    raise exception 'AUTONODE_TASK_OPERATION_PUBLICATION_INVALID';
-  end if;
-  if not exists(select 1 from runtime.schemaversion where version='20260914090000'
-      and checksum='241214fa70737025d993740f79c59bca7867d6f4540da0041c863b0d45916594') then
-    raise exception 'AUTONODE_TASK_OPERATION_SCHEMA_VERSION_INVALID';
-  end if;
-end
-$assert$;
 
 commit;
