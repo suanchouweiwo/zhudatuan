@@ -66,7 +66,7 @@ export function validateMallProvisioningApiEnvironment(source: EnvironmentSource
   }
   bearerToken(source.SECRET_STORE_BEARER_TOKEN, 'SECRET_STORE_BEARER_TOKEN_INVALID');
   const origins = apiAllowedOrigins(source);
-  if (app === 'production' && ![PLATFORM_CONSOLE_ORIGIN, 'https://console.zhudatuan.com'].includes(origins.join(','))) {
+  if (app === 'production' && origins.join(',') !== PLATFORM_CONSOLE_ORIGIN) {
     throw new Error('MALL_PROVISIONING_API_ORIGINS_INVALID');
   }
   if (mallProvisioningApiPort(source) !== 4325) throw new Error('MALL_PROVISIONING_API_PORT_INVALID');

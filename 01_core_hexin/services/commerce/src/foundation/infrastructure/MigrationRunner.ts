@@ -55,7 +55,7 @@ export class MigrationRunner {
       await client.query("select pg_advisory_lock(hashtext('shop-domain-hard-cut'))");
       const files = (await readdir(this.directory)).filter((name) => /^\d{14}_[a-z0-9_]+\.sql$/.test(name)).sort();
       await this.assertHistory(files);
-      const applied = await this.applied(client);
+      let applied = await this.applied(client);
       for (const file of files) {
         const version = file.slice(0, 14);
         if (applied.has(version)) continue;
@@ -63,9 +63,10 @@ export class MigrationRunner {
         const sql = genericMigrationSql(file, await readFile(join(this.directory, file), 'utf8'));
         await client.query(sql);
         await client.query(
-          'insert into supabase_migrations.schema_migrations(version,statements,name) values($1,$2,$3)',
+          'insert into supabase_migrations.schema_migrations(version,statements,name) values($1,$2,$3) on conflict(version) do nothing',
           [version, [], file],
         );
+        applied = await this.applied(client);
       }
       const result = await client.query<{ readonly valid: boolean }>(
         `select exists(select 1 from runtime.schemaversion where version=$1) and not exists(select 1 from pg_tables where schemaname='public') valid`,

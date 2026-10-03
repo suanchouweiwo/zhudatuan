@@ -17,55 +17,55 @@
       "host_node_id": null,
       "domain_bindings": [
         {
-          "host": "accounts.fufu.wang",
+          "host": "accounts.zhudatuan.com",
           "binding_ref": { "ref": "domain:zhudatuan:l0:identity", "version": "1" },
           "application_ref": "application:identity",
           "surface_ref": "surface:identity"
         },
         {
-          "host": "api.fufu.wang",
+          "host": "api.zhudatuan.com",
           "binding_ref": { "ref": "domain:zhudatuan:l0:api", "version": "1" },
           "application_ref": "application:commerce-api",
           "surface_ref": "surface:api"
         },
         {
-          "host": "console.fufu.wang",
+          "host": "console.zhudatuan.com",
           "binding_ref": { "ref": "domain:zhudatuan:l0:console", "version": "1" },
           "application_ref": "application:console",
           "surface_ref": "surface:console"
         },
         {
-          "host": "fufu.wang",
+          "host": "zhudatuan.com",
           "binding_ref": { "ref": "domain:zhudatuan:l0:storefront", "version": "1" },
           "application_ref": "application:mall-zhudatuan",
           "surface_ref": "surface:storefront"
         },
         {
-          "host": "www.fufu.wang",
+          "host": "www.zhudatuan.com",
           "binding_ref": { "ref": "domain:zhudatuan:l0:storefront:www", "version": "1" },
           "application_ref": "application:mall-zhudatuan",
           "surface_ref": "surface:storefront"
         },
         {
-          "host": "h5.fufu.wang",
+          "host": "h5.zhudatuan.com",
           "binding_ref": { "ref": "domain:zhudatuan:l0:storefront:h5", "version": "1" },
           "application_ref": "application:mall-zhudatuan",
           "surface_ref": "surface:storefront"
         },
         {
-          "host": "internal.fufu.wang",
+          "host": "internal.zhudatuan.com",
           "binding_ref": { "ref": "domain:zhudatuan:l0:storefront:internal", "version": "1" },
           "application_ref": "application:mall-zhudatuan",
           "surface_ref": "surface:storefront"
         },
         {
-          "host": "beta.fufu.wang",
+          "host": "beta.zhudatuan.com",
           "binding_ref": { "ref": "domain:zhudatuan:l0:storefront:beta", "version": "1" },
           "application_ref": "application:mall-zhudatuan",
           "surface_ref": "surface:storefront"
         },
         {
-          "host": "mini.fufu.wang",
+          "host": "mini.zhudatuan.com",
           "binding_ref": { "ref": "domain:zhudatuan:l0:storefront:mini", "version": "1" },
           "application_ref": "application:mall-zhudatuan",
           "surface_ref": "surface:storefront"
