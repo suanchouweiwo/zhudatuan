@@ -2,7 +2,6 @@
   "schema_version": "sfl.node-manifest.v1",
   "manifest_id": "manifest:zhudatuan:l0:v1",
   "manifest_version": "1.0.2",
-  "manifest_digest": "sha256:e26e245b6156a5544c2a114d96c8a358a6f11e5644df7ee48c8e30fc6a44a8f9",
   "generated_at": "2026-09-09T12:30:00.000Z",
   "lifecycle_status": "active",
   "line_id": "line:zhudatuan:commerce:v1",
@@ -14,7 +13,7 @@
   "host_node_id": null,
   "domain_bindings": [
     {
-      "host": "accounts.fufu.wang",
+      "host": "accounts.zhudatuan.com",
       "binding_ref": {
         "ref": "domain:zhudatuan:l0:identity",
         "version": "1"
@@ -23,7 +22,7 @@
       "surface_ref": "surface:identity"
     },
     {
-      "host": "api.fufu.wang",
+      "host": "api.zhudatuan.com",
       "binding_ref": {
         "ref": "domain:zhudatuan:l0:api",
         "version": "1"
@@ -32,7 +31,7 @@
       "surface_ref": "surface:api"
     },
     {
-      "host": "beta.fufu.wang",
+      "host": "beta.zhudatuan.com",
       "binding_ref": {
         "ref": "domain:zhudatuan:l0:storefront:beta",
         "version": "1"
@@ -41,7 +40,7 @@
       "surface_ref": "surface:storefront"
     },
     {
-      "host": "console.fufu.wang",
+      "host": "console.zhudatuan.com",
       "binding_ref": {
         "ref": "domain:zhudatuan:l0:console",
         "version": "1"
@@ -50,7 +49,7 @@
       "surface_ref": "surface:console"
     },
     {
-      "host": "fufu.wang",
+      "host": "zhudatuan.com",
       "binding_ref": {
         "ref": "domain:zhudatuan:l0:storefront",
         "version": "1"
@@ -59,7 +58,7 @@
       "surface_ref": "surface:storefront"
     },
     {
-      "host": "h5.fufu.wang",
+      "host": "h5.zhudatuan.com",
       "binding_ref": {
         "ref": "domain:zhudatuan:l0:storefront:h5",
         "version": "1"
@@ -68,7 +67,7 @@
       "surface_ref": "surface:storefront"
     },
     {
-      "host": "internal.fufu.wang",
+      "host": "internal.zhudatuan.com",
       "binding_ref": {
         "ref": "domain:zhudatuan:l0:storefront:internal",
         "version": "1"
@@ -77,7 +76,7 @@
       "surface_ref": "surface:storefront"
     },
     {
-      "host": "mini.fufu.wang",
+      "host": "mini.zhudatuan.com",
       "binding_ref": {
         "ref": "domain:zhudatuan:l0:storefront:mini",
         "version": "1"
@@ -86,7 +85,7 @@
       "surface_ref": "surface:storefront"
     },
     {
-      "host": "www.fufu.wang",
+      "host": "www.zhudatuan.com",
       "binding_ref": {
         "ref": "domain:zhudatuan:l0:storefront:www",
         "version": "1"
@@ -203,5 +202,6 @@
     "build_id": "node-manifest-declaration:aaecd175515484d21dcfa2089035532c10baa5a94be0c43a3b5bfad6794daf71",
     "build_count": 1,
     "immutable_artifact_digest": "sha256:aaecd175515484d21dcfa2089035532c10baa5a94be0c43a3b5bfad6794daf71"
-  }
+  },
+  "manifest_digest": "sha256:1d46cdc20cd53d51541637f485d8119b0782df19cff54b1eaab8283ee4537334"
 }
