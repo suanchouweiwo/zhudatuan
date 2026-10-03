@@ -31,6 +31,7 @@
     "workspace-graph": {"module":"../../../04_tools/release-engine/adapters/zdt-next/workspace-impact.mjs"}
   },
   "targets": {
+    "internal-runtime": {"id":"internal-runtime","kind":"service","tests":[],"typecheck":[],"build":[{"name":"internal-runtime-build","argv":["node","04_tools/release-engine/adapters/zdt-next/build-commerce-service.mjs","internal-runtime"],"timeoutMs":300000}],"artifactInputs":[{"source":"01_core_hexin/services/commerce/dist/InternalRuntimeMain.js","destination":"service/InternalRuntimeMain.js"},{"source":"01_core_hexin/services/commerce/dist/InternalRuntimeReadyMain.js","destination":"service/InternalRuntimeReadyMain.js"},{"source":"01_core_hexin/services/commerce/dist/LocalObjectsMain.js","destination":"service/LocalObjectsMain.js"},{"source":"01_core_hexin/services/commerce/dist/CatalogObjectStoreReadyMain.js","destination":"service/CatalogObjectStoreReadyMain.js"},{"source":"01_core_hexin/services/commerce/dist/BootstrapOwner.js","destination":"service/BootstrapOwner.js"},{"source":"01_core_hexin/services/commerce/dist/BootstrapRegistration.js","destination":"service/BootstrapRegistration.js"}],"criticalFiles":["service/InternalRuntimeMain.js","service/InternalRuntimeReadyMain.js","service/LocalObjectsMain.js","service/CatalogObjectStoreReadyMain.js","service/BootstrapOwner.js","service/BootstrapRegistration.js"],"estimateSeconds":120,"workspace":"@shop/commerce"},
     "catalog-media": {
       "id": "catalog-media",
       "kind": "content",
@@ -650,6 +651,7 @@
       "realmId": "realm:l0",
       "manifest": "02_platform_pingtai/config/node-manifests/zhudatuan-l0.json",
       "deployments": {
+      "internal-runtime": {"pointerRoot":"/opt/zhudatuan/targets/internal-runtime","service":"zhudatuan-internal-runtime.service","restart":"systemd"},
         "catalog-media": {"pointerRoot":"/opt/ai-delivery/content/zdt-next/zhudatuan-l0/catalog-media","service":"none","restart":"none"},
         "storefront": {"pointerRoot":"/opt/sfl/nodes/zhudatuan-l0/targets/storefront","service":"sfl-storefront@zhudatuan-l0.service","restart":"systemd"},
         "auth-web": {"pointerRoot":"/opt/zhudatuan/targets/auth-web","service":"none","restart":"none"},

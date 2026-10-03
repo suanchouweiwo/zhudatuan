@@ -43,7 +43,7 @@ export async function createPlan(adapter, options = {}) {
   for (const node of requestedNodes) {
     for (const target of targets) invariant(Boolean(adapter.nodes[node].deployments[target]), 'PLAN_NODE_TARGET_UNSUPPORTED', `${node} does not deploy ${target}`);
   }
-  const actions = materializeActions(adapter, targets, requestedNodes, scopedChanges, classification.validations, direct);
+  const actions = materializeActions(adapter, targets, requestedNodes, scopedChanges, classification.validations, direct || prepare);
   const deploymentOrder = orderTargets(adapter, targets);
   const plan = {
     schema: 'ai.delivery.plan.v2',
