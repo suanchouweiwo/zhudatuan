@@ -39,7 +39,11 @@ begin
   from supabase_migrations.schema_migrations
   where version='20260909203000';
   if found then
-    if v_name<>'20260909203000_switch_l0_public_domain_to_fufu.sql'
+    if v_name='20260909203000_switch_l0_public_domain_to_fufu.sql'
+      and coalesce(cardinality(v_statements),0)=0 then
+      update supabase_migrations.schema_migrations set statements=v_expected_statements
+      where version='20260909203000';
+    elsif v_name<>'20260909203000_switch_l0_public_domain_to_fufu.sql'
       or v_statements is distinct from v_expected_statements then
       raise exception 'L0_PUBLIC_DOMAIN_LEDGER_RECONCILIATION_CONFLICT';
     end if;
