@@ -49,15 +49,6 @@
       "surface_ref": "surface:console"
     },
     {
-      "host": "zhudatuan.com",
-      "binding_ref": {
-        "ref": "domain:zhudatuan:l0:storefront",
-        "version": "1"
-      },
-      "application_ref": "application:mall-zhudatuan",
-      "surface_ref": "surface:storefront"
-    },
-    {
       "host": "h5.zhudatuan.com",
       "binding_ref": {
         "ref": "domain:zhudatuan:l0:storefront:h5",
@@ -88,6 +79,15 @@
       "host": "www.zhudatuan.com",
       "binding_ref": {
         "ref": "domain:zhudatuan:l0:storefront:www",
+        "version": "1"
+      },
+      "application_ref": "application:mall-zhudatuan",
+      "surface_ref": "surface:storefront"
+    },
+    {
+      "host": "zhudatuan.com",
+      "binding_ref": {
+        "ref": "domain:zhudatuan:l0:storefront",
         "version": "1"
       },
       "application_ref": "application:mall-zhudatuan",
@@ -203,5 +203,5 @@
     "build_count": 1,
     "immutable_artifact_digest": "sha256:aaecd175515484d21dcfa2089035532c10baa5a94be0c43a3b5bfad6794daf71"
   },
-  "manifest_digest": "sha256:1d46cdc20cd53d51541637f485d8119b0782df19cff54b1eaab8283ee4537334"
+  "manifest_digest": "sha256:9c6194f7600ff0da0a85699c39576a0198b80980d222b99580fac22eccdfcd69"
 }
