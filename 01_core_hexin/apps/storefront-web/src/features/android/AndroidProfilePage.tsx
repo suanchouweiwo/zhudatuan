@@ -208,7 +208,7 @@ export const AndroidProfilePage: React.FC = () => {
           <div className="flex items-center justify-between text-gray-700">
             <span className="font-bold flex items-center gap-1.5">
               <Info className="w-4 h-4 text-blue-600" />
-              <span>关于智慧翼 Android 客户端</span>
+              <span>关于MORVIA Android 客户端</span>
             </span>
             <span className="text-gray-400 font-mono text-[10px]">v2.8.0</span>
           </div>

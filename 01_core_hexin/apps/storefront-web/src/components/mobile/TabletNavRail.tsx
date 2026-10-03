@@ -45,10 +45,9 @@ export const TabletNavRail: React.FC = () => {
     <div className="w-56 bg-[var(--sw-brand-dark)] text-white flex flex-col justify-between p-3 border-r border-blue-900/50 shadow-md select-none shrink-0">
       {/* Top Header & Enterprise Info */}
       <div className="space-y-4">
-        <div className="flex items-center gap-2.5 px-2 py-1 border-b border-blue-800/60 pb-3">
-          <img src="/icon.svg" alt="" className="h-9 w-9 rounded-xl shadow-sm" />
+        <div className="flex flex-col items-start gap-1 px-2 py-1 border-b border-blue-800/60 pb-3">
+          <img src="/brand/morvia-master-lockup-white.svg" alt="MORVIA · zhudatuan 主打团" className="h-10 w-40 object-contain" />
           <div className="overflow-hidden">
-            <div className="text-xs font-black tracking-wide text-white truncate">智慧翼企业福利</div>
             <div className="text-[10px] text-blue-200 truncate">Tablet App 专属版</div>
           </div>
         </div>

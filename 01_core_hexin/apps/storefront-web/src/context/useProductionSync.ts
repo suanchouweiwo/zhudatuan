@@ -1,3 +1,4 @@
+import { canonicalizeProductBrand } from '../domain/brand/productBrand';
 import { useEffect, useRef } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { AccountLog, CartItem, DeliveryAddress, EnterpriseMall, Order, Product, UserProfile } from '../types';
@@ -119,8 +120,8 @@ export function authenticatedMall(bootstrap: ApiBootstrap): EnterpriseMall {
     id: bootstrap.scope.mallId,
     enterpriseId: bootstrap.scope.enterpriseId,
     enterpriseName: bootstrap.scope.enterpriseName,
-    mallName: bootstrap.scope.mallName,
-    logoText: bootstrap.scope.brandName,
+    mallName: canonicalizeProductBrand(bootstrap.scope.mallName),
+    logoText: canonicalizeProductBrand(bootstrap.scope.brandName),
     badge: '企业福利专享',
     welcomeBanner: `${bootstrap.scope.enterpriseName}员工福利商城已开放，实际权益以企业发放为准。`,
   };
@@ -196,7 +197,7 @@ export function useProductionSync(setters: ProductionSyncSetters, enabled = true
       }
       try {
         const storefront = await (await productionApiRequest).getPublicStorefront();
-        const resolvedMall = { ...UNRESOLVED_MALL, id: storefront.id, mallName: storefront.name, logoText: storefront.name };
+        const resolvedMall = { ...UNRESOLVED_MALL, id: storefront.id, mallName: canonicalizeProductBrand(storefront.name), logoText: canonicalizeProductBrand(storefront.name) };
         if (syncVersion === syncVersionRef.current) {
           setters.setCurrentMall(resolvedMall);
           setters.setMalls([resolvedMall]);

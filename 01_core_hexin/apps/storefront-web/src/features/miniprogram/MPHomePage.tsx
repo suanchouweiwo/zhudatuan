@@ -14,7 +14,7 @@ export const HOME_CAMPAIGN_INTERACTION_PAUSE_MS = 9000;
 const HOME_CAMPAIGNS = [
   {
     id: 'mid-autumn-care',
-    eyebrow: '月满宏泰 · 员工团圆礼',
+    eyebrow: '月满主打团 · 员工团圆礼',
     title: '中秋关怀',
     desc: '月饼粮油与团圆好礼 · 福利卡全额兑换',
     cta: '领取团圆礼',
@@ -23,8 +23,8 @@ const HOME_CAMPAIGNS = [
   },
   {
     id: 'golden-autumn-hongtai',
-    eyebrow: '宏泰甄选 · 秋日焕新',
-    title: '金秋宏泰',
+    eyebrow: 'MORVIA 主打团 · 秋日焕新',
+    title: '金秋主打团',
     desc: '品质粮油与暖心家电 · 金秋好礼直达',
     cta: '逛金秋好礼',
     color: 'from-[#8F450E] via-[#C77516] to-[#E6A32D]',

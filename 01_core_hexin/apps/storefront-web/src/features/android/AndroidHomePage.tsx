@@ -30,7 +30,7 @@ export const AndroidHomePage: React.FC = () => {
 
   return (
     <div className="bg-[#F5F7FA] min-h-full flex flex-col font-sans text-gray-800 relative">
-      <AndroidStatusBar title="智慧翼福利 App" isLoading={isLoading} onRefresh={simulateRefresh} />
+      <AndroidStatusBar title="MORVIA福利 App" isLoading={isLoading} onRefresh={simulateRefresh} />
 
       {/* Android Search & Voice/Scan Top Card */}
       <div className="bg-[var(--sw-brand-dark)] px-3 pb-3 pt-1">
@@ -125,7 +125,7 @@ export const AndroidHomePage: React.FC = () => {
         <div className="bg-gradient-to-r from-gray-900 via-indigo-950 to-blue-950 text-white rounded-3xl p-4 shadow-md space-y-2 relative overflow-hidden">
           <div className="relative z-10 space-y-1">
             <span className="bg-yellow-400 text-gray-900 text-[9px] font-black px-2 py-0.5 rounded-full">Android 专属内测补贴</span>
-            <h3 className="text-base font-black tracking-tight">智慧翼 App · 集团大客户采购直供</h3>
+            <h3 className="text-base font-black tracking-tight">MORVIA App · 集团大客户采购直供</h3>
             <p className="text-xs text-blue-200">全额福利卡扣税扣减 · 极速物流开票 · 支持指纹支付</p>
           </div>
 

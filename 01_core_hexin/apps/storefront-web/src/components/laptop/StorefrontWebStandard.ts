@@ -71,7 +71,7 @@ export const STOREFRONT_WEB_SURFACE_COPY = {
     headerBadge: '27" Web 标准版',
     pageSwitcherLabel: 'Web 标准 6 页面:',
     wideHomeBadge: '1920×1080 桌面 5列全景版',
-    wideHomeNotice: '📢 复用智慧翼 Web 标准组件，在 27 英寸桌面扩展内容密度与可视范围',
+    wideHomeNotice: '📢 复用MORVIA Web 标准组件，在 27 英寸桌面扩展内容密度与可视范围',
     wideHomeGridBadge: '27" 五列全景',
     wideHomeContainer: '内容容器: 1680px',
     wideHomeProductCount: 10,

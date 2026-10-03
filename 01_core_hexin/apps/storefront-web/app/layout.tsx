@@ -52,7 +52,7 @@ const firstPaintGuardCss = `
     align-items: center;
     justify-content: center;
     border-radius: 14px;
-    background: #1f5eff;
+    background: #143A8F;
     color: #ffffff;
     font-size: 22px;
     font-weight: 800;
@@ -131,28 +131,28 @@ export async function generateMetadata(): Promise<Metadata> {
 
   return {
     metadataBase: new URL(`https://${storefrontHost}`),
-    title: '智慧翼企业福利商城｜企业员工福利平台',
+    title: 'MORVIA 主打团商城｜企业员工福利平台',
     description: '面向企业员工的福利商品、卡券、生活服务和订单管理平台，由雍彻科技提供技术服务。',
-    applicationName: '智慧翼企业福利商城',
+    applicationName: 'MORVIA 主打团商城',
     manifest: '/manifest.webmanifest',
     icons: {
-      icon: [{ url: '/icon.svg', type: 'image/svg+xml' }],
-      apple: [{ url: '/apple-icon.png', sizes: '180x180', type: 'image/png' }],
+      icon: [{ url: '/icon.svg?v=morvia-l0', type: 'image/svg+xml' }],
+      apple: [{ url: '/apple-icon.png?v=morvia-l0', sizes: '180x180', type: 'image/png' }],
     },
     openGraph: {
       type: 'website',
       locale: 'zh_CN',
       url: '/',
-      siteName: '智慧翼 Smart Wing',
-      title: '智慧翼企业福利商城｜企业员工福利平台',
+      siteName: 'MORVIA · zhudatuan 主打团',
+      title: 'MORVIA 主打团商城｜企业员工福利平台',
       description: '面向企业员工的福利商品、卡券、生活服务和订单管理平台。',
-      images: [{ url: '/opengraph-image.png', width: 1200, height: 630, alt: '智慧翼企业福利商城' }],
+      images: [{ url: '/opengraph-image.png?v=morvia-l0', width: 1600, height: 400, alt: 'MORVIA 主打团商城' }],
     },
     twitter: {
       card: 'summary_large_image',
-      title: '智慧翼企业福利商城｜企业员工福利平台',
+      title: 'MORVIA 主打团商城｜企业员工福利平台',
       description: '面向企业员工的福利商品、卡券、生活服务和订单管理平台。',
-      images: ['/opengraph-image.png'],
+      images: ['/opengraph-image.png?v=morvia-l0'],
     },
     formatDetection: { email: false, address: false, telephone: false },
   };
@@ -185,9 +185,9 @@ export default function RootLayout({
       <body>
         <div id="sw-first-paint" role="status" aria-live="polite" aria-label="商城正在加载">
           <div id="sw-first-paint-card">
-            <span id="sw-first-paint-mark" aria-hidden="true">翼</span>
+            <span id="sw-first-paint-mark" aria-hidden="true"><img src="/brand/morvia-mark-white.svg" alt="" width="32" height="32" /></span>
             <span id="sw-first-paint-copy">
-              <strong id="sw-first-paint-title">智慧翼福利商城</strong>
+              <strong id="sw-first-paint-title">MORVIA 主打团商城</strong>
               <span id="sw-first-paint-note">网络较慢，正在准备商城…</span>
             </span>
           </div>

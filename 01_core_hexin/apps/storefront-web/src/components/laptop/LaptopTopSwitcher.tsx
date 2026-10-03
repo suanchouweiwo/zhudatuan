@@ -34,14 +34,13 @@ export const LaptopTopSwitcher: React.FC<LaptopTopSwitcherProps> = ({ surface = 
       <div className="sw-web-switcher-container max-w-[1366px] mx-auto flex flex-col xl:flex-row items-center justify-between gap-2.5 text-xs">
         {/* Left Branding */}
         <div className="flex items-center gap-2.5">
-          <img src="/icon.svg" alt="" className="h-7 w-7 flex-shrink-0 rounded-md shadow-xs" />
+          <img src="/brand/morvia-master-lockup-white.svg" alt="MORVIA · zhudatuan 主打团" className="h-9 w-36 flex-shrink-0 object-contain" />
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-black text-sm tracking-tight text-white">智慧翼企业福利商城</span>
               <span className="text-[10px] bg-blue-500/30 text-blue-200 border border-blue-400/40 font-bold px-1.5 py-0.2 rounded">{surfaceCopy.frameBadge}</span>
             </div>
             <div className="text-[10px] text-blue-200 flex items-center gap-1">
-              <span>SMART WING B2B2C</span>
+              <span>MORVIA B2B2C</span>
               <span>·</span>
               <span className="text-yellow-200">技术服务：雍彻科技（SGSYEN TECH）</span>
             </div>

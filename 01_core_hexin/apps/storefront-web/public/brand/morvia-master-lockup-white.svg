@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="640" height="160" viewBox="0 0 640 160" role="img" aria-labelledby="title desc">
-  <title id="title">MORVIA zhudatuan 主打团 master lockup</title>
-  <desc id="desc">Primary bilingual signature with MORVIA above the approved zhudatuan 主打团 wordmark.</desc>
+  <title id="title">MORVIA master lockup reverse</title>
+  <desc id="desc">White fallback for dark backgrounds.</desc>
   <svg x="0" y="0" width="160" height="160" viewBox="0 0 64 64" preserveAspectRatio="xMinYMid meet">
-  <path d="M4.5 49L10.5 36.5L18 21L24.5 30L32 43L40.5 29L47.5 18.5L53.5 34.5L59.5 46" fill="none" stroke="#143A8F" stroke-width="9" stroke-linecap="square" stroke-linejoin="bevel"/>
-  <path d="M4.5 49L10.5 36.5" fill="none" stroke="#0D2D72" stroke-width="9" stroke-linecap="square"/>
-  <path d="M18 21L22.8 27.7" fill="none" stroke="#2857BD" stroke-width="9" stroke-linecap="butt"/>
-  <path d="M42 26.5L47.5 18.5" fill="none" stroke="#2857BD" stroke-width="9" stroke-linecap="butt"/>
-  <path d="M53.5 34.5L59.5 46" fill="none" stroke="#0D2D72" stroke-width="9" stroke-linecap="square"/>
-  <path d="M32 38.5L35.2 42.5L32 46L28.8 42.5Z" fill="#0F347F"/></svg>
+  <path d="M4.5 49L10.5 36.5L18 21L24.5 30L32 43L40.5 29L47.5 18.5L53.5 34.5L59.5 46" fill="none" stroke="#FFFFFF" stroke-width="9" stroke-linecap="square" stroke-linejoin="bevel"/>
+  <path d="M4.5 49L10.5 36.5" fill="none" stroke="#FFFFFF" stroke-width="9" stroke-linecap="square"/>
+  <path d="M18 21L22.8 27.7" fill="none" stroke="#FFFFFF" stroke-width="9" stroke-linecap="butt"/>
+  <path d="M42 26.5L47.5 18.5" fill="none" stroke="#FFFFFF" stroke-width="9" stroke-linecap="butt"/>
+  <path d="M53.5 34.5L59.5 46" fill="none" stroke="#FFFFFF" stroke-width="9" stroke-linecap="square"/>
+  <path d="M32 38.5L35.2 42.5L32 46L28.8 42.5Z" fill="#FFFFFF"/></svg>
   <svg x="174" y="13" width="330" height="70" viewBox="0 0 275 58" preserveAspectRatio="xMinYMid meet"><defs>
 <g>
 <g id="morvia-glyph-0-0">
@@ -31,7 +31,7 @@
 </g>
 </g>
 </defs>
-<g fill="rgb(6.666667%, 6.666667%, 6.666667%)" fill-opacity="1">
+<g fill="#FFFFFF" fill-opacity="1">
 <use xlink:href="#morvia-glyph-0-0" x="-6" y="55.515625"/>
 <use xlink:href="#morvia-glyph-0-1" x="55.421875" y="55.515625"/>
 <use xlink:href="#morvia-glyph-0-2" x="110.859375" y="55.515625"/>
@@ -76,7 +76,7 @@
 </g>
 </g>
 </defs>
-  <g fill="#111111">
+  <g fill="#FFFFFF">
     <use href="#approved-glyph-0-0" x="0.000000" y="83.515625"/>
     <use href="#approved-glyph-0-1" x="36.076875" y="83.515625"/>
     <use href="#approved-glyph-0-2" x="81.435000" y="83.515625"/>

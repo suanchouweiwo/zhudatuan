@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" role="img" aria-labelledby="title description">
-  <title id="title">宏泰甄选测试商品</title>
+  <title id="title">MORVIA 主打团测试商品</title>
   <description id="description">模拟综合货盘统一测试商品图片</description>
   <defs>
     <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
@@ -11,6 +11,6 @@
   <circle cx="400" cy="302" r="142" fill="#1f5eff" opacity=".12"/>
   <path d="M315 250h170l34 70-39 161H320l-39-161 34-70Z" fill="#fff" stroke="#143a8f" stroke-width="18"/>
   <path d="M333 250c0-49 30-88 67-88s67 39 67 88" fill="none" stroke="#143a8f" stroke-width="18" stroke-linecap="round"/>
-  <text x="400" y="590" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif" font-size="54" font-weight="700" fill="#143a8f">宏泰甄选</text>
+  <text x="400" y="590" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif" font-size="54" font-weight="700" fill="#143a8f">MORVIA 主打团</text>
   <text x="400" y="654" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif" font-size="32" fill="#52667f">模拟货盘 · 测试商品</text>
 </svg>

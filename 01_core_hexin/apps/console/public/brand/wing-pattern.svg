@@ -1,12 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="320" height="160" viewBox="0 0 320 160" fill="none" role="img" aria-labelledby="title desc">
-  <title id="title">智慧翼品牌翼纹</title>
-  <desc id="desc">用于会员卡和品牌深色背景的抽象双翼线纹</desc>
-  <g stroke="#FFFFFF" stroke-linecap="round">
-    <path d="M160 80C119 57 76 40 19 34" stroke-opacity="0.34" stroke-width="4" />
-    <path d="M160 80C112 73 65 71 8 82" stroke-opacity="0.24" stroke-width="3" />
-    <path d="M160 80C119 99 78 116 28 139" stroke-opacity="0.16" stroke-width="2" />
-    <path d="M160 80C201 57 244 40 301 34" stroke-opacity="0.34" stroke-width="4" />
-    <path d="M160 80C208 73 255 71 312 82" stroke-opacity="0.24" stroke-width="3" />
-    <path d="M160 80C201 99 242 116 292 139" stroke-opacity="0.16" stroke-width="2" />
-  </g>
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">MORVIA M mark reverse</title>
+  <desc id="desc">White technical reproduction of the approved M mark.</desc>
+  <svg x="0" y="0" width="512" height="512" viewBox="0 0 64 64" preserveAspectRatio="xMinYMid meet">
+  <path d="M4.5 49L10.5 36.5L18 21L24.5 30L32 43L40.5 29L47.5 18.5L53.5 34.5L59.5 46" fill="none" stroke="#FFFFFF" stroke-width="9" stroke-linecap="square" stroke-linejoin="bevel"/>
+  <path d="M4.5 49L10.5 36.5" fill="none" stroke="#FFFFFF" stroke-width="9" stroke-linecap="square"/>
+  <path d="M18 21L22.8 27.7" fill="none" stroke="#FFFFFF" stroke-width="9" stroke-linecap="butt"/>
+  <path d="M42 26.5L47.5 18.5" fill="none" stroke="#FFFFFF" stroke-width="9" stroke-linecap="butt"/>
+  <path d="M53.5 34.5L59.5 46" fill="none" stroke="#FFFFFF" stroke-width="9" stroke-linecap="square"/>
+  <path d="M32 38.5L35.2 42.5L32 46L28.8 42.5Z" fill="#FFFFFF"/></svg>
 </svg>

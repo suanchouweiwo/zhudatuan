@@ -171,7 +171,7 @@ export class MallOrders extends MallCatalogCart {
         orderNo: parentOrderNo,
         time: new Date().toLocaleString('zh-CN', { hour12: false }),
         balanceAfter: this.user.welfareBalance,
-        remark: '智慧翼福利卡账户支取',
+        remark: 'MORVIA福利卡账户支取',
       });
     }
 
@@ -186,7 +186,7 @@ export class MallOrders extends MallCatalogCart {
         orderNo: parentOrderNo,
         time: new Date().toLocaleString('zh-CN', { hour12: false }),
         balanceAfter: this.user.mealBalance,
-        remark: '智慧翼餐卡专享账户支取',
+        remark: 'MORVIA餐卡专享账户支取',
       });
     }
 

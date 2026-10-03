@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="智慧翼统一账号认证与企业福利运营原型。">
-<title>智慧翼 · 统一账号认证</title>
+<meta name="description" content="MORVIA统一账号认证与企业福利运营原型。">
+<title>MORVIA · 统一账号认证</title>
 <script src="./support.js"></script>
 </head>
 <body>
@@ -51,7 +51,7 @@ button{font-family:inherit}
 input,select{font-family:inherit;color:inherit}
 :focus-visible{outline:3px solid var(--ac);outline-offset:2px}
 
-/* Smart Wing unified authentication — restored from the confirmed :3003 baseline. */
+/* MORVIA unified authentication — restored from the confirmed :3003 baseline. */
 .sw-auth-shell{--sw-brand:#1F5EFF;--sw-brand-hover:#174ED1;--sw-brand-dark:#143A8F;--sw-brand-light:#EAF1FF;--sw-ink:#07182F;--sw-bg:#F5F7FA;--sw-surface:#FFFFFF;--sw-text:#172033;--sw-text-2:#475569;--sw-muted:#64748B;--sw-border:#E2E8F0;min-height:100vh;display:flex;flex-direction:column;background:var(--sw-bg);color:var(--sw-text);font-family:Inter,'PingFang SC','Noto Sans SC','Microsoft YaHei',Arial,sans-serif}
 .sw-auth-debug{min-height:38px;padding:7px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;border-bottom:1px solid #1E293B;background:#0F172A;color:#CBD5E1;font-size:11px}
 .sw-auth-debug-left,.sw-auth-debug-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
@@ -274,7 +274,7 @@ input,select{font-family:inherit;color:inherit}
   <main class="sw-auth-main">
     <div class="sw-auth-frame" data-wide="{{ authWide }}">
       <div class="sw-auth-brand-panel">
-        <div class="sw-auth-brand"><img src="./assets/smart-wing-brand-mark.svg" alt=""></img><div><strong>智慧翼 Smart Wing</strong><small>ENTERPRISE BENEFITS</small></div></div>
+        <div class="sw-auth-brand"><img src="./assets/smart-wing-brand-mark.svg" alt=""></img><div><strong>MORVIA · zhudatuan 主打团</strong><small>zhudatuan 主打团</small></div></div>
         <div class="sw-auth-brand-message"><h1>企业福利<br>全新定义</h1><p>连接员工与企业的智慧桥梁，提供更有温度的数字福利体验。</p></div>
         <div class="sw-auth-provider"><small>技术服务方</small><strong>雍彻科技 YONGCHE TECH</strong></div>
       </div>
@@ -351,21 +351,21 @@ input,select{font-family:inherit;color:inherit}
                   </sc-if>
                 </div>
 
-                <div class="sw-auth-consent"><div class="sw-auth-consent-row"><input id="authTerms" type="checkbox" checked="{{ authAcceptedTerms }}" onChange="{{ toggleAuthTerms }}"></input><span>我已阅读并同意智慧翼福利商城的 <button type="button" onClick="{{ openTerms }}">《用户服务协议》</button> 与 <button type="button" onClick="{{ openPrivacy }}">《隐私保护政策》</button><small>（版本 2026.08）</small></span></div></div>
+                <div class="sw-auth-consent"><div class="sw-auth-consent-row"><input id="authTerms" type="checkbox" checked="{{ authAcceptedTerms }}" onChange="{{ toggleAuthTerms }}"></input><span>我已阅读并同意MORVIA福利商城的 <button type="button" onClick="{{ openTerms }}">《用户服务协议》</button> 与 <button type="button" onClick="{{ openPrivacy }}">《隐私保护政策》</button><small>（版本 2026.08）</small></span></div></div>
               </div>
             </sc-if>
 
             <sc-if value="{{ authStage2 }}">
               <div class="sw-auth-memberships">
                 <div class="sw-auth-info"><i class="ph ph-info"></i><div><strong>一次登录，按需进入</strong><p>商城用于福利消费与订单；后台用于运营管理，仅展示你已经获得授权的工作台。</p></div></div>
-                <section class="sw-auth-membership-section"><div class="sw-auth-membership-head"><div class="sw-auth-membership-title is-admin"><i class="ph ph-shield-check"></i><div><small>OPERATIONS WORKSPACE</small><strong>管理后台</strong></div></div><span class="sw-auth-badge is-admin">已获管理授权</span></div><button class="sw-auth-membership is-admin" type="button" onClick="{{ selectAdminMembership }}"><span class="sw-auth-membership-icon"><i class="ph ph-shield-check"></i></span><span class="sw-auth-membership-copy"><strong>腾讯科技（深圳）有限公司</strong><span>企业福利管理员 · 智慧翼企业福利运营后台</span><span>授权范围：本企业福利专区</span><span class="sw-auth-perms"><em>order.refund</em><em>audit.read</em><em>需二次验证</em></span></span><span class="sw-auth-membership-action">进入后台 <i class="ph ph-arrow-right"></i></span></button></section>
-                <section class="sw-auth-membership-section"><div class="sw-auth-membership-head"><div class="sw-auth-membership-title"><i class="ph ph-storefront"></i><div><small>PERSONAL WELFARE</small><strong>福利商城</strong></div></div><span class="sw-auth-badge">消费与福利</span></div><button class="sw-auth-membership" type="button" onClick="{{ selectStorefrontMembership }}"><span class="sw-auth-membership-icon"><i class="ph ph-storefront"></i></span><span class="sw-auth-membership-copy"><strong>智慧翼·员工福利专区</strong><span>腾讯科技（深圳）有限公司 · {{ authQrRoleLabel }}</span><span>个人福利账户 · 福利账户</span></span><span class="sw-auth-membership-action">进入商城 <i class="ph ph-caret-right"></i></span></button></section>
+                <section class="sw-auth-membership-section"><div class="sw-auth-membership-head"><div class="sw-auth-membership-title is-admin"><i class="ph ph-shield-check"></i><div><small>OPERATIONS WORKSPACE</small><strong>管理后台</strong></div></div><span class="sw-auth-badge is-admin">已获管理授权</span></div><button class="sw-auth-membership is-admin" type="button" onClick="{{ selectAdminMembership }}"><span class="sw-auth-membership-icon"><i class="ph ph-shield-check"></i></span><span class="sw-auth-membership-copy"><strong>腾讯科技（深圳）有限公司</strong><span>企业福利管理员 · MORVIA企业福利运营后台</span><span>授权范围：本企业福利专区</span><span class="sw-auth-perms"><em>order.refund</em><em>audit.read</em><em>需二次验证</em></span></span><span class="sw-auth-membership-action">进入后台 <i class="ph ph-arrow-right"></i></span></button></section>
+                <section class="sw-auth-membership-section"><div class="sw-auth-membership-head"><div class="sw-auth-membership-title"><i class="ph ph-storefront"></i><div><small>PERSONAL WELFARE</small><strong>福利商城</strong></div></div><span class="sw-auth-badge">消费与福利</span></div><button class="sw-auth-membership" type="button" onClick="{{ selectStorefrontMembership }}"><span class="sw-auth-membership-icon"><i class="ph ph-storefront"></i></span><span class="sw-auth-membership-copy"><strong>MORVIA·员工福利专区</strong><span>腾讯科技（深圳）有限公司 · {{ authQrRoleLabel }}</span><span>个人福利账户 · 福利账户</span></span><span class="sw-auth-membership-action">进入商城 <i class="ph ph-caret-right"></i></span></button></section>
               </div>
             </sc-if>
 
             <sc-if value="{{ authStage3 }}">
               <form class="sw-auth-form" onSubmit="{{ submitAuthStepUp }}" novalidate>
-                <div class="sw-auth-stepup-card"><strong><i class="ph ph-shield-warning"></i> 即将进入高风险运营后台</strong><h3>腾讯科技（深圳）有限公司</h3><p>角色：企业福利管理员（智慧翼·企业福利运营后台）</p><code>目标域名：smart.hbbtzn.com</code></div>
+                <div class="sw-auth-stepup-card"><strong><i class="ph ph-shield-warning"></i> 即将进入高风险运营后台</strong><h3>腾讯科技（深圳）有限公司</h3><p>角色：企业福利管理员（MORVIA·企业福利运营后台）</p><code>目标域名：console.zhudatuan.com</code></div>
                 <div class="sw-auth-field"><label for="authTotp" style="justify-content:space-between"><span><i class="ph ph-key"></i>TOTP 6位动态口令二次验证</span><small style="color:#94A3B8">谷歌／微软身份验证器</small></label><input id="authTotp" class="sw-auth-input" style="height:48px;text-align:center;font-family:SFMono-Regular,Consolas,monospace;font-size:16px;letter-spacing:.28em" type="text" value="{{ authTotp }}" onInput="{{ inputAuthTotp }}" maxlength="6" placeholder="6位动态数字（测试：123456）" aria-invalid="{{ authTotpInvalid }}"></input><sc-if value="{{ showAuthTotpError }}"><p class="sw-auth-field-error">{{ authTotpError }}</p></sc-if><p style="margin:0;color:#94A3B8;font-size:9px">演示动态口令固定为 <code style="color:#1F5EFF">123456</code>，其他数字会被拒绝。</p></div>
                 <button class="sw-auth-primary" style="background:#143A8F;border-color:#143A8F" type="submit" data-loading="{{ loginSubmitting }}"><i class="ph {{ loginButtonIcon }}"></i>{{ authStepUpButtonText }}</button>
               </form>
@@ -376,7 +376,7 @@ input,select{font-family:inherit;color:inherit}
     </div>
   </main>
 
-  <footer class="sw-auth-footer">© 2026 智慧翼企业福利商城. All Rights Reserved. 技术服务方：雍彻科技</footer>
+  <footer class="sw-auth-footer">© 2026 MORVIA企业福利商城. All Rights Reserved. 技术服务方：雍彻科技</footer>
 
   <sc-if value="{{ authModalRegistration }}"><div class="sw-auth-modal-backdrop"><form class="sw-auth-modal" onSubmit="{{ submitAuthRegistration }}" novalidate><div class="sw-auth-modal-head"><div><span class="sw-auth-modal-kicker">MEMBER REGISTRATION</span><h3>注册员工会员</h3><p>先用账号密码建立普通员工会员。管理员与 Owner 不开放自助注册。</p></div><button class="sw-auth-modal-close" type="button" onClick="{{ closeAuthModal }}" aria-label="关闭注册"><i class="ph ph-x"></i></button></div><sc-if value="{{ showAuthModalError }}"><div class="sw-auth-banner is-danger" role="alert"><i class="ph ph-warning-circle"></i><span>{{ authModalError }}</span></div></sc-if><div class="sw-auth-modal-grid"><div class="sw-auth-field"><label for="regName">姓名</label><input id="regName" class="sw-auth-input" value="{{ authRegistrationName }}" onInput="{{ inputAuthRegistrationName }}" placeholder="请输入真实姓名"></input></div><div class="sw-auth-field"><label for="regInvite">企业邀请码</label><input id="regInvite" class="sw-auth-input" value="{{ authRegistrationInvite }}" onInput="{{ inputAuthRegistrationInvite }}" placeholder="由企业福利管理员提供"></input></div><div class="sw-auth-field is-wide"><label for="regAccount">登录账号</label><input id="regAccount" class="sw-auth-input" value="{{ authRegistrationAccount }}" onInput="{{ inputAuthRegistrationAccount }}" placeholder="4–32位，以字母开头，可含数字、点、横线和下划线"></input></div><div class="sw-auth-field"><label for="regPassword">设置密码</label><input id="regPassword" class="sw-auth-input" type="password" value="{{ authRegistrationPassword }}" onInput="{{ inputAuthRegistrationPassword }}" placeholder="至少10位，含字母和数字"></input></div><div class="sw-auth-field"><label for="regConfirm">确认密码</label><input id="regConfirm" class="sw-auth-input" type="password" value="{{ authRegistrationConfirm }}" onInput="{{ inputAuthRegistrationConfirm }}" placeholder="再次输入密码"></input></div></div><p class="sw-auth-modal-note">手机号、微信和企业微信以后可绑定到同一账号；手机未验证前不能下单或付款。</p><button class="sw-auth-primary" style="margin-top:18px" type="submit"><i class="ph ph-user-check"></i>创建普通员工会员账号</button></form></div></sc-if>
 
@@ -555,7 +555,7 @@ input,select{font-family:inherit;color:inherit}
   <header class="app-header" style="height:56px;flex:none;display:flex;align-items:center;gap:16px;padding:0 16px;background:var(--panel);border-bottom:1px solid var(--bd)">
     <div class="app-brand" style="display:flex;align-items:center;gap:10px;width:196px;flex:none">
       <div style="width:28px;height:28px;border-radius:8px;background:var(--ac);color:var(--onac);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;overflow:hidden">
-        <sc-if value="{{ isSmartWing }}"><svg width="28" height="28" viewBox="0 0 64 64" role="img" aria-label="智慧翼 Smart Wing"><defs><linearGradient id="smart-wing-blue-prototype" x1="10" y1="6" x2="56" y2="60" gradientUnits="userSpaceOnUse"><stop stop-color="#2B72FF"></stop><stop offset="0.55" stop-color="#1F5EFF"></stop><stop offset="1" stop-color="#143A8F"></stop></linearGradient></defs><rect x="2" y="2" width="60" height="60" rx="16" fill="url(#smart-wing-blue-prototype)"></rect><path d="M9.5 17H18.7L26.7 37.7L32 24.7L37.3 37.7L45.3 17H54.5L42.2 48H34.5L32 41.8L29.5 48H21.8L9.5 17Z" fill="#FFFFFF"></path><path d="M11.8 14H22.2L24.1 19H13.8L11.8 14ZM52.2 14H41.8L39.9 19H50.2L52.2 14Z" fill="#BFD3FF"></path></svg></sc-if>
+        <sc-if value="{{ isSmartWing }}"><img src="/brand/brand-mark.svg" width="28" height="28" alt="MORVIA"></img></sc-if>
         <sc-if value="{{ isZhuDian }}">築</sc-if>
       </div>
       <div class="app-brand-copy" style="display:flex;flex-direction:column;line-height:1.1">
@@ -1177,7 +1177,7 @@ input,select{font-family:inherit;color:inherit}
 
           <sc-if value="{{ showCouponLoading }}"><div class="coupon-state-panel" role="status"><div class="coupon-state-card"><span style="width:44px;height:44px;border-radius:12px;background:var(--acs);color:var(--ac);display:flex;align-items:center;justify-content:center"><i class="ph ph-spinner-gap" style="font-size:22px;animation:auth-spin 900ms linear infinite"></i></span><strong style="font-size:14px">正在同步卡券台账</strong><span style="font-size:12px;color:var(--t2)">正在读取规则、预算与近 30 天核销记录…</span></div></div></sc-if>
           <sc-if value="{{ showCouponFailure }}"><div class="coupon-state-panel" role="alert"><div class="coupon-state-card" style="border-color:var(--dg);background:var(--dgs)"><span style="width:44px;height:44px;border-radius:12px;background:var(--panel);color:var(--dg);display:flex;align-items:center;justify-content:center"><i class="ph ph-cloud-x" style="font-size:22px"></i></span><strong style="font-size:14px">卡券数据加载失败</strong><span style="font-size:12px;color:var(--t2)">请求 ID：REQ-26A8-0914。演示环境未改变任何卡券状态。</span><button onClick="{{ retryCouponView }}" style="height:34px;padding:0 14px;border:1px solid var(--dg);background:var(--panel);border-radius:12px;color:var(--dg);font-size:12px;font-weight:600;cursor:pointer">重新加载</button></div></div></sc-if>
-          <sc-if value="{{ showCouponDenied }}"><div class="coupon-state-panel"><div class="coupon-state-card"><span style="width:44px;height:44px;border-radius:12px;background:var(--soft);color:var(--t2);display:flex;align-items:center;justify-content:center"><i class="ph ph-lock-key" style="font-size:22px"></i></span><strong style="font-size:14px">没有查看卡券台账的权限</strong><span style="font-size:12px;color:var(--t2)">需要「coupon.read」能力。可向智慧翼平台管理员申请企业福利运营权限。</span><button onClick="{{ resetCouponView }}" style="height:34px;padding:0 14px;border:1px solid var(--bd);background:var(--panel);border-radius:12px;color:var(--t1);font-size:12px;cursor:pointer">返回演示正常状态</button></div></div></sc-if>
+          <sc-if value="{{ showCouponDenied }}"><div class="coupon-state-panel"><div class="coupon-state-card"><span style="width:44px;height:44px;border-radius:12px;background:var(--soft);color:var(--t2);display:flex;align-items:center;justify-content:center"><i class="ph ph-lock-key" style="font-size:22px"></i></span><strong style="font-size:14px">没有查看卡券台账的权限</strong><span style="font-size:12px;color:var(--t2)">需要「coupon.read」能力。可向MORVIA平台管理员申请企业福利运营权限。</span><button onClick="{{ resetCouponView }}" style="height:34px;padding:0 14px;border:1px solid var(--bd);background:var(--panel);border-radius:12px;color:var(--t1);font-size:12px;cursor:pointer">返回演示正常状态</button></div></div></sc-if>
 
           <sc-if value="{{ showCouponList }}">
             <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--bd);flex-wrap:wrap">
@@ -2226,9 +2226,9 @@ class Component extends DCLogic {
       editor: '店铺装修', theme: '主题设置', marketing: '卡券运营', onboarding: '开店设置'
     };
     const title = this.state.screen === 'login'
-      ? '智慧翼 · 统一账号认证'
+      ? 'MORVIA · 统一账号认证'
       : this.state.smartWingMode
-        ? `智慧翼 · ${labels[this.state.screen] || '企业福利运营'}`
+        ? `MORVIA · ${labels[this.state.screen] || '企业福利运营'}`
         : `築店商家后台 · ${labels[this.state.screen] || '工作台'}`;
     if (document.title !== title) document.title = title;
   }
@@ -3149,7 +3149,7 @@ class Component extends DCLogic {
       : { selOutline: '2px solid var(--ac)', selOffset: '3px', selBg: 'var(--acs)', selPad: '6px', labelPos: 'left:-2px;top:-34px' };
 
     const authStageMeta = st.authStage === 1
-      ? { label: 'SMART WING ID', title: '登录智慧翼', subtitle: '欢迎回来，请选择适合你的登录方式。' }
+      ? { label: 'MORVIA ID', title: '登录MORVIA', subtitle: '欢迎回来，请选择适合你的登录方式。' }
       : st.authStage === 2
         ? { label: 'ROLE SELECTION', title: '选择登录身份', subtitle: '检测到多个可用身份，请选择本次要进入的服务。' }
         : { label: 'ADMIN STEP-UP', title: '管理员二次验证', subtitle: '该身份包含高风险权限，请完成动态口令验证。' };
@@ -3162,8 +3162,8 @@ class Component extends DCLogic {
       authModal: 'policy', authModalError: '',
       authPolicyTitle: kind === 'terms' ? '用户服务协议' : '隐私保护政策',
       authPolicyBody: kind === 'terms'
-        ? '本原型用于确认智慧翼统一认证的界面与交互，不会提交真实账号、订单或企业数据。\n\n正式服务中，用户应妥善保管账号凭证，并仅在所属企业授权范围内使用福利商城与运营后台。高风险管理操作需要额外身份验证并保留审计记录。\n\n当前版本：2026.08（设计评审文本）'
-        : '智慧翼仅在完成登录、身份匹配与安全验证所必需的范围内处理账号信息。\n\n本原型不连接用户数据库，也不会发送短信、调用企业微信、微信或外部 IdP；输入内容仅保留在当前浏览器运行内存中。\n\n正式接入时将按最小必要、目的限定与安全审计原则处理个人信息。'
+        ? '本原型用于确认MORVIA统一认证的界面与交互，不会提交真实账号、订单或企业数据。\n\n正式服务中，用户应妥善保管账号凭证，并仅在所属企业授权范围内使用福利商城与运营后台。高风险管理操作需要额外身份验证并保留审计记录。\n\n当前版本：2026.08（设计评审文本）'
+        : 'MORVIA仅在完成登录、身份匹配与安全验证所必需的范围内处理账号信息。\n\n本原型不连接用户数据库，也不会发送短信、调用企业微信、微信或外部 IdP；输入内容仅保留在当前浏览器运行内存中。\n\n正式接入时将按最小必要、目的限定与安全审计原则处理个人信息。'
     });
 
     return {
@@ -3263,15 +3263,15 @@ class Component extends DCLogic {
       theme: st.screen === 'login' || st.smartWingMode ? 'light' : (st.dark ? 'dark' : 'light'),
       productTheme: st.screen === 'login' || st.smartWingMode ? 'smart-wing' : 'zhudian',
       isSmartWing: st.screen === 'login' || st.smartWingMode, isZhuDian: st.screen !== 'login' && !st.smartWingMode, showThemeToggle: st.screen !== 'login' && !st.smartWingMode,
-      headerBrandName: st.smartWingMode ? '智慧翼' : '築店', headerBrandSub: st.smartWingMode ? 'SMART WING' : 'ZHUDIAN',
-      headerOrgName: st.smartWingMode ? '智慧翼平台' : '暮色生活', headerOrgMeta: st.smartWingMode ? '运营中心' : '品牌',
+      headerBrandName: st.smartWingMode ? 'MORVIA' : '築店', headerBrandSub: st.smartWingMode ? 'MORVIA' : 'ZHUDIAN',
+      headerOrgName: st.smartWingMode ? 'MORVIA平台' : '暮色生活', headerOrgMeta: st.smartWingMode ? '运营中心' : '品牌',
       headerWorkspaceName: st.smartWingMode ? '企业福利运营' : (st.demoMature ? '暮色选物' : (st.storeName.trim() || '未命名店铺')),
       headerChannelName: st.smartWingMode ? '全渠道' : '微信小程序', headerChannelIcon: st.smartWingMode ? 'ph-broadcast' : 'ph-wechat-logo',
       headerSearchPlaceholder: st.smartWingMode ? '搜索卡券、企业、会员或订单… ⌘K' : '搜索页面、商品、活动、订单… ⌘K',
       profileInitial: st.smartWingMode ? (st.couponAdminMode ? '张' : '林') : '陈',
       profileName: st.smartWingMode ? (st.couponAdminMode ? '张立' : '林岚') : '陈默',
       profileRole: st.smartWingMode ? (st.couponAdminMode ? '高级运营总监（COO）' : '卡券运营') : '品牌设计师',
-      profileEmail: st.smartWingMode ? (st.couponAdminMode ? 'zhang.li@smartwing.cn' : 'lin.lan@smartwing.cn') : 'demo@zhudian.cn',
+      profileEmail: st.smartWingMode ? (st.couponAdminMode ? 'zhang.li@zhudatuan.com' : 'lin.lan@zhudatuan.com') : 'demo@zhudian.cn',
       themeIcon: st.dark ? 'ph ph-sun' : 'ph ph-moon',
       toggleTheme: () => this.setState(s => ({ dark: !s.dark })),
       navOpen: st.navOpen, navWidth: st.navOpen ? '224px' : '72px',

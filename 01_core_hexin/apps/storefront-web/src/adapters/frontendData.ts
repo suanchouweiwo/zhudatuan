@@ -1,3 +1,4 @@
+import { canonicalizeProductBrand } from '../domain/brand/productBrand';
 import type { Category, Order, OrderItem, OrderStatus, Product } from '../types';
 
 export type FrontendProduct = Product & {
@@ -53,6 +54,9 @@ export function toFrontendProduct(product: Product): FrontendProduct {
   const primaryImage = product.images[0] ?? '';
   return {
     ...product,
+    title: canonicalizeProductBrand(product.title),
+    subtitle: canonicalizeProductBrand(product.subtitle),
+    brand: canonicalizeProductBrand(product.brand),
     imageUrl: primaryImage,
     image: primaryImage,
     gallery: product.images.slice(1),
@@ -60,7 +64,7 @@ export function toFrontendProduct(product: Product): FrontendProduct {
     originalPrice: product.priceMarket,
     enterpriseSubsidyAmount: Math.max(0, Number((product.priceMarket - product.priceWelfare).toFixed(2))),
     stockCount: product.stock,
-    description: product.descriptionDetailText?.join(' ') ?? product.subtitle ?? '智慧翼企业福利商城严选商品。',
+    description: canonicalizeProductBrand(product.descriptionDetailText?.join(' ') ?? product.subtitle ?? 'MORVIA 主打团商城严选商品。'),
     parameters: toParameters(product),
     specOptions: toSpecOptions(product),
     allowMealCard: product.allowedAccounts.includes('meal'),

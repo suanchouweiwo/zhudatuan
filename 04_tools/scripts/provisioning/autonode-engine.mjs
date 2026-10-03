@@ -16,6 +16,7 @@ import {
 } from '../../../01_core_hexin/packages/config/src/SflNodeKernel.ts';
 import { parseSflConsoleNodeRuntime } from '../../../01_core_hexin/packages/config/src/SflNodeKernelConsole.ts';
 import { parseIdentityNodeRegistry } from '../../../01_core_hexin/packages/sdk/src/IdentityNodeRegistry.ts';
+import { IDENTITY_NODE_MANIFEST } from '../../../01_core_hexin/packages/config/src/IdentityNodeManifest.ts';
 import { CreateMall } from '../../../01_core_hexin/services/commerce/src/modules/provisioning/03_application_yingyong/CreateMall.ts';
 import { gatewayConfiguration } from '../release/generate-sfl-node-gateway.mjs';
 
@@ -1160,6 +1161,8 @@ function allocatePorts(nodeId, occupied) {
 }
 
 function runtimeEnvironment(request, manifest, identityRegistry, nodeDirectory, ports) {
+  const consumerApplication = identityRegistry.nodes.find((node) => node.nodeId === manifest.node_id)
+    ?.consumerApplication ?? request.business.public_slug;
   const shared = {
     APP_ENV: 'candidate',
     SFL_NODE_ID: manifest.node_id,
@@ -1187,10 +1190,10 @@ function runtimeEnvironment(request, manifest, identityRegistry, nodeDirectory, 
       NEXT_PUBLIC_AUTH_ORIGIN: identityOrigin,
       NEXT_PUBLIC_CLIENT_VERSION: manifest.release_pointer_ref.build_id,
       NEXT_PUBLIC_STOREFRONT_HOSTNAME: new URL(storefrontOrigins[0]).hostname,
-      NEXT_PUBLIC_STOREFRONT_APPLICATION: request.business.public_slug,
+      NEXT_PUBLIC_STOREFRONT_APPLICATION: consumerApplication,
       NEXT_PUBLIC_IDENTITY_NODE_REGISTRY: JSON.stringify(identityRegistry),
       SFL_STOREFRONT_HOSTNAME: new URL(storefrontOrigins[0]).hostname,
-      SFL_STOREFRONT_APPLICATION: request.business.public_slug,
+      SFL_STOREFRONT_APPLICATION: consumerApplication,
       SFL_STOREFRONT_IDENTITY_NODE_REGISTRY: JSON.stringify(identityRegistry),
     },
     'catalog-api': { ...withPort(ports.catalog), API_ALLOWED_ORIGINS: consoleOrigin },
@@ -1222,6 +1225,9 @@ function nodeSecretPrefix(identity) {
 }
 
 function identityNodeRegistry(request, manifest) {
+  const declaredNode = IDENTITY_NODE_MANIFEST.nodes.find((node) => node.nodeId === manifest.node_id);
+  const consumerApplication = declaredNode?.targets.find((target) => target.surface === 'consumer')
+    ?.application ?? request.business.public_slug;
   const origins = (surface) => manifest.domain_bindings
     .filter((binding) => binding.surface_ref === `surface:${surface}`)
     .map((binding) => `https://${binding.host}`);
@@ -1239,7 +1245,7 @@ function identityNodeRegistry(request, manifest) {
       storefrontOrigin: origins('storefront')[0],
       storefrontHosts: origins('storefront').map((origin) => new URL(origin).hostname),
       consumerTarget: 'storefront',
-      consumerApplication: request.business.public_slug,
+      consumerApplication,
       mallId: manifest.mall_id,
       hostNodeId: null,
       adminOrigin: origins('console')[0],

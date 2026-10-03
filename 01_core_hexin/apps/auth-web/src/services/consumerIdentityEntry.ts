@@ -30,7 +30,8 @@ export function resolveConsumerIdentityEntry(
 ): ConsumerIdentityEntry | null {
   const params = new URLSearchParams(search);
   if (params.get('application')?.trim() !== node.consumerApplication) return null;
-  if (params.get('target')?.trim() !== node.consumerTarget) return null;
+  const target = params.get('target')?.trim();
+  if (target !== node.consumerTarget && target !== `${node.nodeId}:${node.consumerTarget}`) return null;
   return Object.freeze({ application: node.consumerApplication, target: node.consumerTarget });
 }
 
@@ -56,10 +57,12 @@ export function resolveIdentityEntry(
   const application = params.get('application')?.trim() ?? '';
   const adminOrigin = params.get('admin_origin')?.trim() ?? '';
   const consumerIntent = application !== '' || params.get('surface') === 'web'
-    || registry.nodes.some((candidate) => candidate.consumerTarget === target);
+    || registry.nodes.some((candidate) => candidate.consumerTarget === target
+      || `${candidate.nodeId}:${candidate.consumerTarget}` === target);
   if (consumerIntent) return null;
   if (node.nodeProfile !== 'operating_mall') return null;
-  if ((target && target !== node.adminTarget) || (client && client !== node.adminTarget)
+  if ((target && target !== node.adminTarget && target !== `${node.nodeId}:${node.adminTarget}`)
+    || (client && client !== node.adminTarget)
     || (adminOrigin && adminOrigin !== node.adminOrigin)) return null;
   return Object.freeze({
     kind: 'operator', nodeId: node.nodeId, target: node.adminTarget,

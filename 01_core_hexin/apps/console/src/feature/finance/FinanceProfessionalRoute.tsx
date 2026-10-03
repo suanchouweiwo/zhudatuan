@@ -41,7 +41,7 @@ export function FinanceProfessionalRoute({ section }: Readonly<{ section: Financ
       <FinanceTabs context={context} active={activeTab(section)} />
       <PagedResource
         title={metadata[section].title}
-        eyebrow="SMART WING FINANCE OPERATIONS"
+        eyebrow="MORVIA FINANCE OPERATIONS"
         description={metadata[section].description}
         condition={state}
         {...errorProps(safeQueryError(query.error))}

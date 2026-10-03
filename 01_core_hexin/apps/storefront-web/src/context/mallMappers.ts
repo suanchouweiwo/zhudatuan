@@ -30,7 +30,7 @@ export function mapApiProduct(product: ApiProduct): Product {
     id: product.id,
     skuId: product.skuId,
     title: product.nameZh ?? product.name,
-    subtitle: product.subtitleZh ?? product.subtitle ?? '智慧翼企业福利严选商品',
+    subtitle: product.subtitleZh ?? product.subtitle ?? 'MORVIA 主打团严选商品',
     images: [product.coverUrl ?? FALLBACK_IMAGE],
     priceMarket: (product.marketPriceCents ?? product.priceCents) / 100,
     priceMall: product.priceCents / 100,

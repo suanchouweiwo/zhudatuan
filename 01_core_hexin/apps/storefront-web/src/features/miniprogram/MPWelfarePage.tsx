@@ -24,7 +24,7 @@ export const MPWelfarePage: React.FC = () => {
 
       <div className="space-y-3 p-3">
         <section className="overflow-hidden rounded-2xl bg-gradient-to-br from-[var(--sw-brand-dark)] to-[#2767F4] p-4 text-white shadow-md">
-          <div className="text-[10px] font-bold text-blue-100">宏泰员工专享</div>
+          <div className="text-[10px] font-bold text-blue-100">MORVIA 会员专享</div>
           <h1 className="mt-1 text-lg font-black tracking-tight">企业福利中心</h1>
           <p className="mt-1 text-[11px] text-blue-100">按账户额度选购，结算时自动核对可用权益</p>
           <div className="mt-4 grid grid-cols-2 divide-x divide-white/20 rounded-xl bg-white/10 py-2.5">

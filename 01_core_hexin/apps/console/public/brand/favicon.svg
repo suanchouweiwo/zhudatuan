@@ -1,6 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
-  <title id="title">主打团</title>
-  <desc id="desc">主打团蓝色圆角方形 F 标志</desc>
-  <rect x="2" y="2" width="60" height="60" rx="16" fill="#1F5EFF" />
-  <path d="M21 16H45V24H30V30H42V38H30V49H21V16Z" fill="#FFFFFF" />
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">MORVIA M mark</title>
+  <desc id="desc">The approved blue M mark, reproduced without geometric changes.</desc>
+  <svg x="0" y="0" width="512" height="512" viewBox="0 0 64 64" preserveAspectRatio="xMinYMid meet">
+  <path d="M4.5 49L10.5 36.5L18 21L24.5 30L32 43L40.5 29L47.5 18.5L53.5 34.5L59.5 46" fill="none" stroke="#143A8F" stroke-width="9" stroke-linecap="square" stroke-linejoin="bevel"/>
+  <path d="M4.5 49L10.5 36.5" fill="none" stroke="#0D2D72" stroke-width="9" stroke-linecap="square"/>
+  <path d="M18 21L22.8 27.7" fill="none" stroke="#2857BD" stroke-width="9" stroke-linecap="butt"/>
+  <path d="M42 26.5L47.5 18.5" fill="none" stroke="#2857BD" stroke-width="9" stroke-linecap="butt"/>
+  <path d="M53.5 34.5L59.5 46" fill="none" stroke="#0D2D72" stroke-width="9" stroke-linecap="square"/>
+  <path d="M32 38.5L35.2 42.5L32 46L28.8 42.5Z" fill="#0F347F"/></svg>
 </svg>

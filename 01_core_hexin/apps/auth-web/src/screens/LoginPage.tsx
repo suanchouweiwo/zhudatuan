@@ -1,5 +1,5 @@
 /**
- * 智慧翼企业福利商城 - 统一登录 LoginPage screen
+ * MORVIA · zhudatuan 主打团 - 统一登录 LoginPage screen
  * 消费者商城与运营后台共用同一份节点身份登录组件
  * 技术服务方：雍彻科技
  */
@@ -692,8 +692,8 @@ export const LoginPage: React.FC = () => {
             <div className="relative z-10 flex items-center gap-3">
               <img src={`${import.meta.env.BASE_URL}brand/brand-mark.svg`} alt="" className="h-12 w-12 shrink-0 rounded-2xl shadow-md" />
               <div>
-                <span className="text-2xl font-bold tracking-tight text-white block">智慧翼 Smart Wing</span>
-                <span className="text-[10px] font-semibold tracking-widest text-blue-200 uppercase">Enterprise Benefits</span>
+                <span className="text-2xl font-bold tracking-tight text-white block">MORVIA</span>
+                <span className="text-[10px] font-semibold tracking-widest text-blue-200 uppercase">zhudatuan 主打团</span>
               </div>
             </div>
 
@@ -973,7 +973,7 @@ export const LoginPage: React.FC = () => {
                       <label className="flex items-start gap-2 cursor-pointer text-xs text-slate-500">
                         <input type="checkbox" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} className="mt-0.5 w-4 h-4 text-[var(--sw-brand)] rounded border-slate-300 focus:ring-[var(--sw-brand)]" />
                         <span className="leading-tight">
-                          我已阅读并同意智慧翼福利商城的{' '}
+                          我已阅读并同意MORVIA · zhudatuan 主打团的{' '}
                           <button
                             type="button"
                             onClick={(e) => {
@@ -1268,7 +1268,7 @@ export const LoginPage: React.FC = () => {
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
               <div className="flex items-center gap-2 text-slate-900 font-bold text-base">
                 <FileText className="w-5 h-5 text-[var(--sw-brand)]" />
-                {activeModal === 'terms' ? '智慧翼企业福利商城 - 用户服务协议' : '智慧翼企业福利商城 - 隐私保护政策'}
+                {activeModal === 'terms' ? 'MORVIA · zhudatuan 主打团 - 用户服务协议' : 'MORVIA · zhudatuan 主打团 - 隐私保护政策'}
               </div>
               <button onClick={() => setActiveModal(null)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
                 <X className="w-5 h-5" />
@@ -1310,7 +1310,7 @@ export const LoginPage: React.FC = () => {
       {/* 底部页脚 */}
       {!isStorefrontEmbed && (
         <footer className="py-4 text-center text-xs text-slate-400 border-t border-slate-100 bg-white">
-          <p>© 2026 智慧翼企业福利商城. All Rights Reserved. 技术服务方：雍彻科技</p>
+          <p>© 2026 MORVIA · zhudatuan 主打团. All Rights Reserved. 技术服务方：雍彻科技</p>
         </footer>
       )}
     </div>

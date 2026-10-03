@@ -42,7 +42,7 @@ export function WorkspaceShell({ product, brand, label, path, items, navigate, c
       <div className="workspacebody">
         <header className="workspaceheader">
           <div>
-            <p>智慧翼企业福利商城</p>
+            <p>MORVIA · zhudatuan 主打团</p>
             <strong>{current?.title ?? product}</strong>
           </div>
           <span>实时业务数据</span>

@@ -1,5 +1,5 @@
 /**
- * 智慧翼企业福利商城 - 页脚 Footer 组件
+ * MORVIA 主打团商城 - 页脚 Footer 组件
  * 彰显 B2B2C 企业福利架构与平台公信力
  * 标注技术服务方：雍彻科技
  */
@@ -150,7 +150,7 @@ export const Footer: React.FC = () => {
 
           <div className="mt-4 pt-3 border-t border-gray-700/80">
             <div className="text-[11px] text-gray-400">项目状态：</div>
-            <div className="text-sm font-black text-white mt-0.5">智慧翼福利商城</div>
+            <img src="/brand/morvia-master-lockup-white.svg" alt="MORVIA · zhudatuan 主打团" className="mt-1 h-10 w-40 object-contain" />
             <div className="text-[10px] text-gray-500 mt-1">技术服务：雍彻科技</div>
           </div>
         </div>
@@ -173,7 +173,7 @@ export const Footer: React.FC = () => {
             </span>
           </div>
 
-          <div>© 2026 智慧翼 Enterprise Welfare Mall. All Rights Reserved. 技术服务：雍彻科技</div>
+          <div>© 2026 MORVIA Enterprise Welfare Mall. All Rights Reserved. 技术服务：雍彻科技</div>
 
           <div className="text-gray-600 text-[10px]">商品、库存、企业权益与订单状态以登录账户的实时数据为准。</div>
         </div>

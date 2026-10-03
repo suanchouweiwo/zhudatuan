@@ -19,14 +19,14 @@ export interface SidebarProps {
   readonly onToggle: () => void;
 }
 
-export function Sidebar({ active, collapsed, displayName, brandName = 'zdt-next', brandSubtitle = '经营与权限管理',
+export function Sidebar({ active, collapsed, displayName, brandName = 'MORVIA', brandSubtitle = 'zhudatuan 主打团',
   mainItems, bottomItems, onNavigate, onNavigateIntent, onOpenProfile, onToggle }: SidebarProps) {
 
   return (
     <aside className={`consolesidebar${collapsed ? ' iscollapsed' : ''}`} aria-label="主导航">
       <div className="sidebarbrand">
         <span className="sidebarproductmark" aria-hidden="true">
-          <span className="sidebarbrandinitial">{Array.from(brandName.trim())[0] ?? '商'}</span>
+          <img src={`${import.meta.env.BASE_URL}brand/brand-mark.svg`} alt="" width="34" height="34" />
         </span>
         <span className="sidebarbrandcopy"><strong>{brandName}</strong><small>{brandSubtitle}</small></span>
         <button className="sidebartoggle" type="button" onClick={onToggle}

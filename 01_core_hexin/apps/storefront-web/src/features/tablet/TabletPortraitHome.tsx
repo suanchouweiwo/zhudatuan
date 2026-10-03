@@ -15,10 +15,9 @@ export const TabletPortraitHome: React.FC = () => {
       <div className="bg-[var(--sw-brand-dark)] text-white p-4 space-y-3 shadow-md">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-[var(--sw-brand)] flex items-center justify-center font-black text-white text-lg">翼</div>
+            <img src="/brand/morvia-master-lockup-white.svg" alt="MORVIA · zhudatuan 主打团" className="h-10 w-40 object-contain" />
             <div>
               <div className="text-sm font-black tracking-wide flex items-center gap-2">
-                <span>智慧翼企业福利商城</span>
                 <span className="bg-yellow-400 text-gray-900 text-[9px] font-extrabold px-2 py-0.5 rounded-full">平板竖屏端</span>
               </div>
               <div className="text-xs text-blue-200 flex items-center gap-1">

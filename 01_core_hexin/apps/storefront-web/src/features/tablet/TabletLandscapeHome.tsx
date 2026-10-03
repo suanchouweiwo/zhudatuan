@@ -98,7 +98,7 @@ export const TabletLandscapeHome: React.FC = () => {
           <div className="space-y-2 z-10 max-w-[70%]">
             <div className="inline-flex items-center gap-1.5 bg-amber-400 text-gray-900 text-[10px] font-black px-2.5 py-0.5 rounded-full">
               <Sparkles className="w-3 h-3" />
-              <span>TABLET COMMERCE UI · 智慧翼企业福利</span>
+              <span>TABLET COMMERCE UI · MORVIA 主打团</span>
             </div>
             <h1 className="text-xl font-black leading-tight">中国建筑大厦 员工福利专享月</h1>
             <p className="text-xs text-blue-100">企采直发、福利卡全额扣减、支持开具电子发票与专票。</p>

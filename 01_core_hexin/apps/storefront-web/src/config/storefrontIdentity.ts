@@ -6,6 +6,8 @@ import {
   type IdentityNodeRegistry,
 } from '@shop/sdk/identity-node';
 
+import { canonicalizeProductBrand } from '../domain/brand/productBrand';
+
 export interface StorefrontPresentationIdentity {
   readonly mallName: string;
   readonly brandName: string;
@@ -81,7 +83,7 @@ export function resolveStorefrontPresentationIdentity(
 ): StorefrontPresentationIdentity {
   const node = resolveStorefrontNode(hostname, registry);
   resolveStorefrontApplication(hostname, configured, registry);
-  return { mallName: node.mallName, brandName: node.brandName };
+  return { mallName: canonicalizeProductBrand(node.mallName), brandName: canonicalizeProductBrand(node.brandName) };
 }
 
 function browserRuntimeRegistrySource(): string | undefined {

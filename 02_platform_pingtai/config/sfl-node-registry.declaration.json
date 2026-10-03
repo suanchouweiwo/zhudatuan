@@ -213,9 +213,9 @@
     {
       "node_id": "node:zhudatuan:l0",
       "runtime_manifest_file": "zhudatuan-l0.json",
-      "display_name": "主打团平台",
-      "mall_name": "筑大团商城",
-      "brand_name": "筑大团",
+      "display_name": "MORVIA 主打团",
+      "mall_name": "MORVIA 主打团商城",
+      "brand_name": "MORVIA",
       "primary_storefront_binding_ref": "domain:zhudatuan:l0:storefront",
       "consumer_api_binding_ref": "domain:zhudatuan:l0:api",
       "purchase_origin_binding_refs": [

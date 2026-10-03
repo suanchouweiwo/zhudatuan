@@ -1,11 +1,23 @@
 {
-  "name": "主打团运营管理后台",
-  "short_name": "主打团",
-  "description": "主打团运营、会员、权限与业务治理后台",
+  "name": "MORVIA · zhudatuan 主打团运营后台",
+  "short_name": "MORVIA",
+  "description": "MORVIA · zhudatuan 主打团运营、会员与业务管理后台",
   "lang": "zh-CN",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#F5F7FA",
-  "theme_color": "#143A8F"
+  "theme_color": "#143A8F",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
 }

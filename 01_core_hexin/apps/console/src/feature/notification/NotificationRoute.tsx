@@ -42,7 +42,7 @@ export function Component() {
     return () => window.clearTimeout(timer);
   }, [context, query.data, query.isFetching, queryClient, view]);
   const select = (next: NotificationView) => { const params = new URLSearchParams(); params.set('view', next); setSearch(params); };
-  return <PagedResource title="通知管理" eyebrow="SMART WING NOTIFICATION" description="模板和公告按 URL 选择独立读模型，不在浏览器合并发送状态。"
+  return <PagedResource title="通知管理" eyebrow="MORVIA NOTIFICATION" description="模板和公告按 URL 选择独立读模型，不在浏览器合并发送状态。"
     condition={state} {...(error === undefined ? {} : { error })} rows={data?.items ?? []} columns={columns} rowKey={(row) => row.id}
     count={data?.count ?? 0} {...(data?.nextCursor === undefined ? {} : { nextCursor: data.nextCursor })}
     actions={<label className="inlinefield">查看<select value={view} onChange={(event) => select(event.target.value as NotificationView)}>

@@ -67,7 +67,7 @@ export const AndroidDetailPage: React.FC = () => {
 
           <div className="flex items-center gap-2 pt-1 text-[10px]">
             <span className="bg-blue-50 text-[var(--sw-brand)] font-bold px-2 py-0.5 rounded-md">{product.itemType === 'virtual_coupon' ? '虚拟卡券码' : '实物直邮'}</span>
-            <span className="text-gray-400">品牌: {product.brand || '智慧翼精选'}</span>
+            <span className="text-gray-400">品牌: {product.brand || 'MORVIA 精选'}</span>
             <span className="text-gray-400">库存: {product.stockCount}</span>
           </div>
         </div>
@@ -108,7 +108,7 @@ export const AndroidDetailPage: React.FC = () => {
         {/* Product Details Description */}
         <div className="bg-white rounded-3xl p-4 shadow-2xs border border-gray-100 space-y-2 text-xs">
           <h3 className="font-bold text-gray-900 border-l-2 border-[var(--sw-brand)] pl-2">图文详情与企采说明</h3>
-          <p className="text-gray-600 leading-relaxed">{product.description || '智慧翼企业福利商城为企业员工提供一站式福利兑换服务。'}</p>
+          <p className="text-gray-600 leading-relaxed">{product.description || 'MORVIA 主打团商城为企业员工提供一站式福利兑换服务。'}</p>
 
           {product.parameters && (
             <div className="bg-gray-50 rounded-2xl p-3 space-y-1.5 text-xs text-gray-700 mt-2">

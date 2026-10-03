@@ -1,3 +1,4 @@
+import { mallShortName } from '../../domain/brand/productBrand';
 import React from 'react';
 import { useMall } from '../../context/MallContext';
 import { MoreHorizontal, Circle, Building2, ChevronDown } from 'lucide-react';
@@ -29,8 +30,8 @@ export const WeChatCapsule: React.FC<WeChatCapsuleProps> = ({ title, showBack, o
                 onClick={() => setShowMallDropdown(!showMallDropdown)}
                 className="bg-white/15 hover:bg-white/25 text-white px-2.5 py-1 text-xs font-semibold flex items-center gap-1 transition-[background-color,border-color,box-shadow] border border-white/20 hover:border-white/40 hover:shadow-sm cursor-pointer"
               >
-                <Building2 className="w-3 h-3 text-yellow-300 flex-shrink-0" />
-                <span className="truncate max-w-[110px]">{currentMall.mallName.replace('智慧翼福利商城 - ', '')}</span>
+                <img src="/brand/morvia-mark-white.svg" alt="" className="h-5 w-5 flex-shrink-0" />
+                <span className="truncate max-w-[110px]">{mallShortName(currentMall.mallName)}</span>
                 <ChevronDown className="w-3 h-3 opacity-80 flex-shrink-0" />
               </button>
 

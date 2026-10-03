@@ -31,7 +31,7 @@ function ImportJobRoute({ kind, jobId }: Readonly<{ kind: ImportKind; jobId: str
   const data = query.data; const error = safeQueryError(query.error);
   const state = queryCondition({ pending: query.isPending, fetching: query.isFetching, error: query.error,
     hasData: data !== undefined, empty: false, stale: query.isStale });
-  return <ResourcePanel title="导入结果" eyebrow="SMART WING IMPORT" description={`${kind} · ${jobId}；进度、错误行和报告均由服务端任务返回。`}
+  return <ResourcePanel title="导入结果" eyebrow="MORVIA IMPORT" description={`${kind} · ${jobId}；进度、错误行和报告均由服务端任务返回。`}
     condition={state} {...(error === undefined ? {} : { error })} retry={() => { void query.refetch(); }}
     actions={<Button onPress={() => { void query.refetch(); }}>刷新进度</Button>}>
     {data === undefined ? <span /> : <div className="featurestack">

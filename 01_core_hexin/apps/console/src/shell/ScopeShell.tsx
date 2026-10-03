@@ -52,8 +52,8 @@ export function ScopeShell() {
   const profileRoute = currentSuffix === 'settings/profile';
   const routeTitle = profileRoute ? '个人信息' : presentation?.title ?? '页面不存在';
   const routeSummary = profileRoute ? '查看当前账户、身份、权限与管理范围' : presentation?.summary ?? '该地址不属于 Console 路由清单';
-  const brandName = context.scope.kind === 'platform' ? 'zdt-next' : scopeDisplayName(context.scope);
-  const brandSubtitle = context.scope.kind === 'mall' ? '商城运营后台' : '经营与权限管理';
+  const brandName = 'MORVIA';
+  const brandSubtitle = 'zhudatuan 主打团';
   const activeRoute = profileRoute ? 'profile' : activeModule?.id;
   const navigationItems = selectConsoleNavigationItems(consoleModules, context.scope.kind, context.session.capabilities);
   const mainNavigationItems = navigationItems.filter(({ placement }) => placement === 'main');
