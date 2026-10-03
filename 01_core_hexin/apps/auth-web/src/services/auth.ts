@@ -412,7 +412,7 @@ export async function loginWithPassword(identifier: string, password: string): P
         target,
         status: 'active',
         enterpriseName: '已绑定企业',
-        storeName: target === 'admin' ? '筑大团运营后台' : '筑大团福利商城',
+        storeName: target === 'admin' ? 'MORVIA 主打团运营后台' : 'MORVIA 主打团商城',
         roleName: target === 'admin' ? '企业管理会员' : '企业员工会员',
         dataScope: target === 'admin' ? '已授权业务范围' : '个人福利账户',
         accountTypeLabel: target === 'storefront' ? '福利账户' : undefined,

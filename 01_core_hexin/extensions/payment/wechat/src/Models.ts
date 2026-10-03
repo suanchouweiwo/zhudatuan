@@ -155,7 +155,7 @@ export function createWechatPayDescription(productNames: readonly string[]): str
   const distinct = [...new Set(normalized)];
   const itemText = distinct.length === 0 ? '福利商品' : distinct.slice(0, 2).join('、');
   const suffix = distinct.length > 2 ? `等${distinct.length}种商品` : '';
-  return truncateCodePoints(`智慧翼福利商城-${itemText}${suffix}`, 127);
+  return truncateCodePoints(`MORVIA 主打团-${itemText}${suffix}`, 127);
 }
 
 export function isWechatPayOutTradeNo(value: string): boolean {

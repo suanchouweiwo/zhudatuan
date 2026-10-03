@@ -90,7 +90,7 @@ export async function handleWechatBind(request: Request, env: WorkerEnv, request
   const login = await authenticateLocalMember(username, password, 'storefront', env);
   if (!login.runtime || login.mustResetPassword) {
     if (!bypass) await callRpc<string | null>(env, 'api_record_login_failure', { p_ip_hash: ipHash });
-    return apiError(login.mustResetPassword ? 403 : 401, login.mustResetPassword ? 'PASSWORD_RESET_REQUIRED' : 'INVALID_USERNAME_PASSWORD', login.mustResetPassword ? '请先在智慧翼商城修改初始密码' : '账号或密码不正确', requestId);
+    return apiError(login.mustResetPassword ? 403 : 401, login.mustResetPassword ? 'PASSWORD_RESET_REQUIRED' : 'INVALID_USERNAME_PASSWORD', login.mustResetPassword ? '请先在 MORVIA 主打团商城修改初始密码' : '账号或密码不正确', requestId);
   }
   const bound = await callRpc<boolean>(env, 'api_bind_wechat_identity', {
     p_challenge_id: bindingChallenge,
