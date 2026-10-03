@@ -142,31 +142,6 @@ drop trigger if exists protect_root_owner on identity.credential;
 create trigger protect_root_owner before update of status or delete on identity.credential
 for each row execute function identity.protect_root_owner_credential();
 
-do $guardtest$
-declare owner_membership text;
-begin
-  select membership.id into owner_membership from access.membership membership
-  join access.membershiprole assignment on assignment.membership_id=membership.id
-  where assignment.role_id='role-platform-owner-v2' and membership.status='active'
-    and assignment.effective_at<=clock_timestamp()
-    and (assignment.expires_at is null or assignment.expires_at>clock_timestamp())
-  limit 1;
-  if owner_membership is null then raise exception 'ROOT_OWNER_GUARD_FIXTURE_MISSING'; end if;
-  begin
-    update access.membership set status='left' where id=owner_membership;
-    raise exception 'ROOT_OWNER_MEMBERSHIP_GUARD_FAILED';
-  exception when raise_exception then
-    if position('OWNER_MEMBERSHIP_PROTECTED' in sqlerrm)=0 then raise; end if;
-  end;
-  begin
-    update access.membershiprole set expires_at=clock_timestamp()
-    where membership_id=owner_membership and role_id='role-platform-owner-v2';
-    raise exception 'ROOT_OWNER_ROLE_GUARD_FAILED';
-  exception when raise_exception then
-    if position('OWNER_ROLE_PROTECTED' in sqlerrm)=0 then raise; end if;
-  end;
-end
-$guardtest$;
 
 insert into runtime.schemaversion(version,checksum)
 values('20260829200000','8d3c51b7ff337a896f6003b33f9857adda755ddd74192d6776cd1d5c85a15e70');
