@@ -650,6 +650,10 @@ async function activate(context, options) {
       throw failure('DATABASE_MIGRATION_FAILED', { cause: errorEvidence(migrationError), databaseMigration: receipt.databaseMigration, receipt });
     }
   }
+  if (context.nodePolicy.deployments?.['database-migration']?.databaseMigration?.initialize
+    && ['identity-api','web-api','storefront'].includes(context.target) && context.deployment.restart?.kind === 'systemd') {
+    await command(['systemctl','enable',context.deployment.restart.name]);
+  }
   const serviceBefore = await processState(context.deployment.restart);
   if (previousCurrent === candidate && (serviceBefore.kind === 'none' || serviceBefore.activeState === 'active')) {
     const readiness = await waitForReadiness(context, { candidateDir: candidate, currentDir: candidate, ...contextSummary(context) });
@@ -1776,18 +1780,6 @@ async function restart(definition = { kind: 'none', name: 'none' }) {
         const journal = await command(['journalctl','-u',evidence.target,'--since',restartAt,'-n','80','--no-pager','-o','cat']);
         serviceError = journal.stdout.split('\n').filter((line) => /Error|Warning|curl:|unsettled|_TIMEOUT|_MISMATCH|_MISSING|_INVALID|_REQUIRED/i.test(line)).slice(-3).join('\n');
       } catch {}
-      const instance = /^sfl-identity-api@(.+)\.service$/.exec(evidence.target)?.[1];
-      if (instance) {
-        const unit = await command(['systemctl','show',evidence.target,'--property=FragmentPath','--property=DropInPaths','--property=EnvironmentFiles','--property=ExecStart']);
-        serviceError += '\n' + unit.stdout;
-        const secretUnit = 'sfl-secret-store@' + instance + '.service';
-        const secretState = await command(['systemctl','show',secretUnit,'--property=ConditionResult','--property=ActiveState','--property=MainPID']);
-        const secretJournal = await command(['journalctl','-u',secretUnit,'-n','40','--no-pager','-o','cat']);
-        serviceError += '\n' + JSON.stringify({secretState:secretState.stdout, secretError:secretJournal.stdout.split('\n').filter((line) => /Error:|Warning:|_MISSING|_INVALID|_FORBIDDEN|_REQUIRED|Condition/i.test(line)).slice(-3).join('\n'), secretEntryExists:await exists(join('/opt/sfl/nodes',instance,'current/01_core_hexin/services/commerce/dist/LocalSecretsMain.js'))});
-        const env = parseEnvironmentFile(await readFile(join('/opt/sfl/nodes', instance, 'runtime/identity-api.env'), 'utf8'));
-        const runtimeManifest = await readJson(env.NODE_MANIFEST_PATH);
-        serviceError += '\n' + JSON.stringify({actualOrigins: env.API_ALLOWED_ORIGINS, expectedOrigins: runtimeManifest?.domain_bindings?.filter((binding) => binding.surface_ref !== 'surface:api').map((binding) => 'https://' + binding.host), manifestPath: env.NODE_MANIFEST_PATH});
-      }
     }
     throw failure('RESTART_COMMAND_FAILED', { restart: evidence, cause: errorEvidence(error), serviceError });
   }
