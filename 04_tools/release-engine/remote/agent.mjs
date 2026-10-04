@@ -1732,7 +1732,7 @@ async function restart(definition = { kind: 'none', name: 'none' }) {
     if (evidence.kind === 'systemd') {
       try {
         const journal = await command(['journalctl','-u',evidence.target,'-n','80','--no-pager','-o','cat']);
-        serviceError = journal.stdout.split('\n').filter((line) => /error|failed|exception|_TIMEOUT|_MISMATCH|_MISSING|_INVALID/i.test(line)).slice(-3).join('\n');
+        serviceError = journal.stdout.split('\n').filter((line) => /Error:|"error":|^error:|_TIMEOUT|_MISMATCH|_MISSING|_INVALID|_REQUIRED/i.test(line)).slice(-3).join('\n');
       } catch {}
     }
     throw failure('RESTART_COMMAND_FAILED', { restart: evidence, cause: errorEvidence(error), serviceError });
