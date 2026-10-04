@@ -382,7 +382,10 @@
         {"source":"01_core_hexin/services/commerce/dist/DatabaseMigrationExecutor.js","destination":"executor/DatabaseMigrationExecutor.js"},
         {"source":"01_core_hexin/services/commerce/dist/DatabaseMigrationExecutor.js.map","destination":"executor/DatabaseMigrationExecutor.js.map"},
         {"source":"02_platform_pingtai/database/supabase/migrations","destination":"database/supabase/migrations"},
-        {"source":"02_platform_pingtai/database/contracts/history.json","destination":"database/contracts/history.json"}
+        {"source":"02_platform_pingtai/database/contracts/history.json","destination":"database/contracts/history.json"},
+        {"source":"02_platform_pingtai/infrastructure/local/postgres-init.sh","destination":"database/bootstrap/postgres-init.sh"},
+        {"source":"02_platform_pingtai/infrastructure/zhudatuan/aliyun/registration-compose.yml","destination":"database/bootstrap/registration-compose.yml"},
+        {"source":"02_platform_pingtai/infrastructure/zhudatuan/aliyun/systemd","destination":"database/bootstrap/systemd"}
       ],
       "criticalFiles": ["executor/DatabaseMigrationExecutor.js","database/contracts/history.json"]
     }
@@ -692,6 +695,37 @@
         "payment-jobs": {"pointerRoot":"/opt/sfl/nodes/zhudatuan-l0/targets/payment-jobs","service":"sfl-payment-jobs@zhudatuan-l0.service","hostedBy":"zhudatuan-l0"},
         "node-operations": {"pointerRoot":"/opt/sfl/control/node-operations","service":"sfl-autonode-control.service","hostedBy":"zhudatuan-l0"},
         "database-migration": {"pointerRoot":"/opt/ai-delivery/database-migrations/zdt-next","service":"none","restart":"none","hostedBy":"zhudatuan-l0"}
+      }
+    },
+    "l0-2-l0": {
+      "key": "l0-2-l0",
+      "nodeId": "node:l0-2:l0",
+      "realmId": "realm:l0-2",
+      "manifest": "02_platform_pingtai/config/release-inputs/l0-2-l0/dist/config/node-manifests/l0-2-l0.json",
+      "deployments": {
+        "database-migration": {"pointerRoot":"/opt/sfl/nodes/l0-2-l0/targets/database-migration","service":"none","restart":"none"},
+        "identity-api": {
+          "pointerRoot": "/opt/sfl/nodes/l0-2-l0/targets/identity-api",
+          "service": "sfl-identity-api@l0-2-l0.service"
+        },
+        "console": {
+          "service": "none",
+          "restart": "none",
+          "pointerRoot": "/opt/sfl/nodes/l0-2-l0/targets/console"
+        },
+        "auth-web": {
+          "service": "none",
+          "restart": "none",
+          "pointerRoot": "/opt/sfl/nodes/l0-2-l0/targets/auth-web"
+        },
+        "web-api": {
+          "pointerRoot": "/opt/sfl/nodes/l0-2-l0/targets/web-api",
+          "service": "sfl-web-api@l0-2-l0.service"
+        },
+        "storefront": {
+          "pointerRoot": "/opt/sfl/nodes/l0-2-l0/targets/storefront",
+          "service": "sfl-storefront@l0-2-l0.service"
+        }
       }
     }
   }
