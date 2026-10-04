@@ -1155,6 +1155,10 @@ async function executeDatabaseMigration(context, candidate, manifest) {
       if not exists(select 1 from pg_roles where rolname='authenticated') then create role authenticated nologin; end if;
       if not exists(select 1 from pg_roles where rolname='service_role') then create role service_role nologin; end if;
     end $roles$;
+    alter role anon noinherit;
+    alter role authenticated noinherit;
+    alter role service_role noinherit;
+    alter role shopread noinherit;
     grant shopapp,shopjob to shopmigration;
     alter database "${credentials.POSTGRES_DB}" owner to shopmigration;
     `;

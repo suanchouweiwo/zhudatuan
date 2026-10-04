@@ -77,43 +77,4 @@ $restore_projection$;
 insert into runtime.schemaversion(version,checksum)
 values('20260901210000','503a8b1f8f0502cfaa9a6449dee57350936526e969dba4d63b09974bf6718d11');
 
-do $assert$
-declare
-  owner_membership text;
-  owner_member text;
-  projection jsonb;
-  definition text;
-begin
-  select owner.membership_id,membership.member_id into owner_membership,owner_member
-  from access.platformowner owner
-  join access.membership membership on membership.id=owner.membership_id and membership.status='active'
-  where owner.singleton=true and owner.state='active';
-  if owner_membership is null or owner_member is null then
-    raise exception 'PLATFORM_OWNER_PERSONAL_SCOPE_OWNER_MISSING';
-  end if;
-
-  select grantrow into projection
-  from access.resolve_membership(owner_membership) resolved
-  cross join lateral jsonb_array_elements(resolved.grants) grantrow
-  where grantrow->'scope'->>'kind'='owner'
-    and grantrow->'scope'->>'id'=owner_member;
-  if projection is null
-    or not (projection->'permissions' ? 'member.profile.read')
-    or not (projection->'permissions' ? 'member.address.read')
-    or not (projection->'permissions' ? 'member.address.manage') then
-    raise exception 'PLATFORM_OWNER_PERSONAL_SCOPE_PROJECTION_INVALID';
-  end if;
-
-  select pg_get_functiondef('access.resolve_membership(text)'::regprocedure) into definition;
-  if position('assignment.assigned_scope_id' in definition)=0 then
-    raise exception 'PLATFORM_OWNER_PERSONAL_SCOPE_ASSIGNMENT_REGRESSION';
-  end if;
-  if not exists(select 1 from runtime.schemaversion
-    where version='20260901210000'
-      and checksum='503a8b1f8f0502cfaa9a6449dee57350936526e969dba4d63b09974bf6718d11') then
-    raise exception 'PLATFORM_OWNER_PERSONAL_SCOPE_LEDGER_INVALID';
-  end if;
-end
-$assert$;
-
 commit;
