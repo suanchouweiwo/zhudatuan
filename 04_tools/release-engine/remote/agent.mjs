@@ -1738,6 +1738,8 @@ async function restart(definition = { kind: 'none', name: 'none' }) {
       } catch {}
       const instance = /^sfl-identity-api@(.+)\.service$/.exec(evidence.target)?.[1];
       if (instance) {
+        const unit = await command(['systemctl','show',evidence.target,'--property=FragmentPath','--property=DropInPaths','--property=EnvironmentFiles','--property=ExecStart']);
+        serviceError += '\n' + unit.stdout;
         const env = parseEnvironmentFile(await readFile(join('/opt/sfl/nodes', instance, 'runtime/identity-api.env'), 'utf8'));
         const runtimeManifest = await readJson(env.NODE_MANIFEST_PATH);
         serviceError += '\n' + JSON.stringify({actualOrigins: env.API_ALLOWED_ORIGINS, expectedOrigins: runtimeManifest?.domain_bindings?.filter((binding) => binding.surface_ref !== 'surface:api').map((binding) => 'https://' + binding.host), manifestPath: env.NODE_MANIFEST_PATH});
