@@ -899,23 +899,25 @@ async function initializeNodeIngress(context, candidate, artifact) {
   const bootstrap = join(candidate, 'database/bootstrap');
   const credentials = parseEnvironmentFile(await readFile(join(root, 'database/postgres.env'), 'utf8'));
   const nodeManifest = await readJson(join(root, 'manifest.json'));
-  const apiToken = context.cloudflare?.apiToken;
-  const zoneId = context.cloudflare?.zoneId;
-  if (!apiToken || !zoneId) throw new Error('CLOUDFLARE_INGRESS_CREDENTIALS_MISSING');
-  const zoneResponse = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}`, {
+  const apiToken = context.cloudflare?.apiToken?.trim();
+  if (!apiToken) throw new Error('CLOUDFLARE_INGRESS_CREDENTIALS_MISSING');
+  const zoneResponse = await fetch(`https://api.cloudflare.com/client/v4/zones?name=${encodeURIComponent(setup.zoneName)}`, {
     headers: { authorization: `Bearer ${apiToken}` }, signal: AbortSignal.timeout(30000),
   });
   const zone = await zoneResponse.json();
   if (!zoneResponse.ok || !zone.success) throw new Error(`CLOUDFLARE_ZONE_FAILED:${zoneResponse.status}:${JSON.stringify(zone.errors)}`);
+  const matchedZone = zone.result.find((item) => item.name === setup.zoneName);
+  if (!matchedZone) throw new Error(`CLOUDFLARE_ZONE_NOT_FOUND:${setup.zoneName}`);
+  const zoneId = matchedZone.id;
   const { AutoNodeCloudflareClient } = await import(pathToFileURL(join(bootstrap, 'autonode-cloudflare.mjs')).href);
   const { gatewayConfiguration } = await import(pathToFileURL(join(bootstrap, 'generate-sfl-node-gateway.mjs')).href);
-  const client = new AutoNodeCloudflareClient({ accountId: zone.result.account.id, zoneId, apiToken });
+  const client = new AutoNodeCloudflareClient({ accountId: matchedZone.account.id, zoneId, apiToken });
   const secret = createHash('sha256').update(`${credentials.POSTGRES_PASSWORD}\0LK_TUNNEL:${context.node}`).digest('base64');
   const tunnel = await client.ensureTunnel(setup.tunnelName, secret);
   const tunnelDirectory = join(root, 'tunnel');
   await mkdir(tunnelDirectory, { recursive: true, mode: 0o750 });
   const credentialFile = join(tunnelDirectory, 'credentials.json');
-  await writeFile(credentialFile, JSON.stringify({ AccountTag: zone.result.account.id, TunnelSecret: secret, TunnelID: tunnel.id }), { mode: 0o640 });
+  await writeFile(credentialFile, JSON.stringify({ AccountTag: matchedZone.account.id, TunnelSecret: secret, TunnelID: tunnel.id }), { mode: 0o640 });
   const hosts = nodeManifest.domain_bindings.map((binding) => binding.host);
   const ingress = hosts.map((hostname) => ({ hostname, service: `http://127.0.0.1:${setup.ports.gateway}` }));
   ingress.push({ service: 'http_status:404' });
