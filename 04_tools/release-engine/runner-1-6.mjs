@@ -547,7 +547,7 @@ function sshArgv(host, remoteArguments) {
 export function observationDiagnostic(unknown) {
   const error = asDeliveryError(unknown);
   const details = error.details ?? {};
-  let remoteFailure = null;
+  let remoteFailure = details.remoteFailure ?? null;
   for (const line of String(details.outputTail ?? '').trim().split(/\r?\n/).reverse()) {
     try {
       const parsed = JSON.parse(line);

@@ -87,6 +87,15 @@ export async function runCommand(spec, context) {
   }
   if (timedOut || interruptedSignal || result.exitCode !== 0) {
     const code = timedOut ? 'COMMAND_TIMEOUT' : interruptedSignal ? 'COMMAND_INTERRUPTED' : 'COMMAND_FAILED';
+    let remoteFailure = null;
+    if (argv[0] === 'ssh') {
+      for (const line of log.trim().split(/\r?\n/).reverse()) {
+        try {
+          const parsed = JSON.parse(line);
+          if (parsed?.ok === false && parsed.error) { remoteFailure = parsed.error; break; }
+        } catch {}
+      }
+    }
     throw new DeliveryError(code, `${spec.name} failed`, {
       argv,
       cwd,
@@ -94,6 +103,7 @@ export async function runCommand(spec, context) {
       signal: interruptedSignal ?? result.signal,
       timeoutMs,
       outputTail: log.slice(-4_000),
+      ...(remoteFailure ? { remoteFailure } : {}),
     });
   }
   return { name: spec.name, argv, cwd, startedAt, durationMs, exitCode: result.exitCode, ...(spec.input === undefined ? {} : { inputBytes: Buffer.byteLength(spec.input) }), output: log, outputTail: log.slice(-2_000) };
