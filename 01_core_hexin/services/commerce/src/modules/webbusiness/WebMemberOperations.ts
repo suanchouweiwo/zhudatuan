@@ -8,6 +8,7 @@ import { AddressPort } from '../checkout_jiesuan';
 import { hostedMallOpeningAction } from '../member/03_application_yingyong/HostedMallOpeningOperation';
 import { sovereignUpgradeAction } from '../member/03_application_yingyong/SovereignUpgradeOperation';
 import { WEB_MEMBER_OPERATION_IDS } from './WebBusinessOperationIds';
+import { readWebMemberIdentityDisplay } from '../identity-display/WebMemberIdentityCodeRepository';
 
 export function webMemberOperations(context: ModuleContext): ModuleOperations {
   const pool = context.container.get(DATABASE_POOL);
@@ -16,8 +17,11 @@ export function webMemberOperations(context: ModuleContext): ModuleOperations {
   return new ModuleOperations('member', pool, context.container.get(AUDIT_SINK), {
     'member.profile.read': async (request, database) => {
       const access = requireAccess(request);
-      return rowResult(await database.query('select * from access.web_member_context($1,$2)',
-        [access.membership.id, access.actor.session]));
+      const profile = await database.query('select * from access.web_member_context($1,$2)',
+        [access.membership.id, access.actor.session]);
+      const identityDisplay = await readWebMemberIdentityDisplay(database, access.membership.id, access.actor.session);
+      return rowResult({ ...profile, rows: profile.rows.map((row) => ({ ...row,
+        ...(identityDisplay === undefined ? {} : { identity_display: identityDisplay }) })) });
     },
     'member.malls.open': hostedMallOpeningAction,
     'member.sovereignty.upgrade': sovereignUpgradeAction,

@@ -41,6 +41,7 @@ export const MPProfilePage: React.FC = () => {
               <h2 className="text-base font-black text-white">{user.name}</h2>
               <span className="bg-yellow-400 text-gray-900 text-[9px] font-bold px-1.5 py-0.2 rounded">{user.jobTitle}</span>
             </div>
+            {user.identityCode && <div className="text-xs font-mono text-blue-100">会员身份码：{user.identityCode}</div>}
             <div className="text-[11px] text-blue-100 flex items-center gap-1">
               <Building2 className="w-3 h-3 text-yellow-300" />
               <span className="truncate">{user.enterpriseName}</span>

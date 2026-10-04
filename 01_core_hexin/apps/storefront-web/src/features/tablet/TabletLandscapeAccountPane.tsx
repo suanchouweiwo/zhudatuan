@@ -23,6 +23,7 @@ export const TabletLandscapeAccountPane: React.FC = () => {
                 <span className="bg-amber-400 text-gray-900 text-[8px] font-extrabold px-1.5 py-0.2 rounded">{user.jobTitle}</span>
               </div>
               <div className="text-[10px] text-blue-100 truncate">{user.enterpriseName}</div>
+              {user.identityCode && <div className="text-[10px] font-mono text-blue-100">会员身份码：{user.identityCode}</div>}
             </div>
           </div>
 

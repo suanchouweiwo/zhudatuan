@@ -5,6 +5,7 @@ export function mergeAuthenticatedMemberProfile(previous: UserProfile, bootstrap
   return {
     ...previous,
     id: bootstrap.actor.userId,
+    identityCode: bootstrap.actor.identityCode,
     employeeId: bootstrap.actor.employeeNo,
     name: bootstrap.actor.displayName,
     avatar: '',

@@ -17,7 +17,7 @@ export const LaptopAccountPane1440: React.FC<{
             <div className="min-w-0 flex-1">
               <div className="font-extrabold text-xs text-gray-900 truncate">{user.name}</div>
               <div className="text-[11px] text-gray-500 truncate">{user.department}</div>
-              <div className="text-[10px] text-[var(--sw-brand)] font-bold mt-0.5">工号：{user.id.toUpperCase()}</div>
+              {user.identityCode && <div className="text-[10px] text-[var(--sw-brand)] font-bold mt-0.5">会员身份码：{user.identityCode}</div>}
             </div>
           </div>
 

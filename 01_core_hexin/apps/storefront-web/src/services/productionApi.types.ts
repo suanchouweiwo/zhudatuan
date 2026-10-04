@@ -112,6 +112,7 @@ export interface ApiAfterSale {
 }
 export interface ApiActor {
   userId: string;
+  identityCode?: string;
   employeeNo: string;
   displayName: string;
   departmentName: string | null;

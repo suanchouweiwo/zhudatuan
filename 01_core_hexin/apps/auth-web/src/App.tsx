@@ -24,9 +24,10 @@ export default function App() {
 
   const switchAudience = () => {
     if (entry === null || typeof window === 'undefined') return;
-    const nextSearch = entry.kind === 'operator'
+    const invite = new URLSearchParams(window.location.search).get('invite');
+    const nextSearch = (entry.kind === 'operator'
       ? `?surface=web&application=${encodeURIComponent(entry.consumerApplication)}&target=${encodeURIComponent(entry.consumerTarget)}`
-      : `?target=${encodeURIComponent(entry.adminTarget)}`;
+      : `?target=${encodeURIComponent(entry.adminTarget)}`) + (invite ? `&invite=${encodeURIComponent(invite)}` : '');
     const nextEntry = resolveIdentityEntry(nextSearch, hostname);
     if (nextEntry === null) return;
     window.history.replaceState(null, '', nextSearch);

@@ -46,6 +46,8 @@ export function mapCanonicalBootstrap(
   presentation: StorefrontPresentationIdentity = { mallName: '主打团商城', brandName: '主打团' },
 ): ApiBootstrap {
   const profile = record(profileValue, 'member.profile');
+  const identityDisplay = profile.identity_display === undefined ? undefined : record(profile.identity_display, 'member.profile.identity_display');
+  const identityCode = identityDisplay?.kind === 'member' ? optionalText(identityDisplay.code) : null;
   const mall = session.scopes.find((scope) => scope.kind === 'mall') ?? (session.scope.kind === 'mall' ? session.scope : session.scope);
   const mallName = optionalText(profile.organization_name) ?? presentation.mallName;
   const enterprise = session.scopes.find((scope) => scope.kind === 'enterprise');
@@ -54,6 +56,7 @@ export function mapCanonicalBootstrap(
   return {
     actor: {
       userId: text(profile.id, 'member.profile.id'),
+      ...(identityCode ? { identityCode } : {}),
       employeeNo: optionalText(profile.employee_no) ?? session.membership,
       displayName: text(profile.display_name, 'member.profile.display_name'),
       departmentName: null,

@@ -189,18 +189,20 @@ export async function loginCanonicalStorefrontEntry(
   password: string,
   application: string,
   signal?: AbortSignal,
-): Promise<CanonicalStorefrontLoginResult> {
+  membership?: string,
+): Promise<CanonicalStorefrontLoginResult | Readonly<{ kind: 'selection'; memberships: readonly string[] }>> {
   const target = canonicalStorefrontAuthTarget(application);
   const result = await authorizeCanonicalCredential(
     { provider: 'password', subject: canonicalPasswordSubject(subject), password },
     target,
-    undefined,
+    membership,
     signal,
     { application: canonicalApplication(application), expectedSessionTarget: 'storefront' },
   );
   if (result.kind === 'selection') {
-    if (result.selection.memberships.length === 0) throw new Error('该手机号尚未开通当前商城，请先注册');
-    throw new Error('当前商城存在多个消费者身份，暂时无法自动选择');
+    const memberships = result.selection.memberships.filter((item) => item.client === 'storefront').map((item) => item.id);
+    if (memberships.length === 0) throw new Error('该手机号尚未开通当前商城，请先注册');
+    return Object.freeze({ kind: 'selection', memberships });
   }
   return Object.freeze({
     membership: result.session.membership,

@@ -251,6 +251,7 @@ export interface EnterpriseMall {
 
 export interface UserProfile {
   id: string;
+  identityCode?: string;
   employeeId: string;
   name: string;
   avatar: string;
