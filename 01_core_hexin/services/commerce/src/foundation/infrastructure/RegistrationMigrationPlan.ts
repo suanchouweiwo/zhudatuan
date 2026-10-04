@@ -125,6 +125,14 @@ export function registrationMigrationTarget(file: string, source: string): Regis
     'gi',
   );
   const matches = [...source.matchAll(marker)];
+  if (matches.length === 0) {
+    const expression = new RegExp(
+      `values\\s*\\(\\s*'${version}'\\s*,\\s*encode\\(public\\.digest\\('((?:[^']|'')*)'\\s*,\\s*'sha256'\\)\\s*,\\s*'hex'\\)\\)`, 'gi',
+    );
+    for (const computed of source.matchAll(expression)) {
+      matches.push([computed[0], sha256(computed[1]!.replaceAll("''", "'"))] as RegExpMatchArray);
+    }
+  }
   if (matches.length !== 1 || matches[0]?.[1] === undefined) {
     throw new Error(`REGISTRATION_MIGRATION_TARGET_MARKER_INVALID:${file}`);
   }
