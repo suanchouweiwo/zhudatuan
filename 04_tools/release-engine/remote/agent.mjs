@@ -6,7 +6,7 @@ import { basename, dirname, join, relative, resolve } from 'node:path';
 import { spawn } from 'node:child_process';
 import { performance } from 'node:perf_hooks';
 import { setTimeout as delay } from 'node:timers/promises';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 let actionName = 'unknown';
 let loadedPolicy = null;
@@ -372,13 +372,15 @@ async function prepareOssCandidate(context, options, direct) {
   const started = Date.now();
   const identity = artifactIdentity(context, options);
   const found = await lookup(context, options);
+  const ingressPayload = context.deployment.databaseMigration?.initialize?.ingress ? await readStdinJson() : null;
+  if (ingressPayload) context.cloudflare = ingressPayload.cloudflare;
   let staged;
   let downloadedBytes = 0;
   let downloadMs = 0;
   if (found.exists) {
     staged = await reuse(context, options, direct);
   } else {
-    const payload = await readStdinJson();
+    const payload = ingressPayload ?? await readStdinJson();
     const incomingRoot = resolve(required(context.policy.incomingRoot, 'INCOMING_ROOT_REQUIRED'));
     assertAllowedRoot(context.policy, incomingRoot);
     await mkdir(incomingRoot, { recursive: true, mode: 0o700 });
@@ -890,8 +892,72 @@ async function preflight(context) {
   };
 }
 
+async function initializeNodeIngress(context, candidate, artifact) {
+  const setup = context.deployment.databaseMigration.initialize.ingress;
+  const root = join('/opt/sfl/nodes', context.node);
+  const runtime = join(root, 'runtime');
+  const bootstrap = join(candidate, 'database/bootstrap');
+  const credentials = parseEnvironmentFile(await readFile(join(root, 'database/postgres.env'), 'utf8'));
+  const nodeManifest = await readJson(join(root, 'manifest.json'));
+  const apiToken = context.cloudflare?.apiToken;
+  const zoneId = context.cloudflare?.zoneId;
+  if (!apiToken || !zoneId) throw new Error('CLOUDFLARE_INGRESS_CREDENTIALS_MISSING');
+  const zoneResponse = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}`, {
+    headers: { authorization: `Bearer ${apiToken}` }, signal: AbortSignal.timeout(30000),
+  });
+  const zone = await zoneResponse.json();
+  if (!zoneResponse.ok || !zone.success) throw new Error(`CLOUDFLARE_ZONE_FAILED:${zoneResponse.status}:${JSON.stringify(zone.errors)}`);
+  const { AutoNodeCloudflareClient } = await import(pathToFileURL(join(bootstrap, 'autonode-cloudflare.mjs')).href);
+  const { gatewayConfiguration } = await import(pathToFileURL(join(bootstrap, 'generate-sfl-node-gateway.mjs')).href);
+  const client = new AutoNodeCloudflareClient({ accountId: zone.result.account.id, zoneId, apiToken });
+  const secret = createHash('sha256').update(`${credentials.POSTGRES_PASSWORD}\0LK_TUNNEL:${context.node}`).digest('base64');
+  const tunnel = await client.ensureTunnel(setup.tunnelName, secret);
+  const tunnelDirectory = join(root, 'tunnel');
+  await mkdir(tunnelDirectory, { recursive: true, mode: 0o750 });
+  const credentialFile = join(tunnelDirectory, 'credentials.json');
+  await writeFile(credentialFile, JSON.stringify({ AccountTag: zone.result.account.id, TunnelSecret: secret, TunnelID: tunnel.id }), { mode: 0o640 });
+  const hosts = nodeManifest.domain_bindings.map((binding) => binding.host);
+  const ingress = hosts.map((hostname) => ({ hostname, service: `http://127.0.0.1:${setup.ports.gateway}` }));
+  ingress.push({ service: 'http_status:404' });
+  await writeFile(join(runtime, 'cloudflared.yml'), JSON.stringify({ tunnel: tunnel.id, 'credentials-file': credentialFile,
+    'no-autoupdate': true, metrics: `127.0.0.1:${setup.metricsPort}`, ingress }, null, 2) + '\n', { mode: 0o640 });
+  await writeFile(join(runtime, 'api-gateway.Caddyfile'), gatewayConfiguration(nodeManifest, root, setup.ports, { httpLoopback: true }), { mode: 0o640 });
+  for (const directory of ['caddy-data', 'caddy-config']) await mkdir(join(runtime, directory), { recursive: true, mode: 0o750 });
+  await command(['chown', '-R', 'zhudatuan:zhudatuan', tunnelDirectory, runtime]);
+  if (!(await exists('/usr/local/bin/cloudflared'))) {
+    if (await exists('/usr/bin/cloudflared')) await symlink('/usr/bin/cloudflared', '/usr/local/bin/cloudflared');
+    else {
+      const architecture = (await command(['uname', '-m'])).output.trim();
+      const binary = architecture === 'aarch64' ? 'arm64' : 'amd64';
+      await command(['curl', '-fL', '--retry', '2', '-o', '/usr/local/bin/cloudflared', `https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-${binary}`], { timeoutMs: 120000 });
+      await chmod('/usr/local/bin/cloudflared', 0o755);
+    }
+  }
+  for (const unit of ['sfl-api-gateway@.service', 'sfl-cloudflared@.service']) {
+    await copyFile(join(bootstrap, 'systemd', unit), join('/etc/systemd/system', unit));
+  }
+  const dropIn = join('/etc/systemd/system', `sfl-api-gateway@${context.node}.service.d`);
+  await mkdir(dropIn, { recursive: true });
+  await writeFile(join(dropIn, 'instance.conf'), `[Unit]\nWants=\nWants=network-online.target\nAfter=\nAfter=network-online.target\nConditionPathExists=\n[Service]\nExecStartPre=\n`);
+  await command(['systemctl', 'daemon-reload']);
+  const services = [`sfl-api-gateway@${context.node}.service`, `sfl-cloudflared@${context.node}.service`];
+  for (const service of services) {
+    await command(['systemctl', 'enable', service]);
+    await command(['systemctl', 'restart', service]);
+  }
+  const records = [];
+  for (const host of hosts) records.push(await client.ensureCname(host, `${tunnel.id}.cfargotunnel.com`, `LK ${context.node}`));
+  const serviceState = (await command(['systemctl', 'is-active', ...services])).output.trim().split(/\s+/);
+  const apiHost = nodeManifest.domain_bindings.find((binding) => binding.surface_ref === 'surface:api').host;
+  const localResponse = await command(['curl', '--fail', '--silent', '--show-error', '--max-time', '10', '-H', `Host: ${apiHost}`, `http://127.0.0.1:${setup.ports.gateway}/health/gateway`]);
+  return { schema: 'ai.delivery.database-migration-result.v1', sourceSha: artifact.sourceSha, status: 'initialized', node: context.node,
+    ingress: { tunnelId: tunnel.id, records, services: services.map((name, index) => ({ name, state: serviceState[index] })),
+      gateway: JSON.parse(localResponse.output), applicationActivation: 'pending' }, migrationsApplied: false, credentialsReported: false };
+}
+
 async function initializeNodeDatabase(context, candidate, manifest) {
   const setup = context.deployment.databaseMigration.initialize;
+  if (setup.ingress) return initializeNodeIngress(context, candidate, manifest);
   const root = join('/opt/sfl/nodes', context.node);
   const runtime = join(root, 'runtime');
   const database = join(root, 'database');

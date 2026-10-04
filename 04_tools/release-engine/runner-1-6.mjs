@@ -329,7 +329,7 @@ async function deployTarget(adapter, publicClient, { target, node, sourceSha, ru
         '--github-run-attempt',
         requiredEnv('GITHUB_RUN_ATTEMPT'),
       ]),
-      input: `${JSON.stringify({ artifactUrl: await downloadClient.signGet(artifact.object), manifestUrl: await downloadClient.signGet(runtimeManifest.object) })}\n`,
+      input: `${JSON.stringify({ artifactUrl: await downloadClient.signGet(artifact.object), manifestUrl: await downloadClient.signGet(runtimeManifest.object), ...(deployment.node.ingress && target === 'database-migration' ? { cloudflare: { apiToken: process.env.CLOUDFLARE_API_TOKEN, zoneId: process.env.CLOUDFLARE_ZONE_ID } } : {}) })}\n`,
       timeoutMs: transport.deployTimeoutMs ?? 10 * 60_000,
     },
     commandContext(adapter)
@@ -343,6 +343,7 @@ async function deployTarget(adapter, publicClient, { target, node, sourceSha, ru
     previous: remote.result?.activation?.previous ?? null,
     health: normalizeReadiness(remote.result?.activation?.readiness),
     recovery: remote.result?.activation?.rollback ?? null,
+    nodeIngress: remote.result?.activation?.receipt?.databaseMigration?.ingress ?? null,
     targetTimings: remote.result?.activation?.timings ?? null,
     durationMs: result.durationMs,
   };
