@@ -1212,6 +1212,7 @@ async function executeDatabaseMigration(context, candidate, manifest) {
     let secretOverride = await readFile(dropIn, 'utf8');
     secretOverride = secretOverride.replaceAll('/opt/zhudatuan/current/01_core_hexin/services/commerce/dist/LocalSecretsMain.js', join(internal, 'LocalSecretsMain.js'))
       .replaceAll('/opt/zhudatuan/current', internal);
+    if (!secretOverride.includes('--retry-connrefused')) secretOverride = secretOverride.replace('--max-time 10', '--retry 20 --retry-connrefused --retry-delay 1 --max-time 10');
     await writeFile(dropIn, secretOverride);
     const objectFile = join(runtime, 'object-store.env');
     const objectStats = await lstat(objectFile);
