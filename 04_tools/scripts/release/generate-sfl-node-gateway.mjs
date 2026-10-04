@@ -128,11 +128,11 @@ export function gatewayConfiguration(manifest, nodeRoot, ports, options = {}) {
 `${options.runtimeConfigRoutes === false ? '' : `\t@identityRuntime {\n\t\thost ${identityHosts.join(' ')}\n\t\tpath /identity-runtime.json\n\t}\n` +
 `\thandle @identityRuntime {\n\t\troot * ${nodeRoot}/runtime\n\t\tfile_server\n\t}\n\n` +
 ``}` +
-`\t@accounts host ${identityHosts.join(' ')}\n\thandle @accounts {\n\t\troot * ${nodeRoot}/targets/auth-web/current/static\n\t\ttry_files {path} /index.html\n\t\tfile_server\n\t}\n\n` +
+`\t@accounts host ${identityHosts.join(' ')}\n\thandle @accounts {\n\t\t@accountsEntry not path /assets/* /brand/*\n\t\trequest_header @accountsEntry -If-None-Match\n\t\trequest_header @accountsEntry -If-Modified-Since\n\t\theader @accountsEntry Cache-Control "no-store"\n\t\theader @accountsEntry -Etag\n\t\troot * ${nodeRoot}/targets/auth-web/current/static\n\t\ttry_files {path} /index.html\n\t\tfile_server\n\t}\n\n` +
 `${options.runtimeConfigRoutes === false ? '' : `\t@consoleRuntime {\n\t\thost ${consoleHosts.join(' ')}\n\t\tpath /console-runtime.json\n\t}\n` +
 `\thandle @consoleRuntime {\n\t\troot * ${nodeRoot}/runtime\n\t\tfile_server\n\t}\n\n` +
 ``}` +
-`\t@console host ${consoleHosts.join(' ')}\n\thandle @console {\n\t\troot * ${nodeRoot}/targets/console/current/static\n\t\ttry_files {path} /index.html\n\t\tfile_server\n\t}\n\n` +
+`\t@console host ${consoleHosts.join(' ')}\n\thandle @console {\n\t\t@consoleEntry not path /assets/* /brand/*\n\t\trequest_header @consoleEntry -If-None-Match\n\t\trequest_header @consoleEntry -If-Modified-Since\n\t\theader @consoleEntry Cache-Control "no-store"\n\t\theader @consoleEntry -Etag\n\t\troot * ${nodeRoot}/targets/console/current/static\n\t\ttry_files {path} /index.html\n\t\tfile_server\n\t}\n\n` +
 `\t@storefront host ${storefrontHosts.join(' ')}\n\thandle @storefront {\n${proxy(ports.storefront)}\n\t}\n\n` +
 `\thandle {\n\t\theader Content-Type application/json\n\t\trespond \`{"code":"NODE_BOUNDARY_HOST_MISMATCH"}\` 421\n\t}\n}\n`;
 }
