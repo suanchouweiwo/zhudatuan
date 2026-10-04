@@ -1741,6 +1741,10 @@ async function restart(definition = { kind: 'none', name: 'none' }) {
       if (instance) {
         const unit = await command(['systemctl','show',evidence.target,'--property=FragmentPath','--property=DropInPaths','--property=EnvironmentFiles','--property=ExecStart']);
         serviceError += '\n' + unit.stdout;
+        const secretUnit = 'sfl-secret-store@' + instance + '.service';
+        const secretState = await command(['systemctl','show',secretUnit,'--property=ConditionResult','--property=ActiveState','--property=MainPID']);
+        const secretJournal = await command(['journalctl','-u',secretUnit,'-n','40','--no-pager','-o','cat']);
+        serviceError += '\n' + JSON.stringify({secretState:secretState.stdout, secretError:secretJournal.stdout.split('\n').filter((line) => /Error:|Warning:|_MISSING|_INVALID|_FORBIDDEN|_REQUIRED|Condition/i.test(line)).slice(-3).join('\n'), secretEntryExists:await exists(join('/opt/sfl/nodes',instance,'current/01_core_hexin/services/commerce/dist/LocalSecretsMain.js'))});
         const env = parseEnvironmentFile(await readFile(join('/opt/sfl/nodes', instance, 'runtime/identity-api.env'), 'utf8'));
         const runtimeManifest = await readJson(env.NODE_MANIFEST_PATH);
         serviceError += '\n' + JSON.stringify({actualOrigins: env.API_ALLOWED_ORIGINS, expectedOrigins: runtimeManifest?.domain_bindings?.filter((binding) => binding.surface_ref !== 'surface:api').map((binding) => 'https://' + binding.host), manifestPath: env.NODE_MANIFEST_PATH});
