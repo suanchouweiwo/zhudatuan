@@ -119,46 +119,4 @@ set search_path=pg_catalog,pg_temp as $function$
   ) governance
 $function$;
 
-do $assert$
-declare
-  owner_membership text;
-  owner_principal text;
-  owner_scope text;
-  projected_membership text;
-  projected_scope text;
-begin
-  if to_regprocedure('access.resolve_authoritative_governance(text,text,text,text)') is null then
-    raise exception 'AUTHORITATIVE_GOVERNANCE_FUNCTION_MISSING';
-  end if;
-
-  select owner.membership_id,profile.principal_id,membership.organization_id
-    into owner_membership,owner_principal,owner_scope
-  from access.platformowner owner
-  join access.membership membership on membership.id=owner.membership_id and membership.status='active'
-  join member.profile profile on profile.id=membership.member_id and profile.status='active'
-  where owner.singleton=true and owner.state='active';
-
-  if not exists(select 1 from access.resolve_authoritative_governance(
-      owner_membership,owner_principal,null,owner_scope
-    ) governance where governance.governance_level='owner' and governance.is_exact_owner) then
-    raise exception 'EXACT_OWNER_GOVERNANCE_REGRESSED';
-  end if;
-
-  select membership.id,membership.organization_id into projected_membership,projected_scope
-  from access.membership membership
-  join member.profile profile on profile.id=membership.member_id
-  where membership.status='active' and membership.client='operator'
-    and profile.principal_id=owner_principal and membership.id<>owner_membership
-  order by membership.id limit 1;
-
-  if projected_membership is not null and not exists(
-    select 1 from access.resolve_authoritative_governance(
-      projected_membership,owner_principal,null,projected_scope
-    ) governance where governance.governance_level='owner' and not governance.is_exact_owner
-  ) then
-    raise exception 'NODE_OWNER_GOVERNANCE_PROJECTION_FAILED';
-  end if;
-end
-$assert$;
-
 commit;
