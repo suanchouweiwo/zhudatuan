@@ -1217,6 +1217,7 @@ async function executeDatabaseMigration(context, candidate, manifest) {
     const objectStats = await lstat(objectFile);
     const objectEnv = parseEnvironmentFile(await readFile(objectFile, 'utf8'));
     const nodeManifest = await readJson(join(executionDirectory, 'node-runtime/manifest.json'));
+    objectEnv.LOCAL_OBJECTS_DIRECTORY = '/var/lib/sfl-' + context.node + '-objects';
     Object.assign(objectEnv, {
       NODE_MANIFEST_PATH: join(executionDirectory, 'node-runtime/manifest.json'), NODE_MANIFEST_ID: nodeManifest.manifest_id,
       NODE_MANIFEST_DIGEST: nodeManifest.manifest_digest, NODE_RUNTIME_INSTANCE_ID: nodeManifest.runtime_instance_id,
