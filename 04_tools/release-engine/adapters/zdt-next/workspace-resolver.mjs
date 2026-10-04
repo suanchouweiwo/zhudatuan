@@ -31,6 +31,25 @@ export async function workspaceResolver(projectRoot = process.cwd()) {
   };
 }
 
+export function instanceNodeRegistryPlugin(instanceRoot, projectRoot = process.cwd()) {
+  if (!instanceRoot?.trim()) return null;
+  const coreDeclaration = resolve(projectRoot, '02_platform_pingtai/config/sfl-node-registry.declaration.json');
+  const instanceDeclaration = resolve(instanceRoot, 'sfl-node-registry.declaration.json');
+  return {
+    name: 'lk-instance-node-registry',
+    setup(build) {
+      build.onLoad({ filter: /sfl-node-registry\.declaration\.json$/ }, async (args) => {
+        if (resolve(args.path) !== coreDeclaration) return null;
+        return {
+          contents: await readFile(instanceDeclaration, 'utf8'),
+          loader: 'json',
+          resolveDir: dirname(instanceDeclaration),
+        };
+      });
+    },
+  };
+}
+
 async function expandWorkspacePattern(projectRoot, pattern) {
   const star = pattern.indexOf('*');
   if (star < 0) return [resolve(projectRoot, pattern)];

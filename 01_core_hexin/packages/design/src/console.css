@@ -1,0 +1,11 @@
+/* 主打团后台视觉入口。沿用现有组件行为，替换其视觉参数。 */
+@import './foundation.css' layer(components);
+@import './controls.css' layer(components);
+@import './data-display.css' layer(components);
+@import './feedback.css' layer(components);
+@import './page-experience.css' layer(components);
+@import './console-theme.css';
+@import './console-components.css';
+
+/* Shared components live outside the Console app's source directory. */
+@source './console-ui';

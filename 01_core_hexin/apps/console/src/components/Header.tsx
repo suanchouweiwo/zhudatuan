@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { ShellIcon } from './ShellIcon';
 
 export interface HeaderProps {
@@ -13,13 +13,21 @@ export interface HeaderProps {
   readonly onLogout: () => void;
   readonly onOpenNavigation: () => void;
   readonly onOpenProfile: () => void;
+  readonly brandName?: string;
+  readonly brandSubtitle?: string;
+  readonly scopeControl?: ReactNode;
+  readonly theme?: 'light' | 'dark';
+  readonly density?: 'comfortable' | 'compact';
+  readonly onThemeToggle?: () => void;
+  readonly onDensityChange?: (density: 'comfortable' | 'compact') => void;
 }
 
 type HeaderPanel = 'account' | 'command' | 'notices' | 'tasks' | null;
 
 export function Header(props: HeaderProps) {
   const { title, summary, scopeLabel, displayName, assuranceLevel, syncedAt, loggingOut, logoutError, onLogout,
-    onOpenNavigation, onOpenProfile } = props;
+    onOpenNavigation, onOpenProfile, brandName = '主打团', brandSubtitle = '运营管理后台', scopeControl,
+    theme = 'light', density = 'comfortable', onThemeToggle, onDensityChange } = props;
   const [panel, setPanel] = useState<HeaderPanel>(null);
 
   useEffect(() => {
@@ -42,11 +50,15 @@ export function Header(props: HeaderProps) {
   };
 
   return <header className="consoleheader">
-    <div className="consolebreadcrumb" aria-label="当前位置">
+    <div className="consolebrandzone">
       <button className="mobilemenubutton" type="button" onClick={onOpenNavigation} aria-label="打开主导航">
         <ShellIcon name="menu" />
       </button>
-      <strong>{title}</strong><i aria-hidden="true">/</i><span className="consoleheadersummary">{summary}</span>
+      <div className="consolebrand" aria-label={`${brandName} ${brandSubtitle}`}>
+        <img src={`${import.meta.env.BASE_URL}brand/${theme === 'dark' ? 'brand-mark-white.svg' : 'brand-mark.svg'}`} alt="" width="32" height="32" />
+        <span className="consolebrandcopy"><strong>{brandName}</strong><small>{brandSubtitle}</small></span>
+      </div>
+      {scopeControl === undefined ? null : <div className="consoleheaderscope">{scopeControl}</div>}
     </div>
 
     <div className="commandarea">
@@ -63,6 +75,18 @@ export function Header(props: HeaderProps) {
     </div>
 
     <div className="consoleactions">
+      {onDensityChange === undefined ? null : <div className="consoledensity" role="group" aria-label="显示密度">
+        <button type="button" aria-pressed={density === 'comfortable'} onClick={() => onDensityChange('comfortable')}>舒适</button>
+        <button type="button" aria-pressed={density === 'compact'} onClick={() => onDensityChange('compact')}>紧凑</button>
+      </div>}
+      {onThemeToggle === undefined ? null : <button className="iconbutton consolethemebutton" type="button"
+        aria-label={theme === 'dark' ? '当前深色模式，点击切换为浅色模式' : '当前浅色模式，点击切换为深色模式'}
+        title={theme === 'dark' ? '当前深色模式，点击切换为浅色模式' : '当前浅色模式，点击切换为深色模式'} onClick={onThemeToggle}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
+          {theme === 'light' ? <><circle cx="12" cy="12" r="4" /><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.4 1.4m11.2 11.2L19 19M5 19l1.4-1.4M17.6 6.4 19 5" /></>
+            : <path d="M20.6 14.2A8.7 8.7 0 0 1 9.8 3.4 8.7 8.7 0 1 0 20.6 14.2Z" />}
+        </svg>
+      </button>}
       <div className="headeractionwrap">
         <button className="taskbutton" type="button" onClick={() => togglePanel('tasks')}
           aria-haspopup="dialog" aria-expanded={panel === 'tasks'}>任务<span aria-label="任务状态待同步" /></button>
@@ -100,7 +124,7 @@ function StatusPopup({ title, detail }: Readonly<{ title: string; detail: string
 }
 
 function avatarLetter(displayName: string): string {
-  return displayName.match(/[A-Za-z]/)?.[0]?.toUpperCase() ?? (displayName.trim().slice(0, 1) || '智');
+  return displayName.match(/[A-Za-z]/)?.[0]?.toUpperCase() ?? (displayName.trim().slice(0, 1) || '主');
 }
 
 function formatTime(value: string): string {

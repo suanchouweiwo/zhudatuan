@@ -5,12 +5,18 @@ import {
   resolveConsoleAppConfig,
   resolveConsoleNodeRuntimeConfig,
   type ConsoleAppConfig,
+  type ConsoleRuntimeBinding,
 } from '@shop/config/sfl-console-runtime';
 import {
   generateNodeManifest,
   nodeContextOf,
   resolveNodeDomainBindingByHost,
+  type NodeManifest,
+  type NodeManifestSpec,
 } from '@shop/config/sfl-node-kernel';
+
+declare const __LK_INSTANCE_NODE_MANIFEST__: NodeManifest | undefined;
+declare const __LK_INSTANCE_CONSOLE_RUNTIME_BINDINGS__: readonly ConsoleRuntimeBinding[] | undefined;
 
 let installedConfig: ConsoleAppConfig | undefined;
 let loadingConfig: Promise<ConsoleAppConfig> | undefined;
@@ -60,9 +66,24 @@ export async function loadProductionConfig(hostname: string, fetcher: typeof fet
 
 async function loadLocalConfig(hostname: string): Promise<ConsoleAppConfig> {
   const consoleOrigin = browserOrigin(hostname);
-  const identityOrigin = 'http://127.0.0.1:3002';
+  const instanceManifest = typeof __LK_INSTANCE_NODE_MANIFEST__ === 'undefined'
+    ? undefined
+    : __LK_INSTANCE_NODE_MANIFEST__;
+  const instanceBindings = typeof __LK_INSTANCE_CONSOLE_RUNTIME_BINDINGS__ === 'undefined'
+    ? undefined : __LK_INSTANCE_CONSOLE_RUNTIME_BINDINGS__;
+  const instanceRuntime = instanceBindings?.find((binding) =>
+    binding.resource_binding_set_ref.ref === instanceManifest?.resource_binding_set_ref.ref
+      && binding.resource_binding_set_ref.version === instanceManifest?.resource_binding_set_ref.version);
+  const identityOrigin = instanceManifest === undefined
+    ? 'http://127.0.0.1:3002'
+    : import.meta.env.VITE_AUTH_BASE_URL?.trim()
+      || (instanceRuntime === undefined ? 'http://127.0.0.1:3002' : new URL(instanceRuntime.identity_entry_url).origin);
+  const identityEntry = new URL(instanceRuntime?.identity_entry_url ?? `${identityOrigin}/?target=console`);
+  const configuredIdentity = new URL(identityOrigin);
+  identityEntry.protocol = configuredIdentity.protocol;
+  identityEntry.host = configuredIdentity.host;
   const immutableArtifactDigest = `sha256:${'0'.repeat(64)}` as const;
-  const nodeManifest = await generateNodeManifest({
+  const defaultManifestSpec: NodeManifestSpec = {
     manifest_id: 'manifest:local-development:console',
     manifest_revision: 0,
     generated_at: '2026-09-08T00:00:00.000Z',
@@ -101,14 +122,29 @@ async function loadLocalConfig(hostname: string): Promise<ConsoleAppConfig> {
       build_count: 1,
       immutable_artifact_digest: immutableArtifactDigest,
     },
+  };
+  const nodeManifest = await generateNodeManifest(instanceManifest === undefined ? defaultManifestSpec : {
+    ...instanceManifest,
+    manifest_revision: Number(instanceManifest.manifest_version.split('.')[2]),
+    domain_bindings: instanceManifest.domain_bindings.map((binding) => binding.surface_ref === 'surface:console'
+      ? { ...binding, host: hostname }
+      : binding),
+    release_pointer_ref: {
+      ...defaultManifestSpec.release_pointer_ref,
+      ref: instanceManifest.release_pointer_ref.ref,
+      version: instanceManifest.release_pointer_ref.version,
+    },
   });
   return install(Object.freeze({
     apiBaseUrl: consoleOrigin,
     identityOrigin,
-    identityEntryUrl: `${identityOrigin}/?target=console`,
+    identityEntryUrl: identityEntry.toString(),
     consoleOrigin,
     clientVersion: normalizeConsoleClientVersion(import.meta.env.VITE_CLIENT_VERSION),
-    scope: Object.freeze({ kind: 'platform', id: nodeManifest.data_scope_ref.ref }),
+    scope: Object.freeze({
+      kind: instanceRuntime?.scope_kind ?? (nodeManifest.signed_level === 'L0' ? 'platform' : 'mall'),
+      id: nodeManifest.data_scope_ref.ref,
+    }),
     nodeManifest,
     nodeContext: nodeContextOf(nodeManifest),
     domainBinding: resolveNodeDomainBindingByHost(nodeManifest, hostname),

@@ -1,16 +1,16 @@
 .memberaccessworkspace {
-  --member-blue: #143a8f;
-  --member-blue-soft: #edf2fb;
-  --member-purple: #143a8f;
-  --member-purple-soft: #edf2fb;
-  --member-success: #15956f;
-  --member-ink: #111111;
-  --member-copy: #344054;
-  --member-muted: #667085;
-  --member-border: #d7dbe5;
-  --member-shadow: 0 1px 2px rgb(17 17 17 / 3%), 0 12px 30px rgb(13 45 114 / 5%);
+  --member-blue: var(--console-accent);
+  --member-blue-soft: var(--console-selected);
+  --member-purple: var(--console-accent);
+  --member-purple-soft: var(--console-selected);
+  --member-success: var(--console-success);
+  --member-ink: var(--console-text);
+  --member-copy: var(--console-text-secondary);
+  --member-muted: var(--console-text-muted);
+  --member-border: var(--console-border);
+  --member-shadow: 0 1px 2px color-mix(in srgb, var(--console-shadow-color) 3%, transparent), 0 12px 30px color-mix(in srgb, var(--console-shadow-color) 5%, transparent);
   gap: 18px;
-  background: linear-gradient(180deg, #f7f9fd 0%, #f3f6fb 100%);
+  background: linear-gradient(180deg, var(--console-surface) 0%, var(--console-canvas) 100%);
   padding: 24px;
 }
 
@@ -21,20 +21,20 @@
 }
 .administratorstepupsummary,
 .administratorstepupboundary {
-  border: 1px solid #d7dbe5;
+  border: 1px solid var(--console-border);
   border-radius: 12px;
   padding: 16px 18px;
 }
 .administratorstepupsummary {
-  background: #f8faff;
+  background: var(--console-surface);
 }
 .administratorstepupboundary {
-  background: #edf2fb;
-  border-color: #cfdaf0;
+  background: var(--console-warning-bg);
+  border-color: var(--console-border);
 }
 .administratorstepupsummary strong,
 .administratorstepupboundary strong {
-  color: #10203b;
+  color: var(--console-text);
   font-size: 15px;
 }
 .administratorstepupsummary p,
@@ -42,14 +42,14 @@
 .administratorstepupnote,
 .administratorstepupverification p {
   margin: 7px 0 0;
-  color: #667085;
+  color: var(--console-text-muted);
   font-size: 13px;
   line-height: 1.65;
 }
 .administratorstepupverification label {
   display: grid;
   gap: 8px;
-  color: #344054;
+  color: var(--console-text-secondary);
   font-size: 13px;
   font-weight: 650;
 }
@@ -57,25 +57,25 @@
   width: 100%;
   min-height: 44px;
   box-sizing: border-box;
-  border: 1px solid #cfd6e3;
+  border: 1px solid var(--console-border);
   border-radius: 9px;
-  background: #fff;
-  color: #10203b;
+  background: var(--console-surface);
+  color: var(--console-text);
   padding: 0 13px;
   font: inherit;
   font-size: 16px;
   letter-spacing: 0.16em;
 }
 .administratorstepupverification input:focus {
-  border-color: #143a8f;
-  outline: 3px solid rgb(20 58 143 / 12%);
+  border-color: var(--console-accent);
+  outline: 3px solid color-mix(in srgb, var(--console-accent) 12%, transparent);
 }
 .administratorstepuperror {
   margin: 0;
-  border: 1px solid #f3c7c7;
+  border: 1px solid var(--console-danger-border);
   border-radius: 9px;
-  background: #fff5f5;
-  color: #b42318;
+  background: var(--console-danger-bg);
+  color: var(--console-danger-text);
   padding: 10px 12px;
   font-size: 13px;
 }
@@ -99,14 +99,14 @@
   padding: 4px 2px 6px;
 }
 .memberaccessworkspace .storefrontmemberhero h1 {
-  color: #10203b;
+  color: var(--console-text);
   font-size: 27px;
   line-height: 1.25;
   letter-spacing: -0.025em;
 }
 .memberaccessworkspace .storefrontmemberhero p {
   margin-top: 7px;
-  color: #77839a;
+  color: var(--console-text-muted);
   font-size: 13px;
   line-height: 1.6;
 }
@@ -115,10 +115,10 @@
 }
 .memberaccessworkspace .storefrontmemberherometa button {
   min-height: 40px;
-  border: 1px solid #d7dbe5;
+  border: 1px solid var(--console-border);
   border-radius: 9px;
-  background: #fff;
-  color: #344054;
+  background: var(--console-surface);
+  color: var(--console-text-secondary);
   padding: 0 14px;
   font: inherit;
   font-size: 13px;
@@ -126,20 +126,20 @@
   cursor: pointer;
 }
 .memberaccessworkspace .storefrontmemberherometa button:hover {
-  border-color: #9fb2d8;
-  color: #143a8f;
+  border-color: var(--console-selected-border);
+  color: var(--console-accent);
 }
 .memberaccessworkspace .storefrontmemberherometa button[data-tone='primary'] {
-  border-color: #143a8f;
-  background: #143a8f;
-  color: #fff;
+  border-color: var(--console-accent);
+  background: var(--console-brand-fill);
+  color: var(--console-on-accent);
 }
 .memberaccessworkspace .storefrontmemberherometa button[data-tone='primary']:hover {
-  background: #0d2d72;
+  background: var(--console-brand-fill-hover);
 }
 .memberaccessworkspace .storefrontmemberherometa button:focus-visible,
 .memberaccessdetailactions button:focus-visible {
-  outline: 3px solid rgb(40 87 189 / 16%);
+  outline: 3px solid color-mix(in srgb, var(--console-accent) 16%, transparent);
   outline-offset: 2px;
 }
 
@@ -154,7 +154,7 @@
 }
 .memberaccessworkspace .storefrontmemberpanel {
   min-height: 570px;
-  border-color: #d7dbe5;
+  border-color: var(--console-border);
   border-radius: 14px;
   box-shadow: var(--member-shadow);
 }
@@ -163,17 +163,17 @@
   padding: 0 22px;
 }
 .memberaccessworkspace .storefrontmemberpanelheading h2 {
-  color: #111;
+  color: var(--console-text);
   font-size: 18px;
 }
 .memberaccessworkspace .storefrontmemberpanelheading small {
-  color: #667085;
+  color: var(--console-text-muted);
   font-size: 11px;
   font-weight: 500;
 }
 .memberaccessworkspace .storefrontmemberpanelheading > div > span {
-  background: #edf2fb;
-  color: #143a8f;
+  background: var(--console-canvas);
+  color: var(--console-accent);
 }
 .memberaccessworkspace .storefrontmembericonbutton {
   width: 36px;
@@ -187,10 +187,10 @@
 }
 .memberaccessdirectoryactions > button:not(.storefrontmembericonbutton) {
   min-height: 36px;
-  border: 1px solid #d7dbe5;
+  border: 1px solid var(--console-border);
   border-radius: 9px;
-  background: #fff;
-  color: #344054;
+  background: var(--console-surface);
+  color: var(--console-text-secondary);
   padding: 0 13px;
   font: inherit;
   font-size: 12px;
@@ -198,9 +198,9 @@
   cursor: pointer;
 }
 .memberaccessdirectoryactions > button:not(.storefrontmembericonbutton)[data-tone='primary'] {
-  border-color: #143a8f;
-  background: #143a8f;
-  color: #fff;
+  border-color: var(--console-accent);
+  background: var(--console-brand-fill);
+  color: var(--console-on-accent);
 }
 
 .memberaccessworkspace .storefrontmembersearch {
@@ -208,15 +208,15 @@
 }
 .memberaccessworkspace .storefrontmembersearch input {
   height: 38px;
-  border-color: #cfd5df;
+  border-color: var(--console-border);
   border-radius: 12px;
   font-size: 13px;
 }
 .memberaccessworkspace .storefrontmembersearch button {
   min-height: 36px;
-  border-color: #143a8f;
+  border-color: var(--console-accent);
   border-radius: 12px;
-  color: #143a8f;
+  color: var(--console-accent);
   font-weight: 600;
 }
 .memberaccessworkspace .storefrontmemberfilters {
@@ -232,10 +232,10 @@
   font-weight: 600;
 }
 .memberaccessworkspace .storefrontmemberfilters button[aria-pressed='true'] {
-  border-color: #2366df;
-  background: #2366df;
-  color: #fff;
-  box-shadow: 0 5px 12px rgb(35 102 223 / 18%);
+  border-color: var(--console-accent);
+  background: var(--console-accent);
+  color: var(--console-on-accent);
+  box-shadow: 0 5px 12px color-mix(in srgb, var(--console-accent) 18%, transparent);
 }
 
 .memberaccessworkspace .storefrontmemberlisthead,
@@ -249,8 +249,8 @@
 }
 .memberaccessworkspace .storefrontmemberlisthead {
   min-height: 42px;
-  background: #f7f8fa;
-  color: #667085;
+  background: var(--console-surface);
+  color: var(--console-text-muted);
   font-size: 11px;
   font-weight: 600;
 }
@@ -260,10 +260,10 @@
   max-height: 52px;
   content-visibility: visible;
   contain-intrinsic-size: none;
-  color: #475467;
+  color: var(--console-text-secondary);
 }
 .memberaccessworkspace .storefrontmemberrow:hover {
-  background: #f7f9fc;
+  background: var(--console-surface);
 }
 .memberaccessworkspace .storefrontmemberperson,
 .memberaccessworkspace .storefrontmemberstage[data-detail-open='true'] .storefrontmemberperson {
@@ -277,12 +277,12 @@
   width: 30px;
   height: 30px;
   grid-row: 1 / span 2;
-  background: #eaf0fa;
-  color: #143a8f;
+  background: var(--console-canvas);
+  color: var(--console-accent);
   font-weight: 600;
 }
 .memberaccessworkspace .storefrontmemberperson strong {
-  color: #101828;
+  color: var(--console-text);
   font-size: 13px;
   font-weight: 600;
 }
@@ -290,24 +290,24 @@
 .memberaccessworkspace .storefrontmemberstage[data-detail-open='true'] .storefrontmemberperson small {
   grid-column: 2;
   margin-top: 0;
-  color: #7a8496;
+  color: var(--console-text-muted);
   font-size: 11px;
 }
 .memberaccessrole {
   width: fit-content;
   border-radius: 8px;
-  background: #edf2fb;
-  color: #143a8f;
+  background: var(--console-canvas);
+  color: var(--console-accent);
   padding: 4px 8px;
   font-size: 11px;
   font-weight: 600;
 }
 .memberaccessrole[data-administrator='true'] {
-  background: #edf2fb;
-  color: #143a8f;
+  background: var(--console-canvas);
+  color: var(--console-accent);
 }
 .memberaccessscopecol {
-  color: #475467;
+  color: var(--console-text-secondary);
   font-size: 12px;
 }
 .memberaccessworkspace .memberaccesschevron {
@@ -320,7 +320,7 @@
   justify-self: center;
   place-items: center;
   overflow: hidden;
-  color: #98a2b3;
+  color: var(--console-text-muted);
   line-height: 1;
 }
 .memberaccessworkspace .memberaccesschevron svg {
@@ -328,7 +328,7 @@
   height: 16px;
 }
 .storefrontmemberrow:hover .memberaccesschevron {
-  color: #143a8f;
+  color: var(--console-accent);
 }
 
 .memberaccessworkspace .storefrontmemberdetail {
@@ -338,9 +338,9 @@
   right: 0;
   bottom: 0;
   width: min(510px, calc(100% - 32px));
-  border-color: #d7dbe5;
+  border-color: var(--console-border);
   border-radius: 0 14px 14px 0;
-  box-shadow: -18px 0 48px rgb(13 45 114 / 18%);
+  box-shadow: -18px 0 48px color-mix(in srgb, var(--console-shadow-color) 18%, transparent);
   pointer-events: none;
 }
 .memberaccessworkspace .storefrontmemberstage[data-detail-open='true'] .storefrontmemberdetail {
@@ -375,31 +375,31 @@
 }
 .memberaccessdetailactions button {
   min-height: 36px;
-  border: 1px solid #d7dbe5;
+  border: 1px solid var(--console-border);
   border-radius: 12px;
-  background: #fff;
-  color: #344054;
+  background: var(--console-surface);
+  color: var(--console-text-secondary);
   font: inherit;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
 }
 .memberaccessdetailactions button[data-tone='primary'] {
-  border-color: #143a8f;
-  background: #143a8f;
-  color: #fff;
+  border-color: var(--console-accent);
+  background: var(--console-brand-fill);
+  color: var(--console-on-accent);
 }
 .memberaccessdetailactions button[data-tone='danger'] {
-  border-color: #e0a29d;
-  color: #b42318;
+  border-color: var(--console-danger-border);
+  color: var(--console-danger-text);
 }
 .memberaccessworkspace .storefrontmemberemptyline button {
   min-height: 30px;
   margin-top: 8px;
-  border: 1px solid #cbd9ec;
+  border: 1px solid var(--console-border);
   border-radius: 10px;
-  background: #fff;
-  color: #143a8f;
+  background: var(--console-surface);
+  color: var(--console-accent);
   padding: 0 10px;
   font: inherit;
   font-size: 11px;

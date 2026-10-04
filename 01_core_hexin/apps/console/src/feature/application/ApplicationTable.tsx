@@ -140,7 +140,7 @@ function applicationColumns(mode: CommerceWorkspaceMode, actions: ApplicationAct
 
 function storefrontDomain(domain: string | null | undefined): string {
   if (domain === null || domain === undefined) return '域名未绑定';
-  return /^h\d+$/.test(domain) ? `${domain}.hbbtzn.com` : domain;
+  return /^h\d+$/.test(domain) ? `${domain}（入口编号）` : domain;
 }
 
 function tableCaption(mode: CommerceWorkspaceMode): string {

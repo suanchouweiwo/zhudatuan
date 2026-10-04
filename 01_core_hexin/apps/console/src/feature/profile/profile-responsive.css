@@ -112,7 +112,7 @@
   }
 
   .profileidentitymetrics > div + div {
-    border-top: 1px solid rgb(255 255 255 / 14%);
+    border-top: 1px solid color-mix(in srgb, var(--console-border) 14%, transparent);
     padding-top: var(--sw-space-1);
   }
 

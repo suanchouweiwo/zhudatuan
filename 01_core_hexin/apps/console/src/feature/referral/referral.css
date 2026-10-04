@@ -8,13 +8,13 @@
   gap: 12px;
   margin: 0 0 14px;
   padding: 11px 15px;
-  border: 1px solid #f5c36b;
+  border: 1px solid var(--console-warning-border);
   border-radius: 12px;
-  color: #70420a;
-  background: #fff8e8;
+  color: var(--console-warning-text);
+  background: var(--console-warning-bg);
 }
 
-.referralpreviewnotice span { color: #865b25; }
+.referralpreviewnotice span { color: var(--console-warning-text); }
 
 .referralworkspace .resourceactions {
   display: flex;

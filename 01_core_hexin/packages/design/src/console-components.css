@@ -1,0 +1,124 @@
+/* 现有 @shop/design 的业务 API 保持不变，采用后台新视觉。 */
+@layer components {
+body {
+  background: var(--console-canvas);
+  color: var(--console-text);
+  font-family: var(--console-font-sans);
+  font-size: var(--console-font-size);
+}
+
+.enterprise-card, .console-card {
+  border: 1px solid var(--console-border);
+  border-radius: var(--console-radius);
+  background: var(--console-surface);
+  color: var(--console-text);
+  box-shadow: var(--console-shadow-subtle);
+}
+
+.shopbutton {
+  min-height: var(--console-control-height);
+  border-radius: var(--console-radius);
+  font-weight: 600;
+  box-shadow: none;
+}
+.shopbutton:hover:not(:disabled), .shopbutton[data-hovered]:not([data-disabled]) {
+  transform: none;
+  box-shadow: none;
+}
+.shopbuttonprimary {
+  border-color: var(--console-accent);
+  background: var(--console-accent);
+  color: var(--console-inverse);
+}
+.shopbuttonprimary:hover:not(:disabled), .shopbuttonprimary[data-hovered]:not([data-disabled]) {
+  background: var(--console-accent-hover);
+  color: var(--console-inverse);
+}
+.shopbuttoncompact { min-height: 30px; }
+.shopbuttonlarge { min-height: 40px; }
+.swbadge, .datasource {
+  border-radius: var(--console-radius);
+  font-size: 12px;
+}
+
+.consolelayout :where(table), .swtable table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--console-surface);
+  color: var(--console-text);
+  font-size: var(--console-font-size);
+}
+.consolelayout :where(thead, thead tr), .swtable thead {
+  background: var(--console-subtle);
+  color: var(--console-text-secondary);
+}
+.consolelayout :where(tbody, tbody tr), .swtable tbody {
+  background: var(--console-surface);
+  color: var(--console-text);
+}
+.consolelayout :where(th, td), .swtable :where(th, td) {
+  height: var(--console-row-height);
+  border-bottom: 1px solid var(--console-border);
+  padding: var(--console-table-padding) 12px;
+}
+.consolelayout :where(tbody tr:hover), .swtable tbody tr:hover {
+  background: var(--console-hover);
+}
+.consolelayout :where(tbody tr[aria-selected='true']), .swtable tbody tr[aria-selected='true'] {
+  background: var(--console-selected);
+}
+
+.consolelayout :where(input:not([type='checkbox']):not([type='radio']), select, textarea),
+.dialogcontent :where(input:not([type='checkbox']):not([type='radio']), select, textarea) {
+  min-height: var(--console-input-height);
+  border: 1px solid var(--console-border-strong);
+  border-radius: var(--console-radius);
+  background: var(--console-surface);
+  color: var(--console-text);
+}
+.consolelayout :where(input, textarea)::placeholder {
+  color: var(--console-text-muted);
+}
+.consolelayout :where(label), .swfieldlabel { color: var(--console-text-secondary); }
+.consolelayout :where(h1) { font-size: var(--console-font-page-title); }
+.consolelayout :where(h2) { font-size: var(--console-font-title); }
+.consolelayout :where(h3) { font-size: var(--console-font-subhead); }
+.consolelayout :where(a) { color: var(--console-brand); }
+
+.dialogbackdrop { background: var(--console-overlay); }
+.dialogpanel, .dialogcontent {
+  border-color: var(--console-border-strong);
+  border-radius: var(--console-radius);
+  background: var(--console-surface);
+  color: var(--console-text);
+  box-shadow: var(--console-shadow-floating);
+}
+.dialogcontent > header {
+  border-bottom: 1px solid var(--console-border);
+  background: var(--console-subtle);
+  color: var(--console-text);
+}
+.dialogcontent p { color: var(--console-text-secondary); }
+
+.tabular-nums { font-variant-numeric: tabular-nums; }
+.table-touch-scroller { overflow-x: auto; overscroll-behavior-x: contain; }
+.consolelayout :where([class*='amount'], [class*='metricvalue']) {
+  font-variant-numeric: tabular-nums;
+}
+.consolelayout :where(button, input, select, textarea):focus-visible {
+  outline: 2px solid var(--console-accent);
+  outline-offset: 2px;
+}
+.consolelayout :where(button:disabled) { opacity: 0.6; }
+
+@media (max-width: 768px) {
+  .consolelayout .tablewrap { overflow-x: auto; }
+  .consolelayout :where(input, select, textarea) { font-size: 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .consolelayout *, .consolelayout *::before, .consolelayout *::after {
+    transition-duration: 0ms;
+  }
+}
+}

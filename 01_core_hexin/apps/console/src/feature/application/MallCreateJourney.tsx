@@ -198,7 +198,7 @@ type StepProps = Readonly<{
 
 function BasicStep({ draft, enterprises, busy, onChange }: StepProps & Readonly<{ enterprises: readonly ConsoleScope[] }>) {
   return <div className="mallcreatefields">
-    <p className="mallcreatesectionintro">先建立唯一商城身份；h5 已占用，H5 域名由系统从 h6.hbbtzn.com 起自动顺序分配。</p>
+    <p className="mallcreatesectionintro">先建立唯一商城身份；H5 地址由系统创建时分配，以创建任务返回的实际入口为准。</p>
     <div className="fieldgrid">
       <label>所属上级
         <select aria-label="所属上级" value={draft.enterpriseId} disabled={busy} required onChange={(event) => onChange('enterpriseId', event.target.value)}>
@@ -213,7 +213,7 @@ function BasicStep({ draft, enterprises, busy, onChange }: StepProps & Readonly<
         <input aria-label="商城代码" value={draft.code} maxLength={32} disabled={busy} required placeholder="例如：ZHENXUAN" onChange={(event) => onChange('code', event.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ''))} />
         <small className="muted">3～32 位，以字母开头，只使用大写字母、数字和下划线。</small>
       </label>
-      <div className="mallcreateaddresspreview"><small>自动 H5 地址</small><strong>h6.hbbtzn.com 起</strong><span>下一家依次使用 h7、h8……</span></div>
+      <div className="mallcreateaddresspreview"><small>自动 H5 地址</small><strong>创建时分配</strong><span>创建完成后查看实际入口</span></div>
     </div>
   </div>;
 }
@@ -250,8 +250,8 @@ function BusinessStep({ draft, busy, onChange }: StepProps) {
 
 function DomainStep({ draft, busy, onChange }: StepProps) {
   return <div className="mallcreatefields">
-    <p className="mallcreatesectionintro">每个 H5 使用独立的 hbbtzn.com 子域名，系统创建时自动选择下一个空闲编号。</p>
-    <div className="mallcreateaddresspreview"><small>域名分配规则</small><strong>h6.hbbtzn.com → h7.hbbtzn.com → h8.hbbtzn.com</strong><span>HTTPS 证书由平台统一托管</span></div>
+    <p className="mallcreatesectionintro">H5 入口由系统创建时分配；实际域名、地址与开通状态以创建任务返回结果为准。</p>
+    <div className="mallcreateaddresspreview"><small>H5 入口</small><strong>由创建任务返回实际地址</strong><span>HTTPS 证书由平台统一托管</span></div>
     <div className="fieldgrid">
       <SelectField label="HTTPS 证书" field="certificateMode" value={draft.certificateMode} busy={busy} onChange={onChange} options={[['managed', '平台自动申请']]} />
     </div>
@@ -385,7 +385,7 @@ function channelSummary(value: string): string {
 }
 
 function domainSummary(): string {
-  return 'h6.hbbtzn.com 起自动顺序分配';
+  return '由系统创建时分配';
 }
 
 function paymentSummary(value: string): string {

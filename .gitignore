@@ -11,6 +11,7 @@ storybook-static/
 .env*
 !.env.example
 !**/.env.example
+!02_platform_pingtai/config/release-inputs/zhudatuan-l0/.env.local
 !01_core_hexin/services/commerce/.env.jobs.example
 secrets.local.json
 02_platform_pingtai/infrastructure/local/.tls/
@@ -42,6 +43,15 @@ gitpointer.broken.txt
 
 # Local state, logs and immutable artifacts produced by the unified AI delivery engine.
 .ai-delivery/
+
+# Local desktop observations retained when the source workspace moved here.
+/*.png
+/*.jpg
+/member-eval-*
+/本机账号.txt
+
+# Installed Windows runtimes moved from the former development directory.
+/04_tools/runtime/
 
 # Payment certificates and private keys belong in Secret Manager, never the workspace.
 02_platform_pingtai/config/payment/

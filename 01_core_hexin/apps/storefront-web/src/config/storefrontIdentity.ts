@@ -21,8 +21,7 @@ export function hbbtznH5Application(hostname: string): string | undefined {
 function currentStorefrontHostname(): string {
   if (typeof window !== 'undefined' && window.location?.hostname) return window.location.hostname;
   const configured = (process.env.SFL_STOREFRONT_HOSTNAME ?? process.env.NEXT_PUBLIC_STOREFRONT_HOSTNAME)?.trim();
-  if (!configured) throw new Error('商城身份节点主机缺失');
-  return configured;
+  return configured || new URL(storefrontIdentityNodeRegistry().nodes[0]!.storefrontOrigin).hostname;
 }
 
 export function storefrontIdentityNodeRegistry(

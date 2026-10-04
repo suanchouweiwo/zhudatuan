@@ -29,9 +29,10 @@ export const OperatorIdentityPage: React.FC<Readonly<{
   target: string;
   expectedOrigin: string;
   displayName: string;
+  brandName?: string;
   brand: 'morvia' | 'hongtai';
   onAudienceSwitch: () => void;
-}>> = ({ target, expectedOrigin, displayName: nodeDisplayName, brand, onAudienceSwitch }) => {
+}>> = ({ target, expectedOrigin, displayName: nodeDisplayName, brandName, brand, onAudienceSwitch }) => {
   const search = typeof window === 'undefined' ? '' : window.location.search;
   const params = new URLSearchParams(search);
   const initialInvite = params.get('invite')?.trim().toUpperCase() ?? '';
@@ -256,7 +257,7 @@ export const OperatorIdentityPage: React.FC<Readonly<{
 
   return (
     <>
-      <MorviaIdentityShell audience="operator" brand={brand} contextLabel={productName} onAudienceSwitch={onAudienceSwitch}>
+      <MorviaIdentityShell audience="operator" brand={brand} brandName={brandName} contextLabel={productName} onAudienceSwitch={onAudienceSwitch}>
         <div className="mb-7">
           <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--sw-brand)]">管理员渠道</p>
           <h2 className="mt-2 font-['MORVIA_Title'] text-3xl font-bold tracking-[-0.035em] text-[#111111]">{modeTitle}</h2>

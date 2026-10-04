@@ -19,8 +19,38 @@ export interface SidebarProps {
   readonly onToggle: () => void;
 }
 
+const visualGroups = [
+  { id: 'core', label: '经营核心', modules: ['cockpit', 'reports', 'control'] },
+  { id: 'commerce', label: '商品与交易', modules: ['applications', 'products', 'supply-chain', 'orders'] },
+  { id: 'network', label: '分销与生态', modules: ['referral', 'channels', 'vouchers'] },
+  { id: 'capital', label: '资金与用户', modules: ['finance', 'storefront-members', 'access', 'qualification'] },
+  { id: 'governance', label: '服务与治理', modules: ['support', 'engineering'] },
+] as const;
+
 export function Sidebar({ active, collapsed, displayName, brandName = '主打团', brandSubtitle = '运营管理后台',
   mainItems, bottomItems, onNavigate, onNavigateIntent, onOpenProfile, onToggle }: SidebarProps) {
+  const availableItems = [...mainItems, ...bottomItems];
+  const groups = visualGroups.map((group) => ({
+    ...group,
+    items: group.modules.flatMap((moduleId) => availableItems.filter((item) => item.moduleId === moduleId)),
+  })).filter((group) => group.items.length > 0);
+
+  const renderItem = (item: NavigationItem) => {
+    const label = navigationLabel(item);
+    const badge = item.moduleId === 'products' ? 'SKU' : item.moduleId === 'engineering' ? 'LK' : undefined;
+    return <button key={item.moduleId} type="button" onClick={() => onNavigate(item.suffix)} data-module={item.moduleId}
+      onPointerEnter={() => onNavigateIntent?.(item.moduleId, 'hover')}
+      onFocus={() => onNavigateIntent?.(item.moduleId, 'focus')}
+      onPointerDown={() => onNavigateIntent?.(item.moduleId, 'pointerdown')}
+      onTouchStart={() => onNavigateIntent?.(item.moduleId, 'touchstart')}
+      data-status={item.status}
+      aria-disabled={item.status === 'disabled' ? true : undefined}
+      aria-label={label} aria-current={item.moduleId === active ? 'page' : undefined}
+      title={collapsed ? label : undefined}>
+      <ShellIcon name={item.icon} /><span className="sidebarlabel">{label}</span>
+      {badge === undefined ? null : <small className="sidebarnavbadge" aria-hidden="true">{badge}</small>}
+    </button>;
+  };
 
   return (
     <aside className={`consolesidebar${collapsed ? ' iscollapsed' : ''}`} aria-label="主导航">
@@ -34,22 +64,12 @@ export function Sidebar({ active, collapsed, displayName, brandName = '主打团
           <ShellIcon name={collapsed ? 'chevron' : 'collapse'} />
         </button>
       </div>
-      <div className="sidebarnavtitle">工作台工作流</div>
+      <div className="sidebarnavtitle">运营工作台</div>
       <nav aria-label="工作台与治理系统" className="sidebarnavigation">
-        {mainItems.map((item) => {
-          const label = navigationLabel(item);
-          return <button key={item.moduleId} type="button" onClick={() => onNavigate(item.suffix)} data-module={item.moduleId}
-            onPointerEnter={() => onNavigateIntent?.(item.moduleId, 'hover')}
-            onFocus={() => onNavigateIntent?.(item.moduleId, 'focus')}
-            onPointerDown={() => onNavigateIntent?.(item.moduleId, 'pointerdown')}
-            onTouchStart={() => onNavigateIntent?.(item.moduleId, 'touchstart')}
-            data-status={item.status}
-            aria-disabled={item.status === 'disabled' ? true : undefined}
-            aria-label={label} aria-current={item.moduleId === active ? 'page' : undefined}
-            title={collapsed ? label : undefined}>
-            <ShellIcon name={item.icon} /><span className="sidebarlabel">{label}</span>
-          </button>;
-        })}
+        {groups.map((group) => <div className="sidebarnavgroup" key={group.id}>
+          <span className="sidebarnavgrouplabel">{group.label}</span>
+          {group.items.map(renderItem)}
+        </div>)}
       </nav>
       <footer className="sidebarfooter">
         <nav aria-label="个人中心、工程与架构和服务中心" className="sidebarutilitynavigation">
@@ -59,24 +79,11 @@ export function Sidebar({ active, collapsed, displayName, brandName = '主打团
             <span className="sidebarprofileavatar" aria-hidden="true">{avatarLetter(displayName)}</span>
             <span className="sidebarlabel">个人中心</span>
           </button>
-          {bottomItems.map((item) => {
-            const label = navigationLabel(item);
-            return <button key={item.moduleId} type="button" onClick={() => onNavigate(item.suffix)}
-              data-module={item.moduleId} data-status={item.status}
-              onPointerEnter={() => onNavigateIntent?.(item.moduleId, 'hover')}
-              onFocus={() => onNavigateIntent?.(item.moduleId, 'focus')}
-              onPointerDown={() => onNavigateIntent?.(item.moduleId, 'pointerdown')}
-              onTouchStart={() => onNavigateIntent?.(item.moduleId, 'touchstart')}
-              aria-disabled={item.status === 'disabled' ? true : undefined} aria-label={label}
-              aria-current={item.moduleId === active ? 'page' : undefined} title={collapsed ? label : undefined}>
-              <ShellIcon name={item.icon} /><span className="sidebarlabel">{label}</span>
-            </button>;
-          })}
         </nav>
         <button className="sidebarversion" type="button" onClick={() => onNavigate('system/releases')}
-          aria-label={`主打团 Console 当前生产版本 ${CURRENT_CONSOLE_RELEASE.version}`}
-          title={collapsed ? `主打团 Console ${CURRENT_CONSOLE_RELEASE.version}` : undefined}>
-          <span className="sidebarversioncopy"><small>主打团 CONSOLE</small><strong>{CURRENT_CONSOLE_RELEASE.version}</strong></span>
+          aria-label={`${brandName} Console 当前生产版本 ${CURRENT_CONSOLE_RELEASE.version}`}
+          title={collapsed ? `${brandName} Console ${CURRENT_CONSOLE_RELEASE.version}` : undefined}>
+          <span className="sidebarversioncopy"><small>{brandName} CONSOLE</small><strong>{CURRENT_CONSOLE_RELEASE.version}</strong></span>
           <span className="sidebarversionstate"><i aria-hidden="true" />生产版</span>
         </button>
       </footer>
@@ -90,5 +97,5 @@ function navigationLabel(item: NavigationItem): string {
 }
 
 function avatarLetter(displayName: string): string {
-  return displayName.match(/[A-Za-z]/)?.[0]?.toUpperCase() ?? (displayName.trim().slice(0, 1) || '智');
+  return displayName.match(/[A-Za-z]/)?.[0]?.toUpperCase() ?? (displayName.trim().slice(0, 1) || '主');
 }

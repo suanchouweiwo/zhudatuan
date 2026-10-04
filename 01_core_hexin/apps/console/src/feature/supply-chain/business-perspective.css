@@ -1,20 +1,20 @@
 .businessperspective { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 16px; align-items: center; padding: 14px 16px;
-  border: 1px solid #d8e2f2; border-radius: 10px; background: linear-gradient(100deg, #f8faff, #fff 62%); color: #172033; }
-.businessperspective header { min-width: 0; padding-right: 16px; border-right: 1px solid #dfe7f3; }
+  border: 1px solid var(--console-border); border-radius: 10px; background: linear-gradient(100deg, var(--console-surface), var(--console-surface) 62%); color: var(--console-text); }
+.businessperspective header { min-width: 0; padding-right: 16px; border-right: 1px solid var(--console-border); }
 .businessperspective header div { display: flex; align-items: baseline; gap: 8px; }
-.businessperspective header span { color: #1f5eff; font-size: 11px; font-weight: 700; letter-spacing: .04em; }
-.businessperspective header strong { overflow: hidden; color: #07182f; font-size: 15px; text-overflow: ellipsis; white-space: nowrap; }
-.businessperspective header small { display: block; margin-top: 4px; color: #718096; font-size: 11px; line-height: 16px; }
+.businessperspective header span { color: var(--console-accent); font-size: 11px; font-weight: 700; letter-spacing: .04em; }
+.businessperspective header strong { overflow: hidden; color: var(--console-text); font-size: 15px; text-overflow: ellipsis; white-space: nowrap; }
+.businessperspective header small { display: block; margin-top: 4px; color: var(--console-text-muted); font-size: 11px; line-height: 16px; }
 .businessperspective > div { display: flex; gap: 8px; min-width: 0; overflow-x: auto; scrollbar-width: thin; }
 .businessperspective button { display: flex; align-items: center; gap: 9px; min-width: 174px; padding: 9px 12px; border: 1px solid transparent;
-  border-radius: 8px; background: transparent; color: #334155; text-align: left; cursor: pointer; transition: border-color 140ms ease,background 140ms ease; }
-.businessperspective button:hover { border-color: #c9d8f4; background: #fff; }
-.businessperspective button[aria-selected="true"] { border-color: #8db0ff; background: #fff; box-shadow: 0 2px 8px rgba(31,94,255,.08); }
+  border-radius: 8px; background: transparent; color: var(--console-text-secondary); text-align: left; cursor: pointer; transition: border-color 140ms ease,background 140ms ease; }
+.businessperspective button:hover { border-color: var(--console-selected-border); background: var(--console-surface); }
+.businessperspective button[aria-selected="true"] { border-color: var(--console-selected-border); background: var(--console-surface); box-shadow: 0 2px 8px color-mix(in srgb, var(--console-accent) 8%, transparent); }
 .businessperspective button i { display: grid; flex: 0 0 30px; width: 30px; height: 30px; place-items: center; border-radius: 8px;
-  background: #eaf0ff; color: #1f5eff; font-size: 12px; font-style: normal; font-weight: 700; }
-.businessperspective button[aria-selected="true"] i { background: #1f5eff; color: #fff; }
+  background: var(--console-selected); color: var(--console-accent); font-size: 12px; font-style: normal; font-weight: 700; }
+.businessperspective button[aria-selected="true"] i { background: var(--console-accent); color: var(--console-on-accent); }
 .businessperspective button span,.businessperspective button strong,.businessperspective button small { display: block; min-width: 0; }
 .businessperspective button strong { overflow: hidden; font-size: 12px; line-height: 17px; text-overflow: ellipsis; white-space: nowrap; }
-.businessperspective button small { overflow: hidden; margin-top: 1px; color: #7b8799; font-size: 10px; line-height: 15px; text-overflow: ellipsis; white-space: nowrap; }
-@media (max-width: 820px) { .businessperspective { grid-template-columns: 1fr; } .businessperspective header { padding: 0 0 10px; border-right: 0; border-bottom: 1px solid #dfe7f3; } }
+.businessperspective button small { overflow: hidden; margin-top: 1px; color: var(--console-text-muted); font-size: 10px; line-height: 15px; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 820px) { .businessperspective { grid-template-columns: 1fr; } .businessperspective header { padding: 0 0 10px; border-right: 0; border-bottom: 1px solid var(--console-border); } }
 @media (prefers-reduced-motion: reduce) { .businessperspective button { transition: none; } }

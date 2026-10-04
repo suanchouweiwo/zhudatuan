@@ -67,26 +67,35 @@ export const SFL_NODE_MANIFEST_REGISTRY_DECLARATION: NodeManifestRegistryDeclara
   manifests: SFL_NODE_REGISTRY.manifests,
 });
 
-export const SFL_CONSOLE_RELEASE_DECLARATION: SflConsoleReleaseDeclaration = Object.freeze({
-  schema_version: 'sfl.console-release-declaration.v1',
-  ...SFL_NODE_MANIFEST_REGISTRY_DECLARATION,
-  runtime_bindings: Object.freeze(SFL_NODE_REGISTRY.node_bindings.map((binding) => {
-    const manifest = nodeManifestDeclaration(binding.node_id);
-    const api = nodeDomainBinding(binding.node_id, binding.console.api_binding_ref);
-    const identity = nodeDomainBinding(binding.node_id, binding.console.identity_binding_ref);
-    const identityEntry = new URL(`https://${identity.host}`);
-    identityEntry.searchParams.set('target', binding.console.identity_target);
-    return Object.freeze({
-      resource_binding_set_ref: manifest.resource_binding_set_ref,
-      api_base_url: `https://${api.host}`,
-      identity_entry_url: identityEntry.toString(),
-      scope_kind: binding.console.scope_kind,
-    });
-  })),
-});
+export const SFL_CONSOLE_RELEASE_DECLARATION = consoleReleaseDeclarationOf(SFL_NODE_REGISTRY);
 
-export function nodeManifestDeclaration(nodeId: string): NodeManifestDeclaration {
-  const matches = SFL_NODE_REGISTRY.manifests.filter((manifest) => manifest.node_id === nodeId);
+export function consoleReleaseDeclarationOf(registry: SflNodeRegistryDeclaration): SflConsoleReleaseDeclaration {
+  return Object.freeze({
+    schema_version: 'sfl.console-release-declaration.v1',
+    registry_version: registry.registry_version,
+    generated_at: registry.generated_at,
+    manifests: registry.manifests,
+    runtime_bindings: Object.freeze(registry.node_bindings.map((binding) => {
+      const manifest = nodeManifestDeclaration(binding.node_id, registry);
+      const api = nodeDomainBinding(binding.node_id, binding.console.api_binding_ref, registry);
+      const identity = nodeDomainBinding(binding.node_id, binding.console.identity_binding_ref, registry);
+      const identityEntry = new URL(`https://${identity.host}`);
+      identityEntry.searchParams.set('target', binding.console.identity_target);
+      return Object.freeze({
+        resource_binding_set_ref: manifest.resource_binding_set_ref,
+        api_base_url: `https://${api.host}`,
+        identity_entry_url: identityEntry.toString(),
+        scope_kind: binding.console.scope_kind,
+      });
+    })),
+  });
+}
+
+export function nodeManifestDeclaration(
+  nodeId: string,
+  registry: SflNodeRegistryDeclaration = SFL_NODE_REGISTRY,
+): NodeManifestDeclaration {
+  const matches = registry.manifests.filter((manifest) => manifest.node_id === nodeId);
   if (matches.length !== 1) throw new Error(`SFL_NODE_DECLARATION_UNKNOWN:${nodeId}`);
   return matches[0]!;
 }
@@ -103,15 +112,23 @@ export function nodeResourceBinding(nodeId: string): SflNodeResourceBinding {
   return matches[0]!;
 }
 
-export function nodeDomainBinding(nodeId: string, bindingRef: string): DomainBindingRef {
-  const manifest = nodeManifestDeclaration(nodeId);
+export function nodeDomainBinding(
+  nodeId: string,
+  bindingRef: string,
+  registry: SflNodeRegistryDeclaration = SFL_NODE_REGISTRY,
+): DomainBindingRef {
+  const manifest = nodeManifestDeclaration(nodeId, registry);
   const matches = manifest.domain_bindings.filter((binding) => binding.binding_ref.ref === bindingRef);
   if (matches.length !== 1) throw new Error(`SFL_NODE_DOMAIN_BINDING_UNKNOWN:${nodeId}:${bindingRef}`);
   return matches[0]!;
 }
 
-export function nodeOriginForBinding(nodeId: string, bindingRef: string): string {
-  return `https://${nodeDomainBinding(nodeId, bindingRef).host}`;
+export function nodeOriginForBinding(
+  nodeId: string,
+  bindingRef: string,
+  registry: SflNodeRegistryDeclaration = SFL_NODE_REGISTRY,
+): string {
+  return `https://${nodeDomainBinding(nodeId, bindingRef, registry).host}`;
 }
 
 export function purchaseBrowserOrigins(): readonly string[] {

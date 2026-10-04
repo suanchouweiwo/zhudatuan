@@ -10,8 +10,11 @@ export interface AuthBuildEnvironment {
   readonly clientVersion: string;
 }
 
-export function validateAuthBuildEnvironment(source: Readonly<Record<string, string | undefined>>): AuthBuildEnvironment {
-  const registrySource = source.VITE_IDENTITY_NODE_REGISTRY?.trim() || PRODUCTION_IDENTITY_NODE_REGISTRY_SOURCE;
+export function validateAuthBuildEnvironment(
+  source: Readonly<Record<string, string | undefined>>,
+  productionRegistrySource: string = PRODUCTION_IDENTITY_NODE_REGISTRY_SOURCE,
+): AuthBuildEnvironment {
+  const registrySource = source.VITE_IDENTITY_NODE_REGISTRY?.trim() || productionRegistrySource;
   const identityNodes = parseIdentityNodeRegistry(registrySource);
   if (identityNodes.nodes.some((node) => [node.accountsOrigin, node.apiOrigin, node.consumerApiOrigin,
     node.storefrontOrigin, ...(node.adminOrigin === null ? [] : [node.adminOrigin])]
@@ -24,7 +27,7 @@ export function validateAuthBuildEnvironment(source: Readonly<Record<string, str
   if (mode !== undefined && mode !== '' && mode !== 'staging') throw new Error('AUTH_CLIENT_IDENTITY_NODE_MODE_INVALID');
   if (mode === 'staging') {
     if (!clientVersion.endsWith('-staging')) throw new Error('AUTH_CLIENT_IDENTITY_NODE_MODE_INVALID');
-  } else if (JSON.stringify(identityNodes) !== PRODUCTION_IDENTITY_NODE_REGISTRY_SOURCE) {
+  } else if (JSON.stringify(identityNodes) !== productionRegistrySource) {
     throw new Error('AUTH_CLIENT_IDENTITY_NODE_MANIFEST_DRIFT');
   }
   return Object.freeze({ identityNodes, identityNodeRegistrySource: JSON.stringify(identityNodes), clientVersion });

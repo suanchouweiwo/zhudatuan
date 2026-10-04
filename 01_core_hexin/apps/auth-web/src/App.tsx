@@ -8,16 +8,19 @@ import { MallProvider } from './context/MallContext';
 import { ConsumerIdentityPage } from './screens/ConsumerIdentityPage';
 import { OperatorIdentityPage } from './screens/OperatorIdentityPage';
 import { resolveIdentityEntry } from './services/consumerIdentityEntry';
+import { configuredIdentityNodeRegistry } from './services/identityNodeEnvironment';
 
 export default function App() {
   const search = typeof window === 'undefined' ? '' : window.location.search;
   const hostname = typeof window === 'undefined' ? '' : window.location.hostname;
   const [entry, setEntry] = React.useState(() => resolveIdentityEntry(search, hostname));
+  const node = entry === null ? undefined : configuredIdentityNodeRegistry().nodes.find((candidate) => candidate.nodeId === entry.nodeId);
+  const brandName = node?.brandName ?? '主打团';
 
   React.useEffect(() => {
     if (entry === null) return;
-    document.title = `${entry.kind === 'operator' ? '管理员登录' : '会员登录'}｜${entry.nodeId === 'node:hbbtzn:l1' ? '宏泰甄选' : '主打团'}`;
-  }, [entry]);
+    document.title = `${entry.kind === 'operator' ? '管理员登录' : '会员登录'}｜${brandName}`;
+  }, [entry, brandName]);
 
   const switchAudience = () => {
     if (entry === null || typeof window === 'undefined') return;
@@ -37,12 +40,15 @@ export default function App() {
           ? <OperatorIdentityPage
               target={entry.target}
               expectedOrigin={entry.adminOrigin}
-              displayName={entry.nodeId === 'node:zhudatuan:l0' ? '主打团' : entry.displayName}
+              displayName={node?.mallName ?? entry.displayName}
+              brandName={brandName}
               brand={entry.nodeId === 'node:hbbtzn:l1' ? 'hongtai' : 'morvia'}
               onAudienceSwitch={switchAudience}
             />
           : <ConsumerIdentityPage
               application={entry.application}
+              brandName={brandName}
+              mallName={node?.mallName}
               brand={entry.nodeId === 'node:hbbtzn:l1' ? 'hongtai' : 'morvia'}
               onAudienceSwitch={switchAudience}
             />}

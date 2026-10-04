@@ -21,9 +21,11 @@ type ConsumerActionKey = 'consumer-login' | 'consumer-register' | 'consumer-rese
 
 export const ConsumerIdentityPage: React.FC<{
   application: string;
+  brandName?: string;
+  mallName?: string;
   brand: 'morvia' | 'hongtai';
   onAudienceSwitch: () => void;
-}> = ({ application, brand, onAudienceSwitch }) => {
+}> = ({ application, brandName, mallName, brand, onAudienceSwitch }) => {
   const [mode, setMode] = useState<IdentityMode>('login');
   const [context, setContext] = useState<CanonicalStorefrontRegistration | null>(null);
   const [contextError, setContextError] = useState('');
@@ -48,13 +50,13 @@ export const ConsumerIdentityPage: React.FC<{
     void resolveCanonicalStorefrontRegistration(application, controller.signal)
       .then((resolved) => {
         setContext(resolved);
-        document.title = `${application === 'zhudatuan-storefront' ? '主打团' : resolved.organizationName}会员登录｜${brand === 'hongtai' ? '宏泰甄选' : '主打团'}`;
+        document.title = `${mallName ?? resolved.organizationName}会员登录｜${brandName ?? (brand === 'hongtai' ? '宏泰甄选' : '主打团')}`;
       })
       .catch((error: unknown) => {
         if (!controller.signal.aborted) setContextError(messageOf(error));
       });
     return () => controller.abort();
-  }, [application, brand]);
+  }, [application, brand, brandName, mallName]);
 
   const switchMode = (next: IdentityMode) => {
     identityActions.cancel();
@@ -167,7 +169,7 @@ export const ConsumerIdentityPage: React.FC<{
     );
   };
 
-  const organizationName = application === 'zhudatuan-storefront' ? '主打团' : context?.organizationName ?? (brand === 'hongtai' ? '宏泰甄选' : '主打团');
+  const organizationName = mallName ?? context?.organizationName ?? brandName ?? (brand === 'hongtai' ? '宏泰甄选' : '主打团');
   const submitting = identityActions.isBusy(mode === 'login' ? 'consumer-login' : mode === 'register' ? 'consumer-register' : 'consumer-reset');
   const resetCodeBusy = identityActions.isBusy('consumer-reset-code');
   const maskedMobile = maskMobile(mobile);
@@ -197,7 +199,7 @@ export const ConsumerIdentityPage: React.FC<{
 
   return (
     <>
-      <MorviaIdentityShell audience="consumer" brand={brand} contextLabel={organizationName} onAudienceSwitch={onAudienceSwitch}>
+      <MorviaIdentityShell audience="consumer" brand={brand} brandName={brandName} contextLabel={organizationName} onAudienceSwitch={onAudienceSwitch}>
         <div className="mb-7">
           <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--sw-brand)]">
             {mode === 'reset' ? <KeyRound className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}

@@ -16,7 +16,7 @@
 .memberinvitationform,
 .memberinvitationreceipt {
   display: grid;
-  color: #0b1d35;
+  color: var(--console-text);
 }
 
 .memberinvitationbody {
@@ -29,9 +29,9 @@
   display: flex;
   align-items: center;
   gap: 0.875rem;
-  border: 1px solid #dbe6f5;
+  border: 1px solid var(--console-border);
   border-radius: 10px;
-  background: #f7faff;
+  background: var(--console-surface);
   padding: 0.875rem 1rem;
 }
 
@@ -42,8 +42,8 @@
   width: 2.75rem;
   height: 2.75rem;
   border-radius: 9px;
-  background: #e8f0ff;
-  color: #1758e8;
+  background: var(--console-selected);
+  color: var(--console-accent);
   place-items: center;
 }
 
@@ -62,14 +62,14 @@
 }
 
 .memberinvitationintro p {
-  color: #60718a;
+  color: var(--console-text-muted);
   font-size: 0.875rem;
 }
 
 .memberinvitationintro strong {
   display: block;
   margin-top: 0.25rem;
-  color: #1649aa;
+  color: var(--console-accent);
   font-size: 0.8125rem;
 }
 
@@ -89,7 +89,7 @@
 .memberinvitationlevels legend,
 .memberinvitationfield > label {
   margin: 0 0 0.5rem;
-  color: #243852;
+  color: var(--console-text);
   font-size: 0.8125rem;
   font-weight: 700;
 }
@@ -108,26 +108,26 @@
   gap: 0.75rem !important;
   min-height: 7.25rem;
   margin: 0 !important;
-  border: 1px solid #d7e0ec;
+  border: 1px solid var(--console-border);
   border-radius: 10px;
-  background: #fff;
+  background: var(--console-surface);
   padding: 1rem;
   cursor: pointer;
   transition: border-color 120ms ease, background-color 120ms ease, box-shadow 120ms ease;
 }
 
 .memberinvitationlevel:hover {
-  border-color: #8eaff7;
+  border-color: var(--console-selected-border);
 }
 
 .memberinvitationlevel[data-selected='true'] {
-  border-color: #1f5eff;
-  background: #f3f7ff;
-  box-shadow: 0 0 0 2px rgb(31 94 255 / 10%);
+  border-color: var(--console-accent);
+  background: var(--console-selected);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--console-accent) 10%, transparent);
 }
 
 .memberinvitationlevel:has(input:focus-visible) {
-  outline: 3px solid rgb(31 94 255 / 22%);
+  outline: 3px solid color-mix(in srgb, var(--console-accent) 22%, transparent);
   outline-offset: 2px;
 }
 
@@ -144,8 +144,8 @@
   width: 2.375rem;
   height: 2.375rem;
   border-radius: 8px;
-  background: #edf3ff;
-  color: #1f5eff;
+  background: var(--console-canvas);
+  color: var(--console-accent);
   place-items: center;
 }
 
@@ -168,15 +168,15 @@
 .memberinvitationlevelcopy small {
   width: fit-content;
   border-radius: 5px;
-  background: #e8f0ff;
-  color: #1758e8;
+  background: var(--console-selected);
+  color: var(--console-accent);
   padding: 0.1875rem 0.375rem;
   font-size: 0.6875rem;
   font-weight: 700;
 }
 
 .memberinvitationlevelcopy em {
-  color: #60718a;
+  color: var(--console-text-muted);
   font-size: 0.8125rem;
   font-style: normal;
   line-height: 1.65;
@@ -186,14 +186,14 @@
   display: grid;
   width: 1.125rem;
   height: 1.125rem;
-  border: 1px solid #aebbcf;
+  border: 1px solid var(--console-border-strong);
   border-radius: 50%;
-  background: #fff;
+  background: var(--console-surface);
   place-items: center;
 }
 
 .memberinvitationlevel[data-selected='true'] > i {
-  border: 0.3125rem solid #1f5eff;
+  border: 0.3125rem solid var(--console-accent);
 }
 
 .memberinvitationfield {
@@ -204,21 +204,21 @@
 .memberinvitationfield select {
   min-height: 2.875rem;
   margin: 0;
-  border-color: #cbd6e5;
+  border-color: var(--console-border);
   border-radius: 8px;
-  color: #132b49;
+  color: var(--console-text);
   font-size: 0.875rem;
 }
 
 .memberinvitationfield input:focus,
 .memberinvitationfield select:focus {
-  border-color: #1f5eff;
-  outline: 3px solid rgb(31 94 255 / 12%);
+  border-color: var(--console-accent);
+  outline: 3px solid color-mix(in srgb, var(--console-accent) 12%, transparent);
 }
 
 .memberinvitationfield input[aria-invalid='true'],
 .memberinvitationfield select[aria-invalid='true'] {
-  border-color: #c63f3f;
+  border-color: var(--console-danger);
 }
 
 .memberinvitationfieldhint,
@@ -229,19 +229,19 @@
 }
 
 .memberinvitationfieldhint {
-  color: #718199;
+  color: var(--console-text-muted);
 }
 
 .memberinvitationfielderror {
-  color: #b72e2e;
+  color: var(--console-danger-text);
   font-weight: 700;
 }
 
 .memberinvitationpolicy {
   overflow: hidden;
-  border: 1px solid #dce5f1;
+  border: 1px solid var(--console-border);
   border-radius: 10px;
-  background: #fbfcfe;
+  background: var(--console-surface);
 }
 
 .memberinvitationpolicyheading {
@@ -249,8 +249,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  border-bottom: 1px solid #e4ebf4;
-  background: #f3f7fc;
+  border-bottom: 1px solid var(--console-border);
+  background: var(--console-canvas);
   padding: 0.75rem 1rem;
 }
 
@@ -262,7 +262,7 @@
 
 .memberinvitationpolicyheading span,
 .memberinvitationpolicyheading small {
-  color: #6a7b92;
+  color: var(--console-text-muted);
   font-size: 0.75rem;
 }
 
@@ -285,7 +285,7 @@
 
 .memberinvitationpolicy dt,
 .memberinvitationreceiptdetails dt {
-  color: #74839a;
+  color: var(--console-text-muted);
   font-size: 0.6875rem;
   font-weight: 700;
 }
@@ -294,17 +294,17 @@
 .memberinvitationreceiptdetails dd {
   overflow-wrap: anywhere;
   margin: 0.3125rem 0 0;
-  color: #172d4b;
+  color: var(--console-text);
   font-size: 0.8125rem;
   font-weight: 700;
 }
 
 .memberinvitationerror {
   margin: 0;
-  border: 1px solid #efc4c4;
+  border: 1px solid var(--console-danger-border);
   border-radius: 8px;
-  background: #fff5f5;
-  color: #a82e2e;
+  background: var(--console-danger-bg);
+  color: var(--console-danger-text);
   padding: 0.75rem 0.875rem;
   font-size: 0.8125rem;
 }
@@ -312,9 +312,9 @@
 .memberinvitationactive {
   display: grid;
   gap: 0.375rem;
-  border: 1px solid #c9daf8;
+  border: 1px solid var(--console-selected-border);
   border-radius: 8px;
-  background: #f3f7ff;
+  background: var(--console-surface);
   padding: 0.75rem 0.875rem;
 }
 
@@ -324,12 +324,12 @@
 }
 
 .memberinvitationactive strong {
-  color: #1649aa;
+  color: var(--console-accent);
   font-size: 0.8125rem;
 }
 
 .memberinvitationactive p {
-  color: #60718a;
+  color: var(--console-text-muted);
   font-size: 0.75rem;
   line-height: 1.6;
 }
@@ -339,14 +339,14 @@
   justify-content: space-between !important;
   gap: 1rem !important;
   margin: 0 !important;
-  border-top: 1px solid #e2e9f2 !important;
-  background: #fbfcfe;
+  border-top: 1px solid var(--console-border) !important;
+  background: var(--console-surface);
   padding: 1rem 1.5rem !important;
 }
 
 .memberinvitationfootnote {
   margin: 0;
-  color: #6b7b91;
+  color: var(--console-text-muted);
   font-size: 0.75rem;
 }
 
@@ -377,8 +377,8 @@
 }
 
 .memberinvitationreceiptheading > span {
-  background: #e7f7ef;
-  color: #168553;
+  background: var(--console-success-bg);
+  color: var(--console-success-text);
 }
 
 .memberinvitationreceiptheading strong {
@@ -387,7 +387,7 @@
 
 .memberinvitationreceiptheading p {
   margin-top: 0.25rem;
-  color: #66768d;
+  color: var(--console-text-muted);
   font-size: 0.8125rem;
 }
 
@@ -395,38 +395,38 @@
   display: grid;
   width: 100%;
   gap: 0.5rem;
-  border: 1px solid #1f5eff;
+  border: 1px solid var(--console-accent);
   border-radius: 10px;
-  background: #f2f6ff;
+  background: var(--console-surface);
   padding: 1.125rem 1.25rem;
   text-align: left;
   cursor: pointer;
 }
 
 .memberinvitationcode:hover {
-  border-color: #1649c9;
-  background: #edf3ff;
+  border-color: var(--console-accent);
+  background: var(--console-hover);
 }
 
 .memberinvitationcode:focus-visible {
-  outline: 3px solid rgb(31 94 255 / 22%);
+  outline: 3px solid color-mix(in srgb, var(--console-accent) 22%, transparent);
   outline-offset: 2px;
 }
 
 .memberinvitationcode[data-copy-state='copied'] {
-  border-color: #168553;
-  background: #effaf5;
+  border-color: var(--console-success);
+  background: var(--console-success-bg);
 }
 
 .memberinvitationcode > span,
 .memberinvitationlinkpreview > span {
-  color: #586c88;
+  color: var(--console-text-muted);
   font-size: 0.75rem;
   font-weight: 700;
 }
 
 .memberinvitationcode code {
-  color: #124ccf;
+  color: var(--console-accent);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: clamp(1.5rem, 4vw, 2rem);
   font-weight: 800;
@@ -437,39 +437,39 @@
 }
 
 .memberinvitationcode small {
-  color: #1758e8;
+  color: var(--console-accent);
   font-size: 0.75rem;
   font-weight: 700;
 }
 
 .memberinvitationcode[data-copy-state='copied'] code,
 .memberinvitationcode[data-copy-state='copied'] small {
-  color: #137149;
+  color: var(--console-success-text);
 }
 
 .memberinvitationreceiptdetails {
   overflow: hidden;
-  border: 1px solid #dce5f1;
+  border: 1px solid var(--console-border);
   border-radius: 10px;
-  background: #fbfcfe;
+  background: var(--console-surface);
 }
 
 .memberinvitationreceiptdetails > div + div {
-  border-left: 1px solid #e4ebf4;
+  border-left: 1px solid var(--console-border);
 }
 
 .memberinvitationlinkpreview {
   display: grid;
   gap: 0.375rem;
-  border: 1px solid #dce5f1;
+  border: 1px solid var(--console-border);
   border-radius: 8px;
-  background: #fff;
+  background: var(--console-surface);
   padding: 0.75rem 0.875rem;
 }
 
 .memberinvitationlinkpreview code {
   overflow: hidden;
-  color: #34506f;
+  color: var(--console-text-secondary);
   font-size: 0.75rem;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -479,16 +479,16 @@
 .memberinvitationcopystatus {
   margin: 0;
   border-radius: 8px;
-  background: #effaf5;
-  color: #137149;
+  background: var(--console-success-bg);
+  color: var(--console-success-text);
   padding: 0.75rem 0.875rem;
   font-size: 0.8125rem;
   font-weight: 700;
 }
 
 .memberinvitationcopystatus[data-status='failed'] {
-  background: #fff7e8;
-  color: #9b5a00;
+  background: var(--console-warning-bg);
+  color: var(--console-warning-text);
 }
 
 .memberinvitationreceipt footer {
@@ -496,7 +496,7 @@
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 0.625rem;
-  border-top: 1px solid #e2e9f2;
+  border-top: 1px solid var(--console-border);
   padding-top: 1.25rem;
 }
 

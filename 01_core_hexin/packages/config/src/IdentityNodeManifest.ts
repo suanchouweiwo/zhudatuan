@@ -4,6 +4,7 @@ import {
   nodeOriginForBinding,
   type SflIdentityMembershipClient,
   type SflIdentitySurface,
+  type SflNodeRegistryDeclaration,
 } from '@shop/config/sfl-node-registry';
 
 export type IdentityNodeManifestProfile = 'operating_mall' | 'consumer';
@@ -56,9 +57,11 @@ export interface IdentityNodeManifest {
 
 export const IDENTITY_NODE_MANIFEST: IdentityNodeManifest = identityNodeManifestProjection();
 
-function identityNodeManifestProjection(): IdentityNodeManifest {
-  const nodes = SFL_NODE_REGISTRY.manifests.map((manifest) => {
-    const resources = SFL_NODE_REGISTRY.node_bindings.find((binding) => binding.node_id === manifest.node_id);
+export function identityNodeManifestProjection(
+  registry: SflNodeRegistryDeclaration = SFL_NODE_REGISTRY,
+): IdentityNodeManifest {
+  const nodes = registry.manifests.map((manifest) => {
+    const resources = registry.node_bindings.find((binding) => binding.node_id === manifest.node_id);
     if (resources === undefined) throw new Error(`SFL_IDENTITY_RESOURCE_BINDING_MISSING:${manifest.node_id}`);
     const bySurface = (surface: string) => manifest.domain_bindings.filter((binding) => binding.surface_ref === surface);
     const primary = (surface: string) => {
@@ -68,9 +71,9 @@ function identityNodeManifestProjection(): IdentityNodeManifest {
       }
       return bindings[0]!;
     };
-    const storefront = nodeDomainBinding(manifest.node_id, resources.primary_storefront_binding_ref);
+    const storefront = nodeDomainBinding(manifest.node_id, resources.primary_storefront_binding_ref, registry);
     const entries = resources.identity_entry_binding_refs.map((reference) => {
-      const domain = nodeDomainBinding(manifest.node_id, reference);
+      const domain = nodeDomainBinding(manifest.node_id, reference, registry);
       const kind = domain.surface_ref === 'surface:identity'
         ? 'accounts'
         : domain.surface_ref === 'surface:api' ? 'api' : domain.surface_ref === 'surface:storefront' ? 'storefront' : null;
@@ -83,7 +86,7 @@ function identityNodeManifestProjection(): IdentityNodeManifest {
       membershipClient: target.membership_client,
       membershipOrganizationId: target.membership_organization_id,
       application: target.application,
-      returnOrigin: `${nodeOriginForBinding(manifest.node_id, target.return_binding_ref)}${target.return_path}`,
+      returnOrigin: `${nodeOriginForBinding(manifest.node_id, target.return_binding_ref, registry)}${target.return_path}`,
     }));
     return Object.freeze({
       nodeId: manifest.node_id,
@@ -97,7 +100,7 @@ function identityNodeManifestProjection(): IdentityNodeManifest {
       brandName: resources.brand_name,
       accountsOrigin: `https://${primary('surface:identity').host}`,
       apiOrigin: `https://${primary('surface:api').host}`,
-      consumerApiOrigin: nodeOriginForBinding(manifest.node_id, resources.consumer_api_binding_ref),
+      consumerApiOrigin: nodeOriginForBinding(manifest.node_id, resources.consumer_api_binding_ref, registry),
       adminOrigin: manifest.node_profile === 'operating_mall' ? `https://${primary('surface:console').host}` : null,
       storefrontOrigin: `https://${storefront.host}`,
       storefrontHosts: Object.freeze(bySurface('surface:storefront').map((binding) => binding.host)),
@@ -105,12 +108,12 @@ function identityNodeManifestProjection(): IdentityNodeManifest {
       targets: Object.freeze(targets),
     });
   });
-  const allowedBrowserOrigins = SFL_NODE_REGISTRY.manifests.flatMap((manifest) => manifest.domain_bindings
+  const allowedBrowserOrigins = registry.manifests.flatMap((manifest) => manifest.domain_bindings
     .filter((binding) => binding.surface_ref !== 'surface:api')
     .map((binding) => `https://${binding.host}`));
   return Object.freeze({
     schema: 'sfl.identity-node-projection.v1',
-    revision: `sfl-node-registry:${SFL_NODE_REGISTRY.registry_version}`,
+    revision: `sfl-node-registry:${registry.registry_version}`,
     version: 2,
     allowedBrowserOrigins: Object.freeze([...new Set(allowedBrowserOrigins)].sort()),
     nodes: Object.freeze(nodes),

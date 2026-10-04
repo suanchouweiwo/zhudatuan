@@ -1,6 +1,6 @@
 import { createReadStream, createWriteStream } from 'node:fs';
 import { chmod, cp, lstat, lutimes, mkdir, readFile, readdir, readlink, rename, rm, utimes, writeFile } from 'node:fs/promises';
-import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { createHash } from 'node:crypto';
 import { pipeline } from 'node:stream/promises';
 import { createGzip } from 'node:zlib';
@@ -18,30 +18,33 @@ const FORBIDDEN_DIRECTORIES = new Set([
 
 export async function materializeTarget(adapter, targetId, runDirectory, changes = []) {
   const target = adapter.targets[targetId];
-  const destination = join(runDirectory, 'build', targetId);
+  const buildRoot = resolve(runDirectory, 'build');
+  const destination = resolve(buildRoot, targetId);
+  invariant(pathIsWithin(buildRoot, destination), 'ARTIFACT_DESTINATION_UNSAFE', `Unsafe destination for ${targetId}`);
   await rm(destination, { recursive: true, force: true });
   await mkdir(destination, { recursive: true });
   for (const input of target.artifactInputs) {
-    const source = safeProjectPath(adapter.projectRoot, input.source);
+    const source = artifactInputSource(adapter, targetId, input.source);
     if (input.changedOnly) {
       const prefix = `${input.source.replace(/\/$/, '')}/`;
       const selected = changes.filter((change) => change.path === input.source || change.path.startsWith(prefix));
       for (const change of selected.filter((item) => !item.status.startsWith('D'))) {
         const { path } = change;
         const relativePath = path === input.source ? basename(path) : path.slice(prefix.length);
-        const selectedSource = safeProjectPath(adapter.projectRoot, path);
+        const selectedSource = artifactInputSource(adapter, targetId, path);
         const output = resolve(destination, input.destination ?? '', relativePath);
-        invariant(output.startsWith(`${destination}/`), 'ARTIFACT_DESTINATION_UNSAFE', `Unsafe destination for ${targetId}`);
+        invariant(pathIsWithin(destination, output), 'ARTIFACT_DESTINATION_UNSAFE', `Unsafe destination for ${targetId}`);
         await mkdir(dirname(output), { recursive: true });
         await cp(selectedSource, output, { recursive: true, dereference: false, force: false, errorOnExist: true });
       }
     } else {
       const output = resolve(destination, input.destination ?? basename(input.source));
-      invariant(output === destination || output.startsWith(`${destination}/`), 'ARTIFACT_DESTINATION_UNSAFE', `Unsafe destination for ${targetId}`);
+      invariant(pathIsWithin(destination, output, true), 'ARTIFACT_DESTINATION_UNSAFE', `Unsafe destination for ${targetId}`);
       await mkdir(dirname(output), { recursive: true });
       await cp(source, output, { recursive: true, dereference: false, force: false, errorOnExist: true });
     }
   }
+  await materializeInstanceRuntime(adapter, targetId, destination);
   const deletions = changes
     .filter((change) => change.status.startsWith('D') || change.status.startsWith('R'))
     .flatMap((change) => target.artifactInputs
@@ -172,7 +175,7 @@ async function resolvePackageArtifactPath(configuredPath, portableRoot) {
   const markerIndex = normalized.lastIndexOf(marker);
   invariant(markerIndex >= 0, 'PACKAGE_ARTIFACT_PATH_MISSING', `Packaged artifact is unavailable: ${configuredPath}`);
   const candidate = resolve(portableRoot, normalized.slice(markerIndex + marker.length));
-  invariant(candidate.startsWith(`${portableRoot}/`), 'PACKAGE_ARTIFACT_PATH_UNSAFE', `Packaged artifact path escapes its bundle: ${configuredPath}`);
+  invariant(pathIsWithin(portableRoot, candidate), 'PACKAGE_ARTIFACT_PATH_UNSAFE', `Packaged artifact path escapes its bundle: ${configuredPath}`);
   const stats = await lstat(candidate);
   invariant(stats.isFile(), 'PACKAGE_ARTIFACT_PATH_INVALID', `Packaged artifact path is not a file: ${candidate}`);
   return candidate;
@@ -246,7 +249,7 @@ export async function treeEvidence(root, criticalFiles = []) {
   const critical = [];
   for (const path of criticalFiles) {
     const absolute = resolve(root, path);
-    invariant(absolute.startsWith(`${resolve(root)}/`), 'CRITICAL_FILE_UNSAFE', `Unsafe critical file ${path}`);
+    invariant(pathIsWithin(root, absolute), 'CRITICAL_FILE_UNSAFE', `Unsafe critical file ${path}`);
     const stats = await lstat(absolute);
     invariant(stats.isFile(), 'CRITICAL_FILE_MISSING', `Critical file missing: ${path}`);
     critical.push({ path, sha256: `sha256:${await hashFile(absolute)}`, bytes: stats.size });
@@ -276,7 +279,7 @@ async function walk(root, path, entries, onBytes) {
     } else if (stats.isSymbolicLink()) {
       const target = await readlink(absolute);
       const resolvedTarget = resolve(dirname(absolute), target);
-      invariant(resolvedTarget === resolve(root) || resolvedTarget.startsWith(`${resolve(root)}/`), 'ARTIFACT_SYMLINK_UNSAFE', `Symlink escapes artifact root: ${childPath}`);
+      invariant(pathIsWithin(root, resolvedTarget, true), 'ARTIFACT_SYMLINK_UNSAFE', `Symlink escapes artifact root: ${childPath}`);
       entries.push({ path: childPath, type: 'symlink', target });
     } else if (stats.isFile()) {
       onBytes(stats.size);
@@ -318,8 +321,55 @@ async function hashFile(path) {
 function safeProjectPath(projectRoot, path) {
   invariant(!isAbsolute(path), 'ARTIFACT_SOURCE_ABSOLUTE', `Artifact source must be project-relative: ${path}`);
   const absolute = resolve(projectRoot, path);
-  invariant(absolute.startsWith(`${resolve(projectRoot)}/`), 'ARTIFACT_SOURCE_UNSAFE', `Unsafe artifact source: ${path}`);
+  invariant(pathIsWithin(projectRoot, absolute), 'ARTIFACT_SOURCE_UNSAFE', `Unsafe artifact source: ${path}`);
   return absolute;
+}
+
+function artifactInputSource(adapter, targetId, path) {
+  if (adapter.instanceRoot) {
+    const normalized = path.replaceAll('\\', '/');
+    const clientDirectory = {
+      '01_core_hexin/apps/auth-web/dist': 'auth-web',
+      '01_core_hexin/apps/console/dist': 'console',
+      '01_core_hexin/apps/storefront-web/dist': 'storefront-web',
+    }[normalized];
+    if (clientDirectory) return resolve(adapter.instanceRoot, 'dist', clientDirectory);
+    const serviceFile = /^01_core_hexin\/services\/commerce\/dist\/([^/]+)$/.exec(normalized)?.[1];
+    if (serviceFile && targetId !== 'database-migration') return resolve(adapter.instanceRoot, 'dist', 'services', targetId, serviceFile);
+  }
+  return safeProjectPath(adapter.projectRoot, path);
+}
+
+async function materializeInstanceRuntime(adapter, targetId, destination) {
+  if (!adapter.instanceRoot || !['console', 'auth-web', 'storefront', 'identity-api', 'web-api'].includes(targetId)) return;
+  const configDirectory = resolve(adapter.instanceRoot, 'dist/config/targets', targetId);
+  const declaration = JSON.parse(await readFile(resolve(adapter.instanceRoot, 'sfl-node-registry.declaration.json'), 'utf8'));
+  const binding = declaration.node_bindings.find((entry) =>
+    Object.values(adapter.nodes).some((node) => node.nodeId === entry.node_id && node.deployments[targetId]));
+  if (!binding) return;
+  const manifest = await readFile(resolve(configDirectory, 'node-manifests', binding.runtime_manifest_file)).catch((error) => {
+    if (error.code === 'ENOENT') return null;
+    throw error;
+  });
+  if (manifest === null) return;
+  const runtimeDirectory = join(destination, 'node-runtime');
+  await mkdir(runtimeDirectory, { recursive: true });
+  await writeFile(join(runtimeDirectory, 'manifest.json'), manifest);
+  const files = ['identity-node-projection.json', ...(targetId === 'console' ? ['console-runtime.json']
+    : ['auth-web', 'identity-api', 'storefront'].includes(targetId) ? ['identity-runtime.json'] : [])];
+  for (const name of files) {
+    const contents = await readFile(join(configDirectory, name)).catch((error) => {
+      if (error.code === 'ENOENT') return null;
+      throw error;
+    });
+    if (contents !== null) await writeFile(join(runtimeDirectory, name), contents);
+  }
+}
+
+function pathIsWithin(root, path, allowRoot = false) {
+  const fromRoot = relative(resolve(root), resolve(path));
+  return (allowRoot || fromRoot !== '') && fromRoot !== '..'
+    && !fromRoot.startsWith(`..${sep}`) && !isAbsolute(fromRoot);
 }
 
 function deletionForInput(input, path) {

@@ -11,7 +11,7 @@
   gap: 8px;
   overflow-x: auto;
   border-bottom: 1px solid var(--order-border);
-  background: #fff;
+  background: var(--console-surface);
   padding: 0 20px;
   scrollbar-width: none;
 }
@@ -29,7 +29,7 @@
   border: 0;
   border-radius: 9px;
   background: transparent;
-  color: #596882;
+  color: var(--console-text-muted);
   padding: 0 13px;
   font-size: 14px;
   font-weight: 700;
@@ -43,8 +43,8 @@
 }
 
 .orderdrawertabs [role='tab']:hover {
-  background: #f4f7fb;
-  color: #34445f;
+  background: var(--console-surface);
+  color: var(--console-text-secondary);
 }
 
 .orderdrawertabs [role='tab'][aria-selected='true'] {
@@ -55,7 +55,7 @@
 .orderdrawertabs [role='tab']:focus-visible,
 .orderdrawertabs [role='tab'][aria-selected='true']:focus-visible {
   border-radius: 9px;
-  outline: 2px solid rgb(15 111 255 / 18%);
+  outline: 2px solid color-mix(in srgb, var(--console-accent) 18%, transparent);
   outline-offset: -3px;
   box-shadow: none;
 }

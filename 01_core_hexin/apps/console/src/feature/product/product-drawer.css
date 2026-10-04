@@ -1,6 +1,6 @@
 .productdrawer {
   min-width: 0;
-  background: #fff;
+  background: var(--console-surface);
 }
 
 .productdrawercontent {
@@ -10,7 +10,7 @@
   height: calc(100dvh - 120px);
   min-height: 700px;
   grid-template-rows: auto auto minmax(0, 1fr) auto;
-  background: #fff;
+  background: var(--console-surface);
 }
 
 .productdrawerheader {
@@ -19,8 +19,8 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 24px;
-  background: linear-gradient(135deg, #123776 0%, #0c2c65 100%);
-  color: #fff;
+  background: linear-gradient(135deg, var(--console-brand-fill) 0%, var(--console-brand-fill) 100%);
+  color: var(--console-on-accent);
   padding: 24px 28px;
 }
 
@@ -34,8 +34,8 @@
 .productdrawerthumbnail {
   width: 64px;
   height: 64px;
-  border-color: rgb(255 255 255 / 26%);
-  background: rgb(255 255 255 / 12%);
+  border-color: color-mix(in srgb, var(--console-border) 26%, transparent);
+  background: color-mix(in srgb, var(--console-surface) 12%, transparent);
 }
 
 .productdrawerthumbnail svg {
@@ -51,7 +51,7 @@
   overflow: hidden;
   max-width: 700px;
   margin: 0 0 6px;
-  color: #fff;
+  color: var(--console-on-accent);
   font-size: 20px;
   line-height: 28px;
   font-weight: 800;
@@ -64,7 +64,7 @@
   min-height: 32px;
   align-items: center;
   gap: 7px;
-  color: #cbdcff;
+  color: color-mix(in srgb, var(--console-on-accent) 85%, transparent);
   font-size: 13px;
 }
 
@@ -96,14 +96,14 @@
 
 .productdrawernumber button:hover,
 .productdrawerclose:hover {
-  background: rgb(255 255 255 / 12%);
+  background: color-mix(in srgb, var(--console-surface) 12%, transparent);
 }
 
 .productdrawernumber button:focus-visible,
 .productdrawerclose:focus-visible,
 .productdrawertabs button:focus-visible,
 .producteditaction:focus-visible {
-  outline: 3px solid rgb(147 197 253 / 62%);
+  outline: 3px solid color-mix(in srgb, var(--console-selected-border) 62%, transparent);
   outline-offset: 2px;
 }
 
@@ -115,8 +115,8 @@
 
 .productdrawernumber em {
   border-radius: 999px;
-  background: #e9fff5;
-  color: #087a55;
+  background: var(--console-success-bg);
+  color: var(--console-success-text);
   padding: 4px 8px;
   font-size: 12px;
   font-style: normal;
@@ -129,7 +129,7 @@
   align-items: center;
   gap: 10px;
   margin-top: 8px;
-  color: #d7e4ff;
+  color: var(--console-text-muted);
   font-size: 12px;
   line-height: 20px;
   flex-wrap: wrap;
@@ -137,13 +137,13 @@
 
 .productdrawermeta .productstatus {
   border-radius: 999px;
-  background: #eef5ff;
-  color: #1557ec;
+  background: var(--console-canvas);
+  color: var(--console-accent);
   padding: 4px 9px;
 }
 
 .productdrawermeta small {
-  border-left: 1px solid rgb(255 255 255 / 26%);
+  border-left: 1px solid color-mix(in srgb, var(--console-border) 26%, transparent);
   padding-left: 10px;
   font-size: 12px;
 }
@@ -160,10 +160,10 @@
   min-height: 40px;
   align-items: center;
   gap: 7px;
-  border: 1px solid rgb(255 255 255 / 24%);
+  border: 1px solid color-mix(in srgb, var(--console-border) 24%, transparent);
   border-radius: 8px;
-  background: rgb(255 255 255 / 10%);
-  color: #dbe7ff;
+  background: color-mix(in srgb, var(--console-surface) 10%, transparent);
+  color: var(--console-text-muted);
   padding: 0 13px;
   font-size: 13px;
 }
@@ -185,8 +185,8 @@
   align-items: center;
   gap: 8px;
   overflow-x: auto;
-  border-bottom: 1px solid #e2e8f0;
-  background: #fff;
+  border-bottom: 1px solid var(--console-border);
+  background: var(--console-surface);
   padding: 7px 22px;
   scrollbar-width: thin;
 }
@@ -200,7 +200,7 @@
   border: 0;
   border-radius: 999px;
   background: transparent;
-  color: #526179;
+  color: var(--console-text-secondary);
   padding: 0 15px;
   font-size: 13px;
   font-weight: 700;
@@ -221,19 +221,19 @@
 }
 
 .productdrawertabs button:hover {
-  background: #f3f6fb;
-  color: #143a8f;
+  background: var(--console-hover);
+  color: var(--console-accent);
 }
 
 .productdrawertabs button[aria-selected='true'] {
-  background: #eaf2ff;
-  color: #1557ec;
+  background: var(--console-selected);
+  color: var(--console-accent);
 }
 
 .productdrawerbody {
   min-height: 0;
   overflow-y: auto;
-  background: #f8fbff;
+  background: var(--console-surface);
   padding: 22px 24px 28px;
 }
 
@@ -243,18 +243,18 @@
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
-  border-top: 1px solid #e2e8f0;
-  background: #fff;
+  border-top: 1px solid var(--console-border);
+  background: var(--console-surface);
   padding: 12px 24px;
 }
 
 .productdrawerfooter > span {
   margin-right: auto;
-  color: #7c8aa0;
+  color: var(--console-text-muted);
   font-size: 12px;
 }
 
 .productdrawerfooter > button:not(.productactionprimary) {
-  border-color: #d8e0eb;
-  color: #334155;
+  border-color: var(--console-border);
+  color: var(--console-text-secondary);
 }

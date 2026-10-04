@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { headers } from 'next/headers';
+import { resolveStorefrontNode } from '../src/config/storefrontIdentity';
 import './globals.css';
 
 export const dynamic = 'force-dynamic';
@@ -127,18 +128,16 @@ const publicCatalogBootstrapScript = `
 `;
 
 export async function generateMetadata(): Promise<Metadata> {
-  const storefrontHost = (await headers()).get('host') ?? 'www.zhudatuan.com';
-  const hostname = storefrontHost.split(':')[0].toLowerCase();
-  const storefrontOrigin = hostname === 'zhudatuan.com' || hostname === 'www.zhudatuan.com'
-    ? 'https://www.zhudatuan.com'
-    : `https://${storefrontHost}`;
+  const storefrontHost = (await headers()).get('host');
+  const node = resolveStorefrontNode(storefrontHost?.split(':')[0].toLowerCase());
+  const title = `${node.mallName}｜企业员工福利平台`;
 
   return {
-    metadataBase: new URL(storefrontOrigin),
+    metadataBase: new URL(node.storefrontOrigin),
     alternates: { canonical: '/' },
-    title: '主打团商城｜企业员工福利平台',
+    title,
     description: '面向企业员工的福利商品、卡券、生活服务和订单管理平台，由雍彻科技提供技术服务。',
-    applicationName: '主打团商城',
+    applicationName: node.mallName,
     manifest: '/manifest.webmanifest',
     icons: {
       icon: [{ url: '/icon.svg?v=zhudatuan-l0', type: 'image/svg+xml' }],
@@ -148,14 +147,14 @@ export async function generateMetadata(): Promise<Metadata> {
       type: 'website',
       locale: 'zh_CN',
       url: '/',
-      siteName: '主打团',
-      title: '主打团商城｜企业员工福利平台',
+      siteName: node.brandName,
+      title,
       description: '面向企业员工的福利商品、卡券、生活服务和订单管理平台。',
-      images: [{ url: '/opengraph-image.png?v=zhudatuan-l0', width: 1600, height: 400, alt: '主打团商城' }],
+      images: [{ url: '/opengraph-image.png?v=zhudatuan-l0', width: 1600, height: 400, alt: node.mallName }],
     },
     twitter: {
       card: 'summary_large_image',
-      title: '主打团商城｜企业员工福利平台',
+      title,
       description: '面向企业员工的福利商品、卡券、生活服务和订单管理平台。',
       images: ['/opengraph-image.png?v=zhudatuan-l0'],
     },
@@ -169,11 +168,13 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const storefrontHost = (await headers()).get('host');
+  const node = resolveStorefrontNode(storefrontHost?.split(':')[0].toLowerCase());
   const nodeRegistry = process.env.SFL_STOREFRONT_IDENTITY_NODE_REGISTRY
     ?? process.env.NEXT_PUBLIC_IDENTITY_NODE_REGISTRY;
   const nodeRuntimeScript = nodeRegistry?.trim()
@@ -192,7 +193,7 @@ export default function RootLayout({
           <div id="sw-first-paint-card">
             <span id="sw-first-paint-mark" aria-hidden="true"><img src="/brand/morvia-mark-white.svg" alt="" width="32" height="32" /></span>
             <span id="sw-first-paint-copy">
-              <strong id="sw-first-paint-title">主打团商城</strong>
+              <strong id="sw-first-paint-title">{node.mallName}</strong>
               <span id="sw-first-paint-note">网络较慢，正在准备商城…</span>
             </span>
           </div>

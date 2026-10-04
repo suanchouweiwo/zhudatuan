@@ -1,11 +1,11 @@
 .commerce-solution-overlay { z-index: 150; }
 
-.commercesolutiondialog { position: relative; z-index: 1; display: flex; width: min(1180px, calc(100vw - 32px)); max-height: calc(100vh - 32px); flex-direction: column; overflow: hidden; border: 1px solid #d7e1ee; border-radius: 18px; background: #f7f9fc; box-shadow: 0 28px 80px rgb(7 24 47 / 28%); }
+.commercesolutiondialog { position: relative; z-index: 1; display: flex; width: min(1180px, calc(100vw - 32px)); max-height: calc(100vh - 32px); flex-direction: column; overflow: hidden; border: 1px solid var(--console-border); border-radius: 18px; background: var(--console-surface); box-shadow: 0 28px 80px color-mix(in srgb, var(--console-shadow-color) 28%, transparent); }
 
 .commercesolutiondialog.is-studio { width: calc(100vw - 24px); height: calc(100vh - 24px); max-height: none; }
 
 .commercesolutionhead,
-.commercestudiohead { display: flex; min-height: 88px; align-items: flex-start; justify-content: space-between; gap: 20px; border-bottom: 1px solid var(--vi-line); background: #fff; padding: 17px 22px; }
+.commercestudiohead { display: flex; min-height: 88px; align-items: flex-start; justify-content: space-between; gap: 20px; border-bottom: 1px solid var(--vi-line); background: var(--console-surface); padding: 17px 22px; }
 
 .commercesolutionhead p,
 .commercestudiohead > div > span { margin: 0 0 4px; color: var(--vi-brand); font-size: 9px; font-weight: 800; letter-spacing: .13em; }
@@ -14,48 +14,48 @@
 .commercestudiohead h2 { margin: 0; color: var(--vi-ink); font-size: 21px; line-height: 28px; letter-spacing: -.02em; }
 
 .commercesolutionhead div > span,
-.commercestudiohead p { display: block; margin: 3px 0 0; color: #6e8097; font-size: 10px; line-height: 17px; }
+.commercestudiohead p { display: block; margin: 3px 0 0; color: var(--console-text-muted); font-size: 10px; line-height: 17px; }
 
 .commercesolutionhead > button,
-.commercestudioactions > button { width: 44px; height: 44px; flex: 0 0 auto; border: 1px solid var(--vi-line); border-radius: 11px; background: #fff; color: #52677f; font: inherit; font-size: 22px; cursor: pointer; }
+.commercestudioactions > button { width: 44px; height: 44px; flex: 0 0 auto; border: 1px solid var(--vi-line); border-radius: 11px; background: var(--console-surface); color: var(--console-text-secondary); font: inherit; font-size: 22px; cursor: pointer; }
 
 .commercesolutionhead > button:hover,
-.commercestudioactions > button:hover { border-color: #b6c8de; background: #f6f9fd; color: var(--vi-ink); }
+.commercestudioactions > button:hover { border-color: var(--console-border); background: var(--console-surface); color: var(--vi-ink); }
 
 .commercesolutionbody { display: grid; gap: 16px; overflow: auto; overscroll-behavior: contain; padding: 18px 20px 20px; }
 
-.commercesolutionintro { display: flex; min-height: 66px; align-items: center; gap: 12px; border: 1px solid #ccdaf0; border-radius: 13px; background: linear-gradient(90deg, #f1f6ff, #fff); padding: 11px 14px; }
+.commercesolutionintro { display: flex; min-height: 66px; align-items: center; gap: 12px; border: 1px solid var(--console-border); border-radius: 13px; background: linear-gradient(90deg, var(--console-canvas), var(--console-surface)); padding: 11px 14px; }
 
-.commercesolutionintro > span { display: grid; width: 36px; height: 36px; flex: 0 0 auto; border-radius: 10px; background: var(--vi-brand); color: #fff; font-size: 15px; font-weight: 850; place-items: center; box-shadow: 0 6px 14px rgb(31 94 255 / 20%); }
+.commercesolutionintro > span { display: grid; width: 36px; height: 36px; flex: 0 0 auto; border-radius: 10px; background: var(--vi-brand); color: var(--console-on-accent); font-size: 15px; font-weight: 850; place-items: center; box-shadow: 0 6px 14px color-mix(in srgb, var(--console-accent) 20%, transparent); }
 
-.commercesolutionintro strong { display: block; color: #21364f; font-size: 12px; }
-.commercesolutionintro p { margin: 3px 0 0; color: #667a93; font-size: 10px; line-height: 17px; }
+.commercesolutionintro strong { display: block; color: var(--console-text); font-size: 12px; }
+.commercesolutionintro p { margin: 3px 0 0; color: var(--console-text-muted); font-size: 10px; line-height: 17px; }
 .commercesolutiongrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
 
-.commercesolutioncard { display: grid; min-width: 0; overflow: hidden; border: 1px solid #dbe4ef; border-radius: 15px; background: #fff; box-shadow: 0 2px 5px rgb(7 24 47 / 4%); transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease; }
+.commercesolutioncard { display: grid; min-width: 0; overflow: hidden; border: 1px solid var(--console-border); border-radius: 15px; background: var(--console-surface); box-shadow: 0 2px 5px color-mix(in srgb, var(--console-shadow-color) 4%, transparent); transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease; }
 
-.commercesolutioncard:hover { border-color: #afc3dc; transform: translateY(-2px); box-shadow: 0 16px 30px rgb(7 24 47 / 10%); }
+.commercesolutioncard:hover { border-color: var(--console-selected-border); transform: translateY(-2px); box-shadow: 0 16px 30px color-mix(in srgb, var(--console-shadow-color) 10%, transparent); }
 
-.commercesolutioncard.is-selected { border-color: var(--vi-brand); box-shadow: 0 0 0 3px rgb(31 94 255 / 10%), 0 16px 30px rgb(7 24 47 / 10%); }
+.commercesolutioncard.is-selected { border-color: var(--vi-brand); box-shadow: 0 0 0 3px color-mix(in srgb, var(--console-accent) 10%, transparent), 0 16px 30px color-mix(in srgb, var(--console-shadow-color) 10%, transparent); }
 
-.commercesolutionpreview { position: relative; display: block; height: 238px; overflow: hidden; border-bottom: 1px solid #e2e9f2; background: #e9eef6; cursor: pointer; }
+.commercesolutionpreview { position: relative; display: block; height: 238px; overflow: hidden; border-bottom: 1px solid var(--console-border); background: var(--console-subtle); cursor: pointer; }
 
 .commercesolutionpreview input { position: absolute; z-index: 6; top: 14px; right: 14px; width: 20px; height: 20px; margin: 0; accent-color: var(--vi-brand); }
 
-.commercesolutionpreview:has(input:focus-visible) { outline: 3px solid rgb(31 94 255 / 40%); outline-offset: -3px; }
+.commercesolutionpreview:has(input:focus-visible) { outline: 3px solid color-mix(in srgb, var(--console-accent) 40%, transparent); outline-offset: -3px; }
 
 .commercesolutionordinal,
 .commercesolutionbadge {
   position: absolute;
   z-index: 5;
   top: 12px;
-  border: 1px solid rgb(255 255 255 / 80%);
+  border: 1px solid color-mix(in srgb, var(--console-border) 80%, transparent);
   border-radius: 999px;
-  background: rgb(255 255 255 / 92%);
-  color: #36506e;
+  background: color-mix(in srgb, var(--console-surface) 92%, transparent);
+  color: var(--console-text-secondary);
   font-size: 8px;
   font-weight: 800;
-  box-shadow: 0 4px 12px rgb(7 24 47 / 12%);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--console-shadow-color) 12%, transparent);
   backdrop-filter: blur(8px);
 }
 
@@ -137,36 +137,36 @@
   height: 48px;
   align-items: center;
   gap: 7px;
-  background: linear-gradient(transparent, rgb(7 24 47 / 78%));
+  background: linear-gradient(transparent, color-mix(in srgb, var(--console-brand-fill) 78%, transparent));
   padding: 14px 13px 0;
-  color: #fff;
+  color: var(--console-on-accent);
 }
 
-.commercesolutionveil i { display: grid; width: 22px; height: 22px; border-radius: 7px; background: rgb(255 255 255 / 16%); font-size: 10px; font-style: normal; place-items: center; }
+.commercesolutionveil i { display: grid; width: 22px; height: 22px; border-radius: 7px; background: color-mix(in srgb, var(--console-surface) 16%, transparent); font-size: 10px; font-style: normal; place-items: center; }
 .commercesolutionveil b { font-size: 9px; }
 .commercesolutioncopy { display: grid; align-content: start; gap: 7px; min-height: 188px; padding: 14px 15px 12px; }
 .commercesolutioncopy > small { color: var(--vi-brand); font-size: 8px; font-weight: 800; letter-spacing: .1em; }
 .commercesolutioncopy > div { display: flex; min-height: 22px; align-items: center; justify-content: space-between; gap: 8px; }
-.commercesolutioncopy > div strong { color: #172b45; font-size: 14px; }
-.commercesolutioncopy > div em { flex: 0 0 auto; border-radius: 999px; background: #eaf1ff; padding: 4px 7px; color: var(--vi-brand); font-size: 8px; font-style: normal; font-weight: 800; }
-.commercesolutioncopy > p { min-height: 34px; margin: 0; color: #697c93; font-size: 10px; line-height: 17px; }
-.commercesolutioncopy dl { display: grid; grid-template-columns: 34px 1fr; gap: 6px; margin: 0; border-top: 1px solid #edf1f6; padding-top: 8px; font-size: 9px; line-height: 15px; }
-.commercesolutioncopy dt { color: #93a0b1; }
-.commercesolutioncopy dd { margin: 0; color: #52677f; }
+.commercesolutioncopy > div strong { color: var(--console-text); font-size: 14px; }
+.commercesolutioncopy > div em { flex: 0 0 auto; border-radius: 999px; background: var(--console-selected); padding: 4px 7px; color: var(--vi-brand); font-size: 8px; font-style: normal; font-weight: 800; }
+.commercesolutioncopy > p { min-height: 34px; margin: 0; color: var(--console-text-muted); font-size: 10px; line-height: 17px; }
+.commercesolutioncopy dl { display: grid; grid-template-columns: 34px 1fr; gap: 6px; margin: 0; border-top: 1px solid var(--console-border); padding-top: 8px; font-size: 9px; line-height: 15px; }
+.commercesolutioncopy dt { color: var(--console-text-muted); }
+.commercesolutioncopy dd { margin: 0; color: var(--console-text-secondary); }
 .commercesolutiondna { display: flex; flex-wrap: wrap; gap: 5px; }
-.commercesolutiondna i { border-radius: 999px; background: #f1f5fa; padding: 4px 7px; color: #65788f; font-size: 8px; font-style: normal; font-weight: 650; }
+.commercesolutiondna i { border-radius: 999px; background: var(--console-canvas); padding: 4px 7px; color: var(--console-text-muted); font-size: 8px; font-style: normal; font-weight: 650; }
 
-.commercesolutionactions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; border-top: 1px solid #e7edf4; padding: 11px 12px 12px; }
+.commercesolutionactions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; border-top: 1px solid var(--console-border); padding: 11px 12px 12px; }
 .commercesolutionactions button,
 .commercesolutionfooteractions button,
 .commercestudiofooter button,
 .commercestudiostatus button {
   min-height: 44px;
-  border: 1px solid #c8d6e7;
+  border: 1px solid var(--console-border);
   border-radius: 10px;
-  background: #fff;
+  background: var(--console-surface);
   padding: 0 12px;
-  color: #36506f;
+  color: var(--console-text-secondary);
   font: inherit;
   font-size: 10px;
   font-weight: 750;
@@ -174,12 +174,12 @@
 }
 
 .commercesolutionactions button:hover,
-.commercesolutionfooteractions button:hover { border-color: #9db5d1; background: #f7faff; }
+.commercesolutionfooteractions button:hover { border-color: var(--console-selected-border); background: var(--console-hover); }
 .commercesolutionactions button.is-primary,
 .commercesolutionfooteractions button.is-primary,
-.commercestudiofooter button { border-color: var(--vi-brand); background: var(--vi-brand); color: #fff; }
+.commercestudiofooter button { border-color: var(--vi-brand); background: var(--vi-brand); color: var(--console-on-accent); }
 .commercesolutionactions button:disabled,
-.commercestudiofooter button:disabled { border-color: #d6deea; background: #edf1f6; color: #7c8ca0; cursor: default; }
+.commercestudiofooter button:disabled { border-color: var(--console-border); background: var(--console-subtle); color: var(--console-text-muted); cursor: default; }
 
 .commercesolutionfooter,
 .commercestudiofooter {
@@ -189,16 +189,16 @@
   justify-content: space-between;
   gap: 16px;
   border-top: 1px solid var(--vi-line);
-  background: #fff;
+  background: var(--console-surface);
   padding: 12px 20px;
 }
 
 .commercesolutionfooter > div:first-child,
 .commercestudiofooter > div { display: grid; min-width: 0; gap: 3px; }
 .commercesolutionfooter strong,
-.commercestudiofooter strong { color: #263b55; font-size: 11px; }
+.commercestudiofooter strong { color: var(--console-text); font-size: 11px; }
 .commercesolutionfooter span,
-.commercestudiofooter span { color: #7d8da1; font-size: 9px; line-height: 15px; }
+.commercestudiofooter span { color: var(--console-text-muted); font-size: 9px; line-height: 15px; }
 .commercesolutionfooteractions { display: flex; flex: 0 0 auto; gap: 8px; }
 .commercesolutionfooteractions button,
 .commercestudiofooter button { flex: 0 0 auto; min-width: 110px; }
@@ -214,11 +214,11 @@
   min-height: 44px;
   align-items: center;
   justify-content: center;
-  border: 1px solid #c9d6e6;
+  border: 1px solid var(--console-border);
   border-radius: 10px;
-  background: #fff;
+  background: var(--console-surface);
   padding: 0 13px;
-  color: #405973;
+  color: var(--console-text-secondary);
   font: inherit;
   font-size: 10px;
   font-weight: 750;
@@ -227,30 +227,30 @@
 
 .commercestudioback { cursor: pointer; }
 .commercestudioback:hover,
-.commercestudioactions a:hover { border-color: #9fb6d0; background: #f5f8fd; color: var(--vi-brand); }
-.commercestudioactions .is-disabled { border-style: dashed; color: #8b99aa; }
+.commercestudioactions a:hover { border-color: var(--console-selected-border); background: var(--console-hover); color: var(--vi-brand); }
+.commercestudioactions .is-disabled { border-style: dashed; color: var(--console-text-muted); }
 .commercestudioactions { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; }
 .commercestudioactions > button { width: 44px; }
 
-.commercestudiobody { display: flex; min-height: 0; flex: 1; flex-direction: column; background: #edf2f8; }
-.commercestudiostatus { display: flex; min-height: 36px; align-items: center; gap: 7px; border-bottom: 1px solid #d8e2ee; background: #f8fafd; padding: 0 14px; color: #627790; font-size: 9px; }
-.commercestudiostatus > span { width: 7px; height: 7px; border-radius: 50%; background: #e7a23d; box-shadow: 0 0 0 3px #fff1d8; }
-.commercestudiostatus > span.is-ready { background: #0f9f6e; box-shadow: 0 0 0 3px #dcf7ed; }
-.commercestudiostatus > span.is-slow { background: #d67b16; box-shadow: 0 0 0 3px #fff0d9; }
-.commercestudiostatus b { margin-left: auto; color: #7e8da0; font-size: 8px; }
+.commercestudiobody { display: flex; min-height: 0; flex: 1; flex-direction: column; background: var(--console-canvas); }
+.commercestudiostatus { display: flex; min-height: 36px; align-items: center; gap: 7px; border-bottom: 1px solid var(--console-border); background: var(--console-surface); padding: 0 14px; color: var(--console-text-muted); font-size: 9px; }
+.commercestudiostatus > span { width: 7px; height: 7px; border-radius: 50%; background: var(--console-warning); box-shadow: 0 0 0 3px var(--console-shadow-color); }
+.commercestudiostatus > span.is-ready { background: var(--console-success); box-shadow: 0 0 0 3px var(--console-shadow-color); }
+.commercestudiostatus > span.is-slow { background: var(--console-warning); box-shadow: 0 0 0 3px var(--console-shadow-color); }
+.commercestudiostatus b { margin-left: auto; color: var(--console-text-muted); font-size: 8px; }
 .commercestudiostatus button { min-height: 28px; border-radius: 8px; padding: 0 9px; font-size: 9px; }
 .commercestudioframe { min-height: 0; flex: 1; padding: 10px; }
-.commercestudioframe iframe { display: block; width: 100%; height: 100%; border: 1px solid #cedae8; border-radius: 12px; background: #fff; box-shadow: 0 8px 22px rgb(7 24 47 / 9%); }
+.commercestudioframe iframe { display: block; width: 100%; height: 100%; border: 1px solid var(--console-border); border-radius: 12px; background: var(--console-surface); box-shadow: 0 8px 22px color-mix(in srgb, var(--console-shadow-color) 9%, transparent); }
 .commercestudiofooter { min-height: 68px; padding: 10px 16px; }
 .commercestudiobody.is-unavailable { justify-content: space-between; }
-.commercestudioerror { display: flex; width: min(650px, calc(100% - 32px)); align-items: flex-start; gap: 14px; margin: auto; border: 1px solid #efc987; border-radius: 14px; background: #fffaf0; padding: 20px; color: #6c4b17; }
-.commercestudioerror > span { display: grid; width: 34px; height: 34px; flex: 0 0 auto; border-radius: 10px; background: #f3a323; color: #fff; font-weight: 850; place-items: center; }
+.commercestudioerror { display: flex; width: min(650px, calc(100% - 32px)); align-items: flex-start; gap: 14px; margin: auto; border: 1px solid var(--console-warning-border); border-radius: 14px; background: var(--console-warning-bg); padding: 20px; color: var(--console-warning-text); }
+.commercestudioerror > span { display: grid; width: 34px; height: 34px; flex: 0 0 auto; border-radius: 10px; background: var(--console-warning); color: var(--console-on-accent); font-weight: 850; place-items: center; }
 .commercestudioerror strong { display: block; font-size: 13px; }
-.commercestudioerror p { margin: 5px 0 0; color: #846536; font-size: 10px; line-height: 18px; }
+.commercestudioerror p { margin: 5px 0 0; color: var(--console-warning-text); font-size: 10px; line-height: 18px; }
 .commercestudioerror code { font-size: 9px; }
 
 .commercesolutiondialog :where(button, a, input):focus-visible {
-  outline: 3px solid rgb(31 94 255 / 32%);
+  outline: 3px solid color-mix(in srgb, var(--console-accent) 32%, transparent);
   outline-offset: 2px;
 }
 

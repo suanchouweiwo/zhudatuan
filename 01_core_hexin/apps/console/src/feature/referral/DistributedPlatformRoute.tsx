@@ -1,4 +1,5 @@
 import { Badge, Button, MasterDetail, MasterItem, ResourceState, Surface, WorkspaceHero } from '@shop/design';
+import type { SflNodeResourceBinding } from '@shop/config/sfl-node-registry';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
@@ -44,6 +45,8 @@ import './distributed-platform.css';
 
 type DirectorySelection = Readonly<{ kind: 'node' }> | Readonly<{ kind: 'application'; application: Application }>;
 type TopologyLayout = 'tree' | 'flow';
+
+declare const __LK_INSTANCE_NODE_BINDINGS__: readonly Pick<SflNodeResourceBinding, 'node_id' | 'display_name'>[] | undefined;
 
 export function Component() {
   const context = useConsoleContext();
@@ -517,8 +520,9 @@ function Entry({ host, label }: Readonly<{ host: string | undefined; label: stri
 }
 
 function platformName(nodeId: string): string {
-  if (nodeId === 'node:hbbtzn:l1') return '宏泰甄选';
-  if (nodeId === 'node:zhudatuan:l0') return '主打团';
+  const bindings = typeof __LK_INSTANCE_NODE_BINDINGS__ === 'undefined' ? undefined : __LK_INSTANCE_NODE_BINDINGS__;
+  const displayName = bindings?.find((binding) => binding.node_id === nodeId)?.display_name;
+  if (displayName !== undefined) return displayName;
   return nodeId.split(':').slice(1, -1).join(' · ') || nodeId;
 }
 

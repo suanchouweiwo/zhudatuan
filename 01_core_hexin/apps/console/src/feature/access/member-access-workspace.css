@@ -1,9 +1,9 @@
 .memberaccessworkspace {
-  --memberaccess-ink: #10213a;
-  --memberaccess-muted: #64748b;
-  --memberaccess-line: #dce5f0;
-  --memberaccess-blue: #1769ff;
-  --memberaccess-navy: #0f1b33;
+  --memberaccess-ink: var(--console-text);
+  --memberaccess-muted: var(--console-text-muted);
+  --memberaccess-line: var(--console-border);
+  --memberaccess-blue: var(--console-accent);
+  --memberaccess-navy: var(--console-brand);
   min-height: 100%;
   padding: 24px;
   color: var(--memberaccess-ink);
@@ -14,29 +14,29 @@
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  border: 1px solid rgb(255 255 255 / 7%);
+  border: 1px solid color-mix(in srgb, var(--console-border) 7%, transparent);
   border-radius: 14px;
-  background: linear-gradient(135deg, #101d36 0%, #0d1930 58%, #142545 100%);
+  background: linear-gradient(135deg, var(--console-brand-fill) 0%, var(--console-brand-fill) 58%, var(--console-brand-fill) 100%);
   padding: 20px;
-  color: #fff;
-  box-shadow: 0 14px 34px rgb(15 27 51 / 16%);
+  color: var(--console-on-accent);
+  box-shadow: 0 14px 34px color-mix(in srgb, var(--console-shadow-color) 16%, transparent);
 }
 
 .memberaccesshero > div:first-child > span {
-  color: #80aefa;
+  color: color-mix(in srgb, var(--console-on-accent) 85%, transparent);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.14em;
 }
 .memberaccesshero h1 {
   margin: 5px 0 0;
-  color: #fff;
+  color: var(--console-on-accent);
   font-size: 20px;
   line-height: 1.25;
 }
 .memberaccesshero p {
   margin: 6px 0 0;
-  color: #9eb0c9;
+  color: color-mix(in srgb, var(--console-on-accent) 85%, transparent);
   font-size: 12px;
 }
 .memberaccessheroactions {
@@ -47,19 +47,19 @@
 }
 .memberaccesshero .memberaccessrefresh,
 .memberaccesshero .memberaccesssecondary {
-  border-color: rgb(255 255 255 / 13%);
-  background: rgb(255 255 255 / 8%);
-  color: #fff;
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 5%);
+  border-color: color-mix(in srgb, var(--console-border) 13%, transparent);
+  background: color-mix(in srgb, var(--console-surface) 8%, transparent);
+  color: var(--console-on-accent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--console-on-accent) 5%, transparent);
 }
 .memberaccesshero .memberaccessrefresh:hover,
 .memberaccesshero .memberaccesssecondary:hover {
-  background: rgb(255 255 255 / 14%);
+  background: color-mix(in srgb, var(--console-surface) 14%, transparent);
 }
 .memberaccesshero .memberaccessprimary {
-  border-color: #3d7eff;
-  background: linear-gradient(135deg, #2975ff, #1555d8);
-  box-shadow: 0 7px 18px rgb(23 105 255 / 25%);
+  border-color: var(--console-accent);
+  background: linear-gradient(135deg, var(--console-accent), var(--console-accent));
+  box-shadow: 0 7px 18px color-mix(in srgb, var(--console-accent) 25%, transparent);
 }
 
 .memberaccessmetrics {
@@ -74,21 +74,21 @@
   min-height: 84px;
   border: 1px solid var(--memberaccess-line);
   border-radius: 14px;
-  background: linear-gradient(180deg, #fff, #fbfdff);
+  background: linear-gradient(180deg, var(--console-surface), var(--console-surface));
   padding: 17px;
   box-shadow:
-    0 1px 2px rgb(16 33 58 / 4%),
-    0 10px 26px rgb(16 33 58 / 5%);
+    0 1px 2px color-mix(in srgb, var(--console-shadow-color) 4%, transparent),
+    0 10px 26px color-mix(in srgb, var(--console-shadow-color) 5%, transparent);
 }
 .memberaccessmetrics article span {
   display: block;
-  color: #8b9ab0;
+  color: var(--console-text-muted);
   font-size: 10px;
 }
 .memberaccessmetrics article strong {
   display: block;
   margin-top: 7px;
-  color: #13243e;
+  color: var(--console-text);
   font-size: 25px;
   line-height: 1;
 }
@@ -117,15 +117,15 @@
   display: flex;
   gap: 8px;
   margin-top: 14px;
-  border: 1px solid #cfe0f6;
+  border: 1px solid var(--console-border);
   border-radius: 11px;
-  background: #f5f9ff;
+  background: var(--console-surface);
   padding: 11px 13px;
-  color: #506681;
+  color: var(--console-text-secondary);
   font-size: 11px;
 }
 .memberaccessnotice strong {
-  color: #234f8e;
+  color: var(--console-accent);
 }
 .memberaccesslayout {
   display: grid;
@@ -139,10 +139,10 @@
   overflow: hidden;
   border: 1px solid var(--memberaccess-line);
   border-radius: 14px;
-  background: #fff;
+  background: var(--console-surface);
   box-shadow:
-    0 2px 4px rgb(16 33 58 / 4%),
-    0 14px 34px rgb(16 33 58 / 6%);
+    0 2px 4px color-mix(in srgb, var(--console-shadow-color) 4%, transparent),
+    0 14px 34px color-mix(in srgb, var(--console-shadow-color) 6%, transparent);
 }
 .memberaccesssearch {
   border-bottom: 1px solid var(--memberaccess-line);
@@ -158,9 +158,9 @@
 .memberaccesssearch input {
   width: 100%;
   height: 38px;
-  border: 1px solid #d7e0eb;
+  border: 1px solid var(--console-border);
   border-radius: 11px;
-  background: #f7f9fc;
+  background: var(--console-surface);
   padding: 0 13px;
   color: var(--memberaccess-ink);
   font: inherit;
@@ -172,9 +172,9 @@
     box-shadow 0.16s ease;
 }
 .memberaccesssearch input:focus {
-  border-color: #73a3ff;
-  background: #fff;
-  box-shadow: 0 0 0 3px rgb(23 105 255 / 11%);
+  border-color: var(--console-selected-border);
+  background: var(--console-surface);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--console-accent) 11%, transparent);
 }
 .memberaccessrows {
   max-height: 680px;
@@ -184,14 +184,14 @@
   display: block;
 }
 .memberaccessrows [role='row'] + [role='row'] {
-  border-top: 1px solid #edf1f6;
+  border-top: 1px solid var(--console-border);
 }
 .memberaccessrow {
   position: relative;
   display: block;
   width: 100%;
   border: 0;
-  background: #fff;
+  background: var(--console-surface);
   padding: 16px;
   color: inherit;
   text-align: left;
@@ -208,11 +208,11 @@
   content: '';
 }
 .memberaccessrow:hover {
-  background: #f8fbff;
+  background: var(--console-surface);
 }
 .memberaccessrow[data-selected] {
-  background: linear-gradient(90deg, #edf5ff, #f7fbff);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 80%);
+  background: linear-gradient(90deg, var(--console-selected), var(--console-selected));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--console-on-accent) 80%, transparent);
 }
 .memberaccessrow[data-selected]::before {
   background: var(--memberaccess-blue);
@@ -224,14 +224,14 @@
   gap: 10px;
 }
 .memberaccessrowtop strong {
-  color: #14243d;
+  color: var(--console-text);
   font-size: 13px;
 }
 .memberaccessrowmeta {
   display: block;
   margin-top: 6px;
   overflow: hidden;
-  color: #8ba0bc;
+  color: var(--console-text-muted);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 10px;
   text-overflow: ellipsis;
@@ -245,44 +245,44 @@
   margin-top: 9px;
 }
 .memberaccesstag {
-  border: 1px solid #e1e8f1;
+  border: 1px solid var(--console-border);
   border-radius: 6px;
-  background: #f3f6fa;
+  background: var(--console-surface);
   padding: 2px 7px;
-  color: #52647d;
+  color: var(--console-text-secondary);
   font-size: 9px;
   font-weight: 700;
 }
 .memberaccesstag[data-tone='owner'] {
-  border-color: #f2d392;
-  background: #fff6db;
-  color: #a76200;
+  border-color: var(--console-warning-border);
+  background: var(--console-warning-bg);
+  color: var(--console-warning-text);
 }
 .memberaccesstag[data-tone='self'] {
-  border-color: #b9d3ff;
-  background: #edf5ff;
-  color: #1769ff;
+  border-color: var(--console-selected-border);
+  background: var(--console-selected);
+  color: var(--console-accent);
 }
 .memberaccessstatus {
   border-radius: 999px;
-  background: #edf2f7;
+  background: var(--console-canvas);
   padding: 3px 8px;
-  color: #64748b;
+  color: var(--console-text-muted);
   font-size: 9px;
   font-weight: 800;
 }
 .memberaccessstatus[data-status='active'] {
-  background: #dcf7e9;
-  color: #08764b;
+  background: var(--console-success-bg);
+  color: var(--console-success-text);
 }
 .memberaccessstatus[data-status='suspended'] {
-  background: #fff0c7;
-  color: #a45d00;
+  background: var(--console-warning-bg);
+  color: var(--console-warning-text);
 }
 .memberaccessstatus[data-status='offboarded'],
 .memberaccessstatus[data-status='expired'] {
-  background: #ffe8ec;
-  color: #ba2640;
+  background: var(--console-danger-bg);
+  color: var(--console-danger-text);
 }
 .memberaccesspagination {
   display: flex;
@@ -291,7 +291,7 @@
   gap: 12px;
   border-top: 1px solid var(--memberaccess-line);
   padding: 11px 14px;
-  color: #7a8da7;
+  color: var(--console-text-muted);
   font-size: 10px;
 }
 
@@ -301,7 +301,7 @@
   justify-content: space-between;
   gap: 16px;
   border-bottom: 1px solid var(--memberaccess-line);
-  background: linear-gradient(180deg, #f9fbfe, #f4f7fb);
+  background: linear-gradient(180deg, var(--console-surface), var(--console-surface));
   padding: 19px 20px;
 }
 .memberaccessdetailtitle {
@@ -311,27 +311,27 @@
 }
 .memberaccessdetailtitle h2 {
   margin: 0;
-  color: #13243e;
+  color: var(--console-text);
   font-size: 18px;
 }
 .memberaccessdetailtitle b {
-  border: 1px solid #edc66e;
+  border: 1px solid var(--console-warning-border);
   border-radius: 6px;
-  background: #fff4d2;
+  background: var(--console-warning-bg);
   padding: 2px 6px;
-  color: #9a5b00;
+  color: var(--console-warning-text);
   font-size: 9px;
 }
 .memberaccessdetailheader p {
   margin: 6px 0 0;
-  color: #71839b;
+  color: var(--console-text-muted);
   font-size: 11px;
 }
 .memberaccessdanger {
-  border-color: #ffc3cc;
-  background: #fff7f8;
-  color: #c72d49;
-  box-shadow: 0 3px 10px rgb(199 45 73 / 7%);
+  border-color: var(--console-danger-border);
+  background: var(--console-danger-bg);
+  color: var(--console-danger-text);
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--console-danger) 7%, transparent);
 }
 .memberaccessdetailscroll {
   max-height: 720px;
@@ -344,22 +344,22 @@
   gap: 10px;
 }
 .memberaccessfacts article {
-  border: 1px solid #e0e7f0;
+  border: 1px solid var(--console-border);
   border-radius: 11px;
-  background: linear-gradient(180deg, #fff, #fbfcfe);
+  background: linear-gradient(180deg, var(--console-surface), var(--console-surface));
   padding: 12px;
-  box-shadow: 0 1px 2px rgb(16 33 58 / 3%);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--console-shadow-color) 3%, transparent);
 }
 .memberaccessfacts span {
   display: block;
-  color: #8b9bb0;
+  color: var(--console-text-muted);
   font-size: 9px;
 }
 .memberaccessfacts strong {
   display: block;
   margin-top: 5px;
   overflow-wrap: anywhere;
-  color: #31445f;
+  color: var(--console-text-secondary);
   font-size: 11px;
 }
 .memberaccesssection {
@@ -374,11 +374,11 @@
 }
 .memberaccesssectiontitle h3 {
   margin: 0;
-  color: #17263d;
+  color: var(--console-text);
   font-size: 13px;
 }
 .memberaccesssectiontitle span {
-  color: #91a0b4;
+  color: var(--console-text-muted);
   font-size: 9px;
 }
 .memberaccessrolegrid {
@@ -391,11 +391,11 @@
   align-items: flex-start;
   gap: 10px;
   min-height: 66px;
-  border: 1px solid #9fc2ff;
+  border: 1px solid var(--console-selected-border);
   border-radius: 11px;
-  background: linear-gradient(135deg, #f0f6ff, #eaf3ff);
+  background: linear-gradient(135deg, var(--console-selected), var(--console-selected));
   padding: 13px;
-  box-shadow: 0 4px 13px rgb(23 105 255 / 7%);
+  box-shadow: 0 4px 13px color-mix(in srgb, var(--console-accent) 7%, transparent);
 }
 .memberaccessrolecard input {
   margin-top: 2px;
@@ -403,13 +403,13 @@
 }
 .memberaccessrolecard strong {
   display: block;
-  color: #17335d;
+  color: var(--console-text);
   font-size: 12px;
 }
 .memberaccessrolecard small {
   display: block;
   margin-top: 5px;
-  color: #7188a8;
+  color: var(--console-text-muted);
   font-size: 9px;
 }
 .memberaccessscopebox,
@@ -418,9 +418,9 @@
   flex-wrap: wrap;
   gap: 8px;
   min-height: 54px;
-  border: 1px solid #dce5ef;
+  border: 1px solid var(--console-border);
   border-radius: 11px;
-  background: #fbfcfe;
+  background: var(--console-surface);
   padding: 12px;
 }
 .memberaccessscope,
@@ -428,11 +428,11 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  border: 1px solid #b9dfcf;
+  border: 1px solid var(--console-success-border);
   border-radius: 8px;
-  background: #ecfbf5;
+  background: var(--console-success-bg);
   padding: 6px 9px;
-  color: #217156;
+  color: var(--console-success-text);
   font-size: 10px;
 }
 .memberaccessscope b,
@@ -440,32 +440,32 @@
   font-size: 9px;
 }
 .memberaccessdeny {
-  border-color: #f3c6ce;
-  background: #fff2f4;
-  color: #b52742;
+  border-color: var(--console-danger-border);
+  background: var(--console-danger-bg);
+  color: var(--console-danger-text);
 }
 .memberaccessboundary {
   margin-top: 20px;
-  border: 1px solid #f1d9a1;
+  border: 1px solid var(--console-warning-border);
   border-radius: 11px;
-  background: linear-gradient(90deg, #fff9ea, #fffdf7);
+  background: linear-gradient(90deg, var(--console-warning-bg), var(--console-warning-bg));
   padding: 13px 15px;
-  box-shadow: inset 3px 0 0 #eca82f;
+  box-shadow: inset 3px 0 0 var(--console-warning);
 }
 .memberaccessboundary strong {
-  color: #7d5206;
+  color: var(--console-warning-text);
   font-size: 11px;
 }
 .memberaccessboundary p {
   margin: 5px 0 0;
-  color: #8b6b34;
+  color: var(--console-warning-text);
   font-size: 10px;
   line-height: 1.55;
 }
 .memberaccessboundary small {
   display: block;
   margin-top: 5px;
-  color: #9b7b45;
+  color: var(--console-warning-text);
   font-size: 9px;
 }
 .memberaccessstate {
@@ -476,20 +476,20 @@
   margin-top: 18px;
   border: 1px solid var(--memberaccess-line);
   border-radius: 14px;
-  background: #fff;
+  background: var(--console-surface);
   padding: 24px;
-  color: #52647c;
-  box-shadow: 0 10px 28px rgb(16 33 58 / 5%);
+  color: var(--console-text-secondary);
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--console-shadow-color) 5%, transparent);
 }
 .memberaccessstate[data-tone='danger'] {
-  border-color: #ffc8d1;
-  background: #fff8f9;
-  color: #b4233e;
+  border-color: var(--console-danger-border);
+  background: var(--console-danger-bg);
+  color: var(--console-danger-text);
 }
 .memberaccessempty {
   margin: 0;
   padding: 12px;
-  color: #8495aa;
+  color: var(--console-text-muted);
   font-size: 11px;
 }
 

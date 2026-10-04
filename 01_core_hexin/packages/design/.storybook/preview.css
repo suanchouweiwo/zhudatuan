@@ -1,0 +1,5 @@
+@layer theme, base, components, utilities;
+
+@import '../src/tokens.css' layer(base);
+@import '../src/base.css' layer(base);
+@import '../src/workspace.css' layer(components);

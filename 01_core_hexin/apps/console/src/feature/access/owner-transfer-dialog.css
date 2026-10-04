@@ -17,7 +17,7 @@
   width: 100%;
   border: 1px solid var(--sw-border-strong);
   border-radius: 10px;
-  background: #fff;
+  background: var(--console-surface);
   color: var(--sw-text);
   padding: 11px 12px;
   font: inherit;
@@ -97,7 +97,7 @@
   display: grid;
   justify-items: start;
   gap: 12px;
-  border: 1px solid rgb(22 163 74 / 24%);
+  border: 1px solid color-mix(in srgb, var(--console-success) 24%, transparent);
   border-radius: 12px;
   background: var(--sw-success-surface);
   padding: 16px;
@@ -113,7 +113,7 @@
 }
 
 .ownertransfererror {
-  border: 1px solid #f0b5b5;
+  border: 1px solid var(--console-danger-border);
   border-radius: 10px;
   background: var(--sw-danger-surface);
   color: var(--sw-danger-strong);
@@ -124,9 +124,9 @@
 }
 
 .ownertransferpreview {
-  border: 1px solid rgb(31 94 255 / 22%);
+  border: 1px solid color-mix(in srgb, var(--console-accent) 22%, transparent);
   border-radius: 14px;
-  background: #f6f9ff;
+  background: var(--console-surface);
   padding: 16px;
 }
 

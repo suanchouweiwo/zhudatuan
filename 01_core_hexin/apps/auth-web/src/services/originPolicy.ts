@@ -1,4 +1,4 @@
-import { PRODUCTION_IDENTITY_NODE_REGISTRY } from '@shop/sdk/identity-node';
+import { configuredIdentityNodeRegistry } from './identityNodeEnvironment';
 
 interface OriginPolicy {
   readonly allowLocalDevelopment: boolean;
@@ -9,30 +9,25 @@ interface OriginPolicy {
   readonly stagingOrigin?: string;
 }
 
-const platform = operatingNode('node:zhudatuan:l0');
-const hongtai = operatingNode('node:hbbtzn:l1');
-const CANONICAL_ADMIN_LOGIN_ORIGIN = platform.adminOrigin;
-const HONGTAI_ADMIN_LOGIN_ORIGIN = hongtai.adminOrigin;
-const CANONICAL_STOREFRONT_LOGIN_ORIGIN = platform.storefrontOrigin;
-const HONGTAI_STOREFRONT_LOGIN_ORIGIN = hongtai.storefrontOrigin;
-
 export function resolveAdminLoginOrigin(configuredOrigin?: string, allowLocalDevelopment = false): string {
+  const nodes = operatingNodes();
   return resolveCredentialTargetOrigin(
     configuredOrigin,
-    CANONICAL_ADMIN_LOGIN_ORIGIN,
+    nodes[0]!.adminOrigin,
     '后台',
     allowLocalDevelopment,
-    [HONGTAI_ADMIN_LOGIN_ORIGIN],
+    nodes.slice(1).map((node) => node.adminOrigin),
   );
 }
 
 export function resolveStorefrontLoginOrigin(configuredOrigin?: string, allowLocalDevelopment = false): string {
+  const nodes = operatingNodes();
   return resolveCredentialTargetOrigin(
     configuredOrigin,
-    CANONICAL_STOREFRONT_LOGIN_ORIGIN,
+    nodes[0]!.storefrontOrigin,
     '商城',
     allowLocalDevelopment,
-    [HONGTAI_STOREFRONT_LOGIN_ORIGIN],
+    nodes.slice(1).map((node) => node.storefrontOrigin),
   );
 }
 
@@ -97,8 +92,8 @@ function originOnly(value: URL): boolean {
   return !value.username && !value.password && (value.pathname === '/' || value.pathname === '') && !value.search && !value.hash;
 }
 
-function operatingNode(nodeId: string) {
-  const node = PRODUCTION_IDENTITY_NODE_REGISTRY.nodes.find((candidate) => candidate.nodeId === nodeId);
-  if (node?.nodeProfile !== 'operating_mall') throw new Error(`IDENTITY_OPERATING_NODE_MISSING:${nodeId}`);
-  return node;
+function operatingNodes() {
+  const nodes = configuredIdentityNodeRegistry().nodes.filter((node) => node.nodeProfile === 'operating_mall');
+  if (nodes.length === 0) throw new Error('IDENTITY_OPERATING_NODE_MISSING');
+  return nodes;
 }

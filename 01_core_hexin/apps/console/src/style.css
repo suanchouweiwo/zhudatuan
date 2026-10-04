@@ -1,6 +1,11 @@
 @import 'tailwindcss';
+@import '@shop/design/tokens.css' layer(base);
+@import '@shop/design/base.css' layer(base);
+@import '@shop/design/workspace.css' layer(components);
+@import '@shop/design/console.css';
 @import './shell.css';
 @import './feature.css';
 @import './responsive.css';
-@import './legacy-admin-theme.css';
-@import './smart-wing-vi.css';
+@import './shell/visual-shell.css';
+
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));

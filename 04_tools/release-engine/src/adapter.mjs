@@ -11,7 +11,91 @@ export async function loadAdapter(adapterPath, invocationRoot = process.cwd()) {
   validateAdapter(adapter);
   const configuredRoot = adapter.projectRoot ?? '../../..';
   const projectRoot = resolve(dirname(absolutePath), configuredRoot);
-  return Object.freeze({ ...adapter, adapterPath: absolutePath, projectRoot });
+  return Object.freeze({ ...(await bindInstance(adapter)), adapterPath: absolutePath, projectRoot });
+}
+
+async function bindInstance(adapter) {
+  const configuredInstance = process.env.LK_INSTANCE_ROOT?.trim();
+  if (!configuredInstance) return adapter;
+  const instanceRoot = resolve(configuredInstance);
+  const declaration = JSON.parse(await readFile(resolve(instanceRoot, 'sfl-node-registry.declaration.json'), 'utf8'));
+  const manifests = declaration.manifests ?? [];
+  const nodeIds = new Set(manifests.map((manifest) => manifest.node_id));
+  const selected = Object.entries(adapter.nodes).filter(([, node]) => nodeIds.has(node.nodeId));
+  const nodes = Object.fromEntries(selected);
+  for (const [, node] of selected) {
+    for (const deployment of Object.values(node.deployments)) {
+      if (!deployment.hostedBy || nodes[deployment.hostedBy]) continue;
+      const host = adapter.nodes[deployment.hostedBy];
+      if (host) nodes[deployment.hostedBy] = { ...host, deployments: {} };
+    }
+  }
+  for (const [, node] of selected) {
+    for (const [target, deployment] of Object.entries(node.deployments)) {
+      if (!deployment.hostedBy || nodeIds.has(nodes[deployment.hostedBy]?.nodeId)) continue;
+      const hostDeployment = adapter.nodes[deployment.hostedBy]?.deployments[target];
+      if (hostDeployment) nodes[deployment.hostedBy].deployments[target] = hostDeployment;
+    }
+  }
+  const publicEnvironment = await instanceFrontendEnvironment(instanceRoot);
+  const primaryBindings = manifests[0]?.domain_bindings ?? [];
+  const origin = (surface) => {
+    const binding = primaryBindings.find((candidate) => candidate.surface_ref === surface);
+    return binding ? `https://${binding.host}` : undefined;
+  };
+  const frontendOrigin = {
+    VITE_API_BASE_URL: publicEnvironment.VITE_API_BASE_URL ?? origin('surface:api'),
+    VITE_AUTH_BASE_URL: publicEnvironment.VITE_AUTH_BASE_URL ?? origin('surface:identity'),
+  };
+  const targets = Object.fromEntries(Object.entries(adapter.targets).map(([id, target]) => [id, {
+    ...target,
+    build: (target.build ?? []).flatMap((command) => {
+      const environment = { ...command.environment, LK_INSTANCE_ROOT: instanceRoot };
+      if (id === 'console') {
+        delete environment.VITE_API_BASE_URL;
+        delete environment.VITE_AUTH_BASE_URL;
+        for (const [name, value] of Object.entries(frontendOrigin)) if (value) environment[name] = value;
+      }
+      if (id === 'storefront' && command.argv[0] === 'npm' && command.argv[1] === 'run' && command.argv[2] === 'build:storefront') {
+        return [
+          { ...command, argv: ['npm', 'exec', '--workspace', '@smart-wing/storefront-web', '--', 'vinext', 'build'], environment },
+          { ...command, name: `${command.name}-runtime`, argv: ['node', '01_core_hexin/apps/storefront-web/scripts/build-production-runtime.mjs'], environment },
+        ];
+      }
+      const workspace = id === 'console' ? '@shop/console' : id === 'auth-web' ? '@smart-wing/auth-web' : null;
+      const argv = workspace && command.argv[0] === 'npm' && command.argv[1] === 'run' &&
+        ['build:console', 'build:auth'].includes(command.argv[2])
+        ? ['npm', 'run', 'build', '--workspace', workspace, '--', '--outDir', resolve(instanceRoot, 'dist', id), '--emptyOutDir']
+        : command.argv;
+      return { ...command, argv, environment };
+    }),
+  }]));
+  const hosts = new Set(manifests.flatMap((manifest) => (manifest.domain_bindings ?? []).map((binding) => binding.host)));
+  return {
+    ...adapter,
+    instanceRoot,
+    targets,
+    nodes,
+    channels: Object.fromEntries(Object.entries(adapter.channels ?? {}).filter(([, channel]) => Boolean(nodes[channel.node]))),
+    productionAcceptance: { ...adapter.productionAcceptance, domains: (adapter.productionAcceptance?.domains ?? []).filter((host) => hosts.has(host)) },
+  };
+}
+
+async function instanceFrontendEnvironment(instanceRoot) {
+  const environment = {};
+  for (const name of ['.env', '.env.local', '.env.production', '.env.production.local']) {
+    const contents = await readFile(resolve(instanceRoot, name), 'utf8').catch((error) => {
+      if (error.code === 'ENOENT') return '';
+      throw error;
+    });
+    for (const line of contents.split(/\r?\n/)) {
+      const matched = /^\s*(?:export\s+)?(VITE_API_BASE_URL|VITE_AUTH_BASE_URL)\s*=\s*(.*?)\s*$/.exec(line);
+      if (!matched) continue;
+      const value = matched[2];
+      environment[matched[1]] = /^(['"]).*\1$/.test(value) ? value.slice(1, -1) : value.replace(/\s+#.*$/, '').trim();
+    }
+  }
+  return environment;
 }
 
 export function validateAdapter(adapter) {

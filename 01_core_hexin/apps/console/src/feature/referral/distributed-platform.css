@@ -393,7 +393,7 @@
   place-items: center;
   border-radius: var(--sw-radius-md);
   background: var(--sw-brand);
-  color: #fff;
+  color: var(--console-on-accent);
   font-size: var(--sw-font-size-body-sm);
   font-weight: 700;
 }
@@ -745,7 +745,7 @@
 .platformcreateprogress li[data-state='current'] > span,
 .platformcreateprogress li[data-state='complete'] > span {
   background: var(--sw-brand);
-  color: #fff;
+  color: var(--console-on-accent);
 }
 
 .platformcreatestage {
@@ -891,7 +891,7 @@
   height: 36px;
   border-radius: var(--sw-radius-full);
   background: var(--sw-brand);
-  color: #fff;
+  color: var(--console-on-accent);
   place-items: center;
   font-weight: 800;
 }
@@ -986,7 +986,7 @@
   gap: var(--sw-space-2);
   border-radius: var(--sw-radius-lg);
   background: linear-gradient(135deg, var(--sw-brand-dark), var(--sw-brand));
-  color: #fff;
+  color: var(--console-on-accent);
   padding: var(--sw-space-2);
 }
 
@@ -998,12 +998,12 @@
 .platformcreatereviewhero h3,
 .platformcreatereviewhero p {
   margin: 0;
-  color: #fff;
+  color: var(--console-on-accent);
 }
 
 .platformcreatereviewhero > span {
   border-radius: var(--sw-radius-full);
-  background: color-mix(in srgb, #fff 16%, transparent);
+  background: color-mix(in srgb, var(--console-surface) 16%, transparent);
   padding: var(--sw-space-0-5) var(--sw-space-1);
   font-size: var(--sw-font-size-caption);
   font-weight: 700;

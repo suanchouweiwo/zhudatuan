@@ -1,0 +1,434 @@
+/* 主打团 Console：导入后台的布局语言。业务路由与操作保留在现有组件。 */
+body:has(.consolelayout[data-visual-theme='zhudatuan-console-v2']) {
+  overflow: hidden;
+  background: var(--console-canvas);
+  color: var(--console-text);
+  font-family: var(--console-font-sans);
+  font-size: var(--console-font-size);
+}
+
+.consolelayout[data-visual-theme='zhudatuan-console-v2'] {
+  display: grid;
+  width: 100%;
+  height: 100dvh;
+  min-height: 0;
+  grid-template-columns: 224px minmax(0, 1fr);
+  grid-template-rows: 56px minmax(0, 1fr);
+  overflow: hidden;
+  background: var(--console-canvas);
+  color: var(--console-text);
+  font-size: var(--console-font-size);
+  line-height: 1.5;
+}
+
+.consolelayout[data-visual-theme='zhudatuan-console-v2'][data-sidebar='collapsed'] {
+  grid-template-columns: 64px minmax(0, 1fr);
+}
+
+.consolelayout[data-visual-theme='zhudatuan-console-v2'] .consoleheader {
+  position: relative;
+  z-index: 45;
+  display: flex;
+  min-width: 0;
+  height: 56px;
+  min-height: 56px;
+  grid-column: 1 / -1;
+  grid-row: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid var(--console-border);
+  background: var(--console-shell-surface);
+  padding: 0 16px;
+  color: var(--console-text);
+  box-shadow: var(--console-shadow);
+}
+
+.consolelayout .consolebrandzone,
+.consolelayout .consolebrand,
+.consolelayout .consoleactions {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+}
+.consolelayout .consolebrandzone { gap: 16px; flex-shrink: 0; }
+.consolelayout .consolebrand { gap: 10px; }
+.consolelayout .consolebrand > img { display: block; width: 32px; height: 32px; flex: 0 0 32px; }
+.consolelayout .consolebrandcopy { display: grid; gap: 1px; line-height: 1.3; }
+.consolelayout .consolebrandcopy > strong { color: var(--console-text); font-size: 16px; font-weight: 700; }
+.consolelayout .consolebrandcopy > small { color: var(--console-text-muted); font-size: 11px; }
+.consolelayout .consoleheaderscope { border-left: 1px solid var(--console-border); padding-left: 16px; }
+.consolelayout .consoleheaderscope select {
+  width: auto;
+  max-width: 220px;
+  min-height: var(--console-control-height);
+  border: 1px solid var(--console-border);
+  border-radius: var(--console-radius);
+  background: var(--console-surface-subtle);
+  padding: 0 28px 0 10px;
+  color: var(--console-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.consolelayout[data-visual-theme='zhudatuan-console-v2'] .commandarea { position: relative; flex: 1; max-width: 350px; min-width: 160px; }
+.consolelayout[data-visual-theme='zhudatuan-console-v2'] .commandtrigger {
+  display: flex;
+  width: 100%;
+  min-height: var(--console-control-height);
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  border: 1px solid var(--console-border);
+  border-radius: var(--console-radius);
+  background: var(--console-surface);
+  padding: 0 10px;
+  color: var(--console-text-muted);
+  font-size: 12px;
+  text-align: left;
+}
+.consolelayout .commandtrigger > svg { width: 16px; height: 16px; flex: 0 0 16px; }
+.consolelayout .commandtrigger > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.consolelayout .commandtrigger > kbd {
+  margin-left: auto;
+  border: 1px solid var(--console-border-subtle);
+  border-radius: var(--console-radius);
+  background: var(--console-surface-subtle);
+  padding: 1px 4px;
+  color: var(--console-text-muted);
+  font-family: var(--console-font-mono);
+  font-size: 10px;
+  white-space: nowrap;
+}
+.consolelayout[data-visual-theme='zhudatuan-console-v2'] .consoleactions { flex: 0 0 auto; gap: 10px; }
+.consolelayout .consoledensity { display: flex; border: 1px solid var(--console-border); border-radius: var(--console-radius); background: var(--console-surface-subtle); padding: 2px; }
+.consolelayout .consoledensity > button {
+  min-height: 24px;
+  border: 0;
+  border-radius: var(--console-radius);
+  background: transparent;
+  padding: 0 8px;
+  color: var(--console-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.consolelayout .consoledensity > button[aria-pressed='true'] { background: var(--console-selected); color: var(--console-brand); }
+.consolelayout[data-visual-theme='zhudatuan-console-v2'] .iconbutton,
+.consolelayout[data-visual-theme='zhudatuan-console-v2'] .mobilemenubutton {
+  display: inline-grid;
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  border: 0;
+  border-radius: var(--console-radius);
+  background: transparent;
+  padding: 6px;
+  color: var(--console-text-secondary);
+  place-items: center;
+}
+.consolelayout[data-visual-theme='zhudatuan-console-v2'] .mobilemenubutton { display: none; }
+.consolelayout .iconbutton > svg,
+.consolelayout .mobilemenubutton > svg { width: 19px; height: 19px; }
+.consolelayout .iconbutton:hover,
+.consolelayout .mobilemenubutton:hover { background: var(--console-surface-hover); color: var(--console-brand); }
+.consolelayout[data-visual-theme='zhudatuan-console-v2'] .taskbutton {
+  display: flex;
+  min-height: 30px;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: var(--console-radius);
+  background: transparent;
+  padding: 0 6px;
+  color: var(--console-text-secondary);
+  font-size: 12px;
+}
+.consolelayout[data-visual-theme='zhudatuan-console-v2'] .taskbutton > span { width: 5px; height: 5px; border-radius: 50%; background: var(--console-text-muted); }
+.consolelayout[data-visual-theme='zhudatuan-console-v2'] .languageindicator { color: var(--console-text-muted); font-size: 11px; }
+.consolelayout[data-visual-theme='zhudatuan-console-v2'] .headeractionwrap { position: relative; }
+.consolelayout[data-visual-theme='zhudatuan-console-v2'] .operatorprofile { display: flex; align-items: center; gap: 8px; }
+.consolelayout[data-visual-theme='zhudatuan-console-v2'] .avatarbutton {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--console-brand);
+  padding: 0;
+  color: var(--console-on-accent);
+  font-size: 13px;
+  font-weight: 700;
+  place-items: center;
+}
+.consolelayout[data-visual-theme='zhudatuan-console-v2'] .operatorcopy { display: grid; gap: 1px; }
+.consolelayout .operatorcopy strong { color: var(--console-text); font-size: 12px; font-weight: 600; }
+.consolelayout .operatorcopy small { max-width: 170px; overflow: hidden; color: var(--console-text-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.consolelayout[data-visual-theme='zhudatuan-console-v2'] .headerpopup {
+  position: absolute;
+  z-index: 80;
+  top: calc(100% + 12px);
+  right: 0;
+  display: grid;
+  width: min(300px, calc(100vw - 32px));
+  gap: 10px;
+  border: 1px solid var(--console-border);
+  border-radius: var(--console-radius);
+  background: var(--console-surface);
+  padding: 16px;
+  color: var(--console-text-secondary);
+  box-shadow: var(--console-shadow);
+  font-size: 12px;
+}
+.consolelayout .headerpopup > strong,
+.consolelayout .headerpopup > label { color: var(--console-text); font-weight: 600; }
+.consolelayout .headerpopup input,
+.consolelayout .headerpopup button {
+  min-height: var(--console-control-height);
+  border: 1px solid var(--console-border);
+  border-radius: var(--console-radius);
+  background: var(--console-surface);
+  padding: 6px 10px;
+  color: var(--console-text-secondary);
+  text-align: left;
+}
+.consolelayout .headerpopup button:hover { background: var(--console-surface-hover); color: var(--console-brand); }
+.consolelayout .headerpopup p { margin: 0; color: var(--console-text-muted); }
+.consolelayout .headerpopup em { color: var(--sw-danger); font-style: normal; }
+
+.consolelayout[data-visual-theme='zhudatuan-console-v2'] .consolesidebar {
+  position: relative;
+  top: auto;
+  z-index: 35;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  grid-column: 1;
+  grid-row: 2;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid var(--console-border);
+  background: var(--console-shell-surface);
+  color: var(--console-text-secondary);
+  box-shadow: none;
+}
+.consolelayout[data-visual-theme='zhudatuan-console-v2'] .sidebarbrand {
+  position: relative;
+  display: flex;
+  height: 40px;
+  min-height: 40px;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--console-border-subtle);
+  padding: 0 12px;
+}
+.consolelayout .sidebarproductmark,
+.consolelayout .sidebarbrandcopy,
+.consolelayout[data-visual-theme='zhudatuan-console-v2'] .sidebarnavtitle { display: none; }
+.consolelayout[data-visual-theme='zhudatuan-console-v2'] .sidebarbrand::before { content: '运营工作台'; color: var(--console-text-muted); font-size: 11px; font-weight: 600; }
+.consolelayout[data-visual-theme='zhudatuan-console-v2'] .sidebartoggle {
+  position: static;
+  display: grid;
+  width: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  border: 0;
+  border-radius: var(--console-radius);
+  background: transparent;
+  padding: 5px;
+  color: var(--console-text-muted);
+  transform: none;
+  place-items: center;
+}
+.consolelayout .sidebartoggle:hover { background: var(--console-surface-hover); color: var(--console-brand); }
+.consolelayout .sidebartoggle > svg { width: 16px; height: 16px; }
+.consolelayout[data-visual-theme='zhudatuan-console-v2'] .sidebarnavigation {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  align-content: start;
+  gap: 20px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 12px 10px 20px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--console-border) transparent;
+}
+.consolelayout .sidebarnavgroup { display: grid; gap: 3px; }
+.consolelayout .sidebarnavgrouplabel { padding: 4px 8px 5px; color: var(--console-text-muted); font-size: 11px; font-weight: 600; letter-spacing: .02em; }
+.consolelayout[data-visual-theme='zhudatuan-console-v2'] .sidebarnavigation button,
+.consolelayout[data-visual-theme='zhudatuan-console-v2'] .sidebarutilitynavigation button {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-height: var(--console-control-height);
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  border: 1px solid transparent;
+  border-left-width: 3px;
+  border-radius: var(--console-radius);
+  background: transparent;
+  padding: 6px 8px;
+  color: var(--console-text-secondary);
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: left;
+}
+.consolelayout .sidebarnavigation button > svg { width: 17px; height: 17px; flex: 0 0 17px; color: var(--console-text-muted); }
+.consolelayout .sidebarlabel { min-width: 0; overflow: hidden; font-size: 12px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.consolelayout .sidebarnavbadge { margin-left: auto; border-radius: var(--console-radius); background: var(--console-surface-subtle); padding: 1px 4px; color: var(--console-text-muted); font-family: var(--console-font-mono); font-size: 9px; }
+.consolelayout[data-visual-theme='zhudatuan-console-v2'] .sidebarnavigation button::before,
+.consolelayout[data-visual-theme='zhudatuan-console-v2'] .sidebarutilitynavigation button::before { display: none; }
+.consolelayout .sidebarnavigation button:hover,
+.consolelayout .sidebarutilitynavigation button:hover { background: var(--console-surface-hover); color: var(--console-text); }
+.consolelayout .sidebarnavigation button[aria-current='page'],
+.consolelayout .sidebarutilitynavigation button[aria-current='page'] {
+  border-left-color: var(--console-brand);
+  background: var(--console-selected);
+  color: var(--console-brand);
+}
+.consolelayout .sidebarnavigation button[aria-current='page'] > svg { color: var(--console-accent); }
+.consolelayout .sidebarnavigation button[aria-current='page'] .sidebarlabel { font-weight: 600; }
+.consolelayout .sidebarnavigation button[data-status='disabled'] { color: var(--console-text-muted); }
+.consolelayout[data-visual-theme='zhudatuan-console-v2'] .sidebarfooter { flex: 0 0 auto; border-top: 1px solid var(--console-border); background: var(--console-shell-surface); padding: 8px 10px 10px; }
+.consolelayout[data-visual-theme='zhudatuan-console-v2'] .sidebarutilitynavigation { display: grid; gap: 2px; padding: 0; }
+.consolelayout[data-visual-theme='zhudatuan-console-v2'] .sidebarprofileavatar { display: grid; width: 20px; height: 20px; border: 0; border-radius: 50%; background: var(--console-brand-soft); color: var(--console-brand); font-size: 10px; font-weight: 600; place-items: center; }
+.consolelayout[data-visual-theme='zhudatuan-console-v2'] .sidebarversion { display: flex; width: 100%; min-height: 34px; align-items: center; justify-content: space-between; gap: 6px; margin-top: 8px; border: 0; border-radius: var(--console-radius); background: var(--console-surface-subtle); padding: 6px 8px; color: var(--console-text-muted); text-align: left; }
+.consolelayout .sidebarversioncopy { display: grid; gap: 2px; min-width: 0; }
+.consolelayout .sidebarversioncopy small { color: var(--console-text-secondary); font-size: 10px; }
+.consolelayout .sidebarversioncopy strong { overflow: hidden; color: var(--console-text-muted); font-family: var(--console-font-mono); font-size: 9px; font-weight: 400; text-overflow: ellipsis; }
+.consolelayout .sidebarversionstate { color: var(--console-text-muted); font-size: 9px; white-space: nowrap; }
+.consolelayout .sidebarversionstate > i { display: none; }
+.consolelayout[data-visual-theme='zhudatuan-console-v2'][data-sidebar='collapsed'] .sidebarbrand { justify-content: center; padding-inline: 0; }
+.consolelayout[data-sidebar='collapsed'] .sidebarbrand::before,
+.consolelayout[data-sidebar='collapsed'] .sidebarnavgrouplabel,
+.consolelayout[data-sidebar='collapsed'] .sidebarlabel,
+.consolelayout[data-sidebar='collapsed'] .sidebarnavbadge,
+.consolelayout[data-sidebar='collapsed'] .sidebarversion { display: none; }
+.consolelayout[data-visual-theme='zhudatuan-console-v2'][data-sidebar='collapsed'] .sidebarnavigation { gap: 14px; padding-inline: 7px; }
+.consolelayout[data-visual-theme='zhudatuan-console-v2'][data-sidebar='collapsed'] .sidebarnavigation button,
+.consolelayout[data-visual-theme='zhudatuan-console-v2'][data-sidebar='collapsed'] .sidebarutilitynavigation button { justify-content: center; padding-inline: 3px; }
+
+.consolelayout[data-visual-theme='zhudatuan-console-v2'] .consoleworkspace {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  grid-column: 2;
+  grid-row: 2;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--console-canvas);
+}
+.consolelayout[data-visual-theme='zhudatuan-console-v2'] .scopebar {
+  display: flex;
+  height: auto;
+  min-height: 72px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid var(--console-border);
+  background: var(--console-shell-surface);
+  padding: 12px 24px;
+  color: var(--console-text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: normal;
+}
+.consolelayout .scopepagetitle { display: grid; min-width: 0; gap: 4px; margin-right: auto; }
+.consolelayout .scopepagetitle > span { overflow: hidden; color: var(--console-text-muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.consolelayout .scopepagetitle > strong { color: var(--console-text); font-size: 18px; font-weight: 600; }
+.consolelayout[data-visual-theme='zhudatuan-console-v2'] .scopecontext,
+.consolelayout[data-visual-theme='zhudatuan-console-v2'] .scopestatus { color: var(--console-text-muted); font-size: 11px; }
+.consolelayout[data-visual-theme='zhudatuan-console-v2'] .scopecontext select { min-height: 28px; border: 1px solid var(--console-border); border-radius: var(--console-radius); background: var(--console-surface); padding: 0 6px; color: var(--console-text-secondary); font-size: 11px; }
+.consolelayout .scopenavigationstatus { color: var(--console-brand); }
+.consolelayout[data-visual-theme='zhudatuan-console-v2'] .workspacebody {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  margin: 0;
+  padding: 20px 24px 28px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--console-border) transparent;
+}
+.consolelayout[data-visual-theme='zhudatuan-console-v2'] .consolefooter { display: flex; min-height: 30px; flex: 0 0 auto; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid var(--console-border-subtle); background: var(--console-shell-surface); padding: 6px 24px; color: var(--console-text-muted); font-size: 10px; }
+.consolelayout .consolefooter > code { color: var(--console-text-muted); font-family: var(--console-font-mono); font-size: 9px; }
+.consolelayout .consolefooterstatus { color: var(--console-text-muted); white-space: nowrap; }
+.consolelayout .consolefooterstatus > i { background: var(--sw-success); }
+.consolelayout[data-visual-theme='zhudatuan-console-v2'][data-density='compact'] .scopebar { min-height: 60px; padding-block: 8px; }
+.consolelayout[data-visual-theme='zhudatuan-console-v2'][data-density='compact'] .workspacebody { padding: 16px 20px 24px; }
+.consolelayout[data-visual-theme='zhudatuan-console-v2'][data-density='compact'] .sidebarnavigation { gap: 14px; }
+
+@media (max-width: 1180px) {
+  .consolelayout .operatorcopy,
+  .consolelayout .languageindicator,
+  .consolelayout .consoleheader .taskbutton { display: none; }
+  .consolelayout .consoleheaderscope select { max-width: 190px; }
+  .consolelayout[data-visual-theme='zhudatuan-console-v2'] .consoleheader { gap: 12px; }
+}
+
+@media (max-width: 900px) {
+  .consolelayout .consolebrandcopy > small,
+  .consolelayout .commandtrigger > kbd,
+  .consolelayout .scopestatus { display: none; }
+  .consolelayout .consolebrandzone { gap: 10px; }
+  .consolelayout .consoleheaderscope { padding-left: 10px; }
+  .consolelayout .consoleheaderscope select { max-width: 165px; }
+  .consolelayout[data-visual-theme='zhudatuan-console-v2'] .consoleactions { gap: 6px; }
+  .consolelayout[data-visual-theme='zhudatuan-console-v2'] .consolefooter > code { display: none; }
+}
+
+@media (max-width: 768px) {
+  .consolelayout[data-visual-theme='zhudatuan-console-v2'],
+  .consolelayout[data-visual-theme='zhudatuan-console-v2'][data-sidebar='collapsed'] { grid-template-columns: minmax(0, 1fr); }
+  .consolelayout[data-visual-theme='zhudatuan-console-v2'] .consoleheader { grid-column: 1; padding-inline: 12px; }
+  .consolelayout[data-visual-theme='zhudatuan-console-v2'] .mobilemenubutton { display: inline-grid; }
+  .consolelayout[data-visual-theme='zhudatuan-console-v2'] .commandarea { display: none; }
+  .consolelayout[data-visual-theme='zhudatuan-console-v2'] .consoleworkspace { grid-column: 1; }
+  .consolelayout[data-visual-theme='zhudatuan-console-v2'][data-mobile-nav] .consolesidebar,
+  .consolelayout[data-visual-theme='zhudatuan-console-v2'][data-mobile-nav] .consolesidebar.iscollapsed {
+    position: fixed;
+    top: 56px;
+    bottom: 0;
+    left: 0;
+    z-index: 70;
+    width: 224px;
+    height: calc(100dvh - 56px);
+    transform: translateX(-100%);
+  }
+  .consolelayout[data-visual-theme='zhudatuan-console-v2'][data-mobile-nav='open'] .consolesidebar { transform: translateX(0); }
+  .consolelayout[data-visual-theme='zhudatuan-console-v2'][data-mobile-nav] .sidebarnavigation { display: grid; gap: 20px; padding: 12px 10px 20px; }
+  .consolelayout[data-visual-theme='zhudatuan-console-v2'][data-mobile-nav] .sidebarnavigation button { justify-content: flex-start; padding: 6px 8px; }
+  .consolelayout[data-visual-theme='zhudatuan-console-v2'][data-mobile-nav] .sidebarlabel,
+  .consolelayout[data-visual-theme='zhudatuan-console-v2'][data-mobile-nav] .sidebarnavgrouplabel,
+  .consolelayout[data-visual-theme='zhudatuan-console-v2'][data-mobile-nav] .sidebarnavbadge,
+  .consolelayout[data-visual-theme='zhudatuan-console-v2'][data-mobile-nav] .sidebarversion { display: block; }
+  .consolelayout[data-visual-theme='zhudatuan-console-v2'][data-mobile-nav] .sidebarbrand::before { display: block; }
+  .consolelayout[data-visual-theme='zhudatuan-console-v2'][data-mobile-nav='open'] .mobilebackdrop { position: fixed; inset: 56px 0 0; z-index: 60; display: block; border: 0; background: var(--console-overlay); }
+  .consolelayout[data-visual-theme='zhudatuan-console-v2'] .scopebar { display: flex; min-height: 68px; padding: 10px 16px; }
+  .consolelayout[data-visual-theme='zhudatuan-console-v2'] .workspacebody,
+  .consolelayout[data-visual-theme='zhudatuan-console-v2'][data-density='compact'] .workspacebody { padding: 16px; }
+  .consolelayout[data-visual-theme='zhudatuan-console-v2'] .consolefooter { padding-inline: 16px; }
+  .consolelayout .consolefooterstatus { display: none; }
+}
+
+@media (max-width: 560px) {
+  .consolelayout .consoledensity,
+  .consolelayout .consoleheaderscope,
+  .consolelayout .scopebar .scopecontext { display: none; }
+  .consolelayout .consolebrandcopy > strong { font-size: 14px; }
+  .consolelayout .consolebrand > img { width: 28px; height: 28px; flex-basis: 28px; }
+  .consolelayout .scopepagetitle > strong { font-size: 16px; }
+  .consolelayout .consolefooter > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .consolelayout[data-visual-theme='zhudatuan-console-v2'],
+  .consolelayout[data-visual-theme='zhudatuan-console-v2'] .consolesidebar { transition: none; }
+}

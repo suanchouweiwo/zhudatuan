@@ -1,9 +1,11 @@
 import React from 'react';
 import { useMall, TabletPage } from '../../context/MallContext';
+import { resolveStorefrontPresentationIdentity } from '../../config/storefrontIdentity';
 import { Home, Grid, Gift, ShoppingCart, FileText, User, Building2, ChevronRight, ShieldCheck, RotateCw } from 'lucide-react';
 
 export const TabletNavRail: React.FC = () => {
   const { tabletPage, setTabletPage, tabletOrientation, setTabletOrientation, cartCount, user, currentMall, triggerPendingFeature } = useMall();
+  const { brandName } = resolveStorefrontPresentationIdentity();
 
   const navItems: { key: TabletPage; label: string; icon: React.ReactNode }[] = [
     { key: 'home', label: '首页', icon: <Home className="w-5 h-5" /> },
@@ -46,7 +48,10 @@ export const TabletNavRail: React.FC = () => {
       {/* Top Header & Enterprise Info */}
       <div className="space-y-4">
         <div className="flex flex-col items-start gap-1 px-2 py-1 border-b border-blue-800/60 pb-3">
-          <img src="/brand/morvia-master-lockup-white.svg" alt="主打团" className="h-10 w-40 object-contain" />
+          <span className="flex max-w-full items-center gap-2">
+            <img src="/brand/morvia-mark-white.svg" alt="" aria-hidden="true" className="h-10 w-10 flex-shrink-0 object-contain" />
+            <strong className="truncate text-xl font-black tracking-tight">{brandName}</strong>
+          </span>
           <div className="overflow-hidden">
             <div className="text-[10px] text-blue-200 truncate">Tablet App 专属版</div>
           </div>

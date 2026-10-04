@@ -22,15 +22,16 @@ export const IdentityAudienceSwitch: React.FC<Readonly<{
 export const IdentityFlowHeader: React.FC<Readonly<{
   active: IdentityAudience;
   brand: 'morvia' | 'hongtai';
+  brandName?: string;
   onSwitch: () => void;
-}>> = ({ active, brand, onSwitch }) => (
+}>> = ({ active, brand, brandName = brand === 'hongtai' ? '宏泰甄选' : '主打团', onSwitch }) => (
   <div className="flex min-h-[88px] items-center justify-between gap-4 border-b border-[#D7DBE5] bg-white px-6 sm:px-8">
     <div className="flex min-w-0 items-center gap-3">
       {brand === 'morvia'
         ? <img src={morviaMark} alt="" className="h-9 w-9 shrink-0" />
         : <span className="hongtai-header-mark" aria-hidden="true">H</span>}
       <div className="min-w-0">
-        <p className="identity-brand-eyebrow text-[10px] font-bold uppercase tracking-[0.18em]">{brand === 'morvia' ? '主打团统一身份' : 'HONGTAI IDENTITY'}</p>
+        <p className="identity-brand-eyebrow text-[10px] font-bold uppercase tracking-[0.18em]">{brandName}统一身份</p>
         <p className="mt-0.5 truncate text-sm font-bold text-[#111111]">统一账号认证</p>
       </div>
     </div>

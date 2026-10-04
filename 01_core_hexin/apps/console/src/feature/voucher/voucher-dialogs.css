@@ -1,6 +1,6 @@
 .voucheroverlay { position: fixed; z-index: 120; inset: 0; display: grid; place-items: center; }
 .voucheroverlay.is-drawer { justify-items: end; }
-.voucherdialogbackdrop { position: absolute; inset: 0; border: 0; background: rgb(7 24 47 / 38%); cursor: default; backdrop-filter: blur(2px); }
+.voucherdialogbackdrop { position: absolute; inset: 0; border: 0; background: var(--console-overlay); cursor: default; backdrop-filter: blur(2px); }
 
 .voucherdrawer,
 .vouchercreatordialog {
@@ -11,10 +11,10 @@
   max-height: calc(100vh - 24px);
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid #dbe4ef;
+  border: 1px solid var(--console-border);
   border-radius: 18px;
-  background: #fff;
-  box-shadow: 0 24px 70px rgb(7 24 47 / 26%);
+  background: var(--console-surface);
+  box-shadow: 0 24px 70px color-mix(in srgb, var(--console-shadow-color) 26%, transparent);
 }
 
 .voucherdrawer { width: min(470px, calc(100vw - 16px)); height: 100vh; max-height: none; border-radius: 18px 0 0 18px; }
@@ -34,35 +34,35 @@
 .vouchercreatordialog header p { margin: 0 0 4px; color: var(--vi-brand); font-size: 9px; font-weight: 800; letter-spacing: .12em; }
 .voucherdrawer h2,
 .vouchercreatordialog h2 { margin: 0; color: var(--vi-ink); font-size: 18px; line-height: 26px; }
-.voucherdrawer header code { color: #8090a5; font-size: 9px; }
+.voucherdrawer header code { color: var(--console-text-muted); font-size: 9px; }
 .voucherdrawer header > button,
-.vouchercreatordialog header > button { width: 34px; height: 34px; border: 1px solid var(--vi-line); border-radius: 9px; background: #fff; color: #53677f; font-size: 20px; cursor: pointer; }
+.vouchercreatordialog header > button { width: 34px; height: 34px; border: 1px solid var(--vi-line); border-radius: 9px; background: var(--console-surface); color: var(--console-text-secondary); font-size: 20px; cursor: pointer; }
 
 .voucherdrawerbody,
 .vouchercreatorbody { display: grid; gap: 16px; overflow: auto; padding: 18px 20px; }
-.voucherdrawerstatus { display: grid; gap: 10px; border-radius: 12px; background: #f7f9fc; padding: 14px; }
-.voucherdrawerstatus p { margin: 0; color: #6e8097; font-size: 11px; line-height: 18px; }
+.voucherdrawerstatus { display: grid; gap: 10px; border-radius: 12px; background: var(--console-surface); padding: 14px; }
+.voucherdrawerstatus p { margin: 0; color: var(--console-text-muted); font-size: 11px; line-height: 18px; }
 
 .voucherfacts { display: grid; grid-template-columns: 1fr 1fr; margin: 0; border: 1px solid var(--vi-line); border-radius: 12px; overflow: hidden; }
 .voucherfacts div { display: grid; min-height: 74px; align-content: center; gap: 4px; border-right: 1px solid var(--vi-line); border-bottom: 1px solid var(--vi-line); padding: 12px 14px; }
 .voucherfacts div:nth-child(2n) { border-right: 0; }
-.voucherfacts dt { color: #8291a4; font-size: 9px; }
-.voucherfacts dd { margin: 0; color: #263a53; font-size: 12px; line-height: 18px; word-break: break-word; }
+.voucherfacts dt { color: var(--console-text-muted); font-size: 9px; }
+.voucherfacts dd { margin: 0; color: var(--console-text); font-size: 12px; line-height: 18px; word-break: break-word; }
 
-.voucherwriteboundary { border: 1px solid #f1d49c; border-radius: 11px; background: #fff9ed; padding: 12px 14px; }
-.voucherwriteboundary strong { color: #8d5106; font-size: 11px; }
-.voucherwriteboundary p { margin: 4px 0 0; color: #8b6b3f; font-size: 10px; line-height: 17px; }
+.voucherwriteboundary { border: 1px solid var(--console-warning-border); border-radius: 11px; background: var(--console-warning-bg); padding: 12px 14px; }
+.voucherwriteboundary strong { color: var(--console-warning-text); font-size: 11px; }
+.voucherwriteboundary p { margin: 4px 0 0; color: var(--console-warning-text); font-size: 10px; line-height: 17px; }
 
-.vouchercreatornotice { margin: 0; color: #52667f; font-size: 12px; line-height: 20px; }
+.vouchercreatornotice { margin: 0; color: var(--console-text-secondary); font-size: 12px; line-height: 20px; }
 .vouchercreatorbody ol { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0; padding: 0; list-style: none; }
-.vouchercreatorbody li { display: flex; min-height: 82px; align-items: center; gap: 11px; border: 1px solid var(--vi-line); border-radius: 12px; background: #fbfcfe; padding: 12px; }
+.vouchercreatorbody li { display: flex; min-height: 82px; align-items: center; gap: 11px; border: 1px solid var(--vi-line); border-radius: 12px; background: var(--console-surface); padding: 12px; }
 .vouchercreatorbody li > span { display: grid; width: 28px; height: 28px; flex: 0 0 auto; border-radius: 50%; background: var(--vi-brand-soft); color: var(--vi-brand); font-size: 11px; font-weight: 800; place-items: center; }
 .vouchercreatorbody li div { display: grid; gap: 3px; }
 .vouchercreatorbody li strong { color: var(--vi-ink); font-size: 12px; }
-.vouchercreatorbody li p { margin: 0; color: #7c8ca1; font-size: 10px; line-height: 16px; }
+.vouchercreatorbody li p { margin: 0; color: var(--console-text-muted); font-size: 10px; line-height: 16px; }
 
 .voucherdrawer > footer,
 .vouchercreatordialog > footer { display: flex; min-height: 66px; align-items: center; justify-content: flex-end; border-top: 1px solid var(--vi-line); padding: 12px 20px; }
 .voucherdrawer > footer button,
-.vouchercreatordialog > footer button { min-height: 38px; border: 1px solid var(--vi-brand); border-radius: 10px; background: var(--vi-brand); padding: 0 18px; color: #fff; font: inherit; font-size: 11px; font-weight: 750; cursor: pointer; }
+.vouchercreatordialog > footer button { min-height: 38px; border: 1px solid var(--vi-brand); border-radius: 10px; background: var(--vi-brand); padding: 0 18px; color: var(--console-on-accent); font: inherit; font-size: 11px; font-weight: 750; cursor: pointer; }
 

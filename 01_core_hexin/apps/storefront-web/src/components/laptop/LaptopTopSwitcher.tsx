@@ -1,5 +1,6 @@
 import React from 'react';
 import { useMall } from '../../context/MallContext';
+import { resolveStorefrontPresentationIdentity } from '../../config/storefrontIdentity';
 import type { AppMode, LaptopPage } from '../../context/MallContext.types';
 import { Monitor, Laptop, Smartphone, AppWindow, Tablet, Layers } from 'lucide-react';
 import { defaultStorefrontWebPage, storefrontDeviceSwitchPolicy, STOREFRONT_WEB_SURFACE_COPY, type StorefrontWebNavigationBoundary, type StorefrontWebSurface } from './StorefrontWebStandard';
@@ -11,6 +12,7 @@ type LaptopTopSwitcherProps = {
 
 export const LaptopTopSwitcher: React.FC<LaptopTopSwitcherProps> = ({ surface = 'laptop', navigationBoundary = 'showcase' }) => {
   const { appMode, setAppMode, laptopPage, setLaptopPage, setTabletOrientation } = useMall();
+  const { brandName } = resolveStorefrontPresentationIdentity();
   const surfaceCopy = STOREFRONT_WEB_SURFACE_COPY[surface];
   const previewControlsDisabled = navigationBoundary === 'production';
 
@@ -34,13 +36,16 @@ export const LaptopTopSwitcher: React.FC<LaptopTopSwitcherProps> = ({ surface = 
       <div className="sw-web-switcher-container max-w-[1366px] mx-auto flex flex-col xl:flex-row items-center justify-between gap-2.5 text-xs">
         {/* Left Branding */}
         <div className="flex items-center gap-2.5">
-          <img src="/brand/morvia-master-lockup-white.svg" alt="主打团" className="h-9 w-36 flex-shrink-0 object-contain" />
+          <span className="flex flex-shrink-0 items-center gap-2">
+            <img src="/brand/morvia-mark-white.svg" alt="" aria-hidden="true" className="h-9 w-9 object-contain" />
+            <strong className="max-w-40 truncate text-xl font-black tracking-tight">{brandName}</strong>
+          </span>
           <div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] bg-blue-500/30 text-blue-200 border border-blue-400/40 font-bold px-1.5 py-0.2 rounded">{surfaceCopy.frameBadge}</span>
             </div>
             <div className="text-[10px] text-blue-200 flex items-center gap-1">
-              <span>主打团 B2B2C</span>
+              <span>{brandName} B2B2C</span>
               <span>·</span>
               <span className="text-yellow-200">技术服务：雍彻科技（SGSYEN TECH）</span>
             </div>

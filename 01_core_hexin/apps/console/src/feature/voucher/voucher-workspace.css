@@ -1,6 +1,6 @@
 .consolelayout[data-route='vouchers'] {
-  --vi-route-accent: #1f5eff;
-  --vi-route-soft: #eaf1ff;
+  --vi-route-accent: var(--console-accent);
+  --vi-route-soft: var(--console-selected);
 }
 
 .voucherworkspace {
@@ -25,9 +25,9 @@
   min-height: 58px;
   align-items: center;
   gap: 12px;
-  border: 1px solid #d8e4f3;
+  border: 1px solid var(--console-border);
   border-radius: 10px;
-  background: linear-gradient(90deg, #f7faff, #fff);
+  background: linear-gradient(90deg, var(--console-warning-bg), var(--console-warning-bg));
   padding: 10px 14px;
 }
 
@@ -62,7 +62,7 @@
 .voucherownership p,
 .voucherboundarybanner p {
   margin: 1px 0 0;
-  color: #667991;
+  color: var(--console-text-muted);
   font-size: 11px;
   line-height: 18px;
 }
@@ -81,9 +81,9 @@
   overflow: hidden;
   border: 1px solid var(--vi-line);
   border-radius: 14px;
-  background: #fff;
+  background: var(--console-surface);
   padding: 14px 16px;
-  box-shadow: 0 1px 2px rgb(11 29 53 / 3%);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--console-shadow-color) 3%, transparent);
 }
 
 .vouchersummary article::before {
@@ -92,7 +92,7 @@
   right: 0;
   left: 0;
   height: 2px;
-  background: #93a4bb;
+  background: var(--console-hover);
   content: '';
 }
 
@@ -102,7 +102,7 @@
 .vouchersummary article.is-info::before { background: var(--vi-brand); }
 
 .vouchersummary span {
-  color: #677990;
+  color: var(--console-text-muted);
   font-size: 11px;
   font-weight: 650;
 }
@@ -119,7 +119,7 @@
 .vouchersummary small {
   margin-top: 7px;
   overflow: hidden;
-  color: #8190a4;
+  color: var(--console-text-muted);
   font-size: 10px;
   line-height: 16px;
   text-overflow: ellipsis;
@@ -127,18 +127,18 @@
 }
 
 .voucherboundarybanner {
-  border-color: #f2d69f;
-  background: linear-gradient(90deg, #fff8ea, #fffdf9);
+  border-color: var(--console-warning-border);
+  background: linear-gradient(90deg, var(--console-warning-bg), var(--console-warning-bg));
 }
 
 .voucherboundarybanner > span {
   border-radius: 50%;
-  background: #ffedc7;
-  color: #a85e03;
+  background: var(--console-warning-bg);
+  color: var(--console-warning-text);
 }
 
-.voucherboundarybanner strong { color: #8d5106; }
-.voucherboundarybanner p { color: #8d6b3d; }
+.voucherboundarybanner strong { color: var(--console-warning-text); }
+.voucherboundarybanner p { color: var(--console-warning-text); }
 
 .voucherboundarybanner button,
 .voucherfilteredempty button,
@@ -147,7 +147,7 @@
   border: 1px solid currentColor;
   border-radius: 9px;
   outline: none;
-  background: #fff;
+  background: var(--console-warning-bg);
   padding: 0 11px;
   color: var(--vi-brand);
   font: inherit;
@@ -156,7 +156,7 @@
   cursor: pointer;
 }
 
-.voucherboundarybanner button { color: #a85e03; }
+.voucherboundarybanner button { color: var(--console-warning-text); }
 
 .voucherlifecycle {
   display: grid;
@@ -175,7 +175,7 @@
   gap: 9px;
   border: 1px solid var(--vi-line);
   border-radius: 11px;
-  background: #fff;
+  background: var(--console-surface);
   padding: 10px 11px;
 }
 
@@ -186,8 +186,8 @@
   right: -7px;
   width: 5px;
   height: 5px;
-  border-top: 1px solid #9eb0c6;
-  border-right: 1px solid #9eb0c6;
+  border-top: 1px solid var(--console-border-strong);
+  border-right: 1px solid var(--console-border-strong);
   content: '';
   transform: translateY(-50%) rotate(45deg);
 }
@@ -198,23 +198,23 @@
   height: 25px;
   flex: 0 0 auto;
   border-radius: 50%;
-  background: #edf1f6;
-  color: #60738b;
+  background: var(--console-subtle);
+  color: var(--console-text-muted);
   font-size: 10px;
   font-weight: 800;
   place-items: center;
 }
 
 .voucherlifecycle li.is-review,
-.voucherlifecycle li.is-paused { border-color: #f1d39b; background: #fffaf0; }
+.voucherlifecycle li.is-paused { border-color: var(--console-warning-border); background: var(--console-warning-bg); }
 .voucherlifecycle li.is-review > span,
-.voucherlifecycle li.is-paused > span { background: #fff0ce; color: #ac6405; }
-.voucherlifecycle li.is-scheduled { border-color: #cddcfa; background: #f5f8ff; }
-.voucherlifecycle li.is-scheduled > span { background: #dfebff; color: var(--vi-brand); }
-.voucherlifecycle li.is-active { border-color: #bce4d5; background: #f3fcf8; }
-.voucherlifecycle li.is-active > span { background: #d9f4e9; color: #087e58; }
+.voucherlifecycle li.is-paused > span { background: var(--console-warning-bg); color: var(--console-warning-text); }
+.voucherlifecycle li.is-scheduled { border-color: var(--console-selected-border); background: var(--console-surface); }
+.voucherlifecycle li.is-scheduled > span { background: var(--console-selected); color: var(--vi-brand); }
+.voucherlifecycle li.is-active { border-color: var(--console-success-border); background: var(--console-success-bg); }
+.voucherlifecycle li.is-active > span { background: var(--console-success-bg); color: var(--console-success-text); }
 
 .voucherlifecycle div { display: grid; min-width: 0; gap: 2px; }
-.voucherlifecycle strong { color: #243852; font-size: 11px; }
-.voucherlifecycle small { overflow: hidden; color: #8090a5; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.voucherlifecycle strong { color: var(--console-text); font-size: 11px; }
+.voucherlifecycle small { overflow: hidden; color: var(--console-text-muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 

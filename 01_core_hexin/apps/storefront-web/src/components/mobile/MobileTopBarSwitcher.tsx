@@ -1,10 +1,12 @@
 import React from 'react';
 import { useMall, AppMode } from '../../context/MallContext';
+import { resolveStorefrontPresentationIdentity } from '../../config/storefrontIdentity';
 import { Monitor, Laptop, Smartphone, AppWindow, Tablet } from 'lucide-react';
 import { defaultStorefrontWebPage } from '../laptop/StorefrontWebStandard';
 
 export const MobileTopBarSwitcher: React.FC = () => {
   const { appMode, setAppMode, mpPage, setMpPage, androidPage, setAndroidPage, tabletPage, setTabletPage, tabletOrientation, setTabletOrientation, setLaptopPage } = useMall();
+  const { brandName } = resolveStorefrontPresentationIdentity();
 
   const handleSwitchMode = (mode: AppMode, preservePath = false) => {
     setAppMode(mode, { preservePath });
@@ -15,13 +17,16 @@ export const MobileTopBarSwitcher: React.FC = () => {
       <div className="max-w-[1366px] mx-auto flex flex-col md:flex-row items-center justify-between gap-2.5 text-xs">
         {/* Left Branding */}
         <div className="flex items-center gap-2.5">
-          <img src="/brand/morvia-master-lockup-white.svg" alt="主打团" className="h-9 w-36 flex-shrink-0 object-contain" />
+          <span className="flex flex-shrink-0 items-center gap-2">
+            <img src="/brand/morvia-mark-white.svg" alt="" aria-hidden="true" className="h-9 w-9 object-contain" />
+            <strong className="max-w-40 truncate text-xl font-black tracking-tight">{brandName}</strong>
+          </span>
           <div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] bg-yellow-400 text-gray-900 font-bold px-1.5 py-0.2 rounded">全平台4端协同</span>
             </div>
             <div className="text-[10px] text-blue-200 flex items-center gap-1">
-              <span>主打团 B2B2C</span>
+              <span>{brandName} B2B2C</span>
               <span>·</span>
               <span className="text-yellow-200">技术服务：雍彻科技（SGSYEN TECH）</span>
             </div>

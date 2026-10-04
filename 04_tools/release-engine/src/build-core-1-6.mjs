@@ -1,6 +1,6 @@
 import { basename, dirname, join } from 'node:path';
 
-import { materializeTarget, packageTarget } from './artifact.mjs';
+import { materializeTarget, packageTarget, treeEvidence } from './artifact.mjs';
 import { invariant } from './errors.mjs';
 import { assertBuildRefIsCheckedOut } from './git.mjs';
 import { createPlan } from './planner.mjs';
@@ -35,6 +35,17 @@ export async function buildRelease(adapter, planPath) {
   await runPhase('preflight');
   await runIndependent([() => runPhase('tests'), () => runPhase('typecheck')]);
   await runPhase('build');
+  if (adapter.instanceRoot) {
+    for (const target of plan.deploymentOrder) {
+      const directory = instanceOutputDirectory(adapter, target);
+      if (directory === null) continue;
+      const output = await treeEvidence(directory);
+      const command = instanceRuntimeCommand(adapter, plan, target, output.treeDigest);
+      const result = await runCommand(command, commandContext(adapter, plan, runDirectory, target, `build-node-runtime-${target}`));
+      phases.build.push(result);
+      timings.build += result.durationMs;
+    }
+  }
   const materializeStarted = performance.now();
   const targets = [];
   for (const target of plan.deploymentOrder) targets.push(await materializeTarget(adapter, target, runDirectory, plan.changes));
@@ -86,6 +97,24 @@ export async function packageRelease(adapter, buildPath) {
 
 function commandContext(adapter, plan, runDirectory, target, logName) {
   return { projectRoot: adapter.projectRoot, environment: {}, changedFiles: plan.changes.map((change) => change.path), sourceSha: plan.to.sha, node: '', target: target ?? '', logPath: join(runDirectory, 'logs', `${logName}.log`) };
+}
+
+function instanceOutputDirectory(adapter, target) {
+  const directory = { console: 'console', 'auth-web': 'auth-web', storefront: 'storefront-web',
+    'identity-api': 'services/identity-api', 'web-api': 'services/web-api' }[target];
+  return directory ? join(adapter.instanceRoot, 'dist', directory) : null;
+}
+
+function instanceRuntimeCommand(adapter, plan, target, artifactDigest) {
+  return {
+    name: `instance-runtime:${target}`,
+    argv: ['node', '--import', 'tsx', '04_tools/scripts/release/generate-node-manifests.mjs',
+      '--instance-root', adapter.instanceRoot,
+      '--release-output', join(adapter.instanceRoot, 'dist/config/targets', target, 'node-manifests'),
+      '--source-sha', plan.to.sha, '--artifact-digest', artifactDigest,
+      '--build-id', `r16-${plan.to.sha}`, '--generated-at', new Date().toISOString()],
+    timeoutMs: 120_000,
+  };
 }
 
 function elapsed(started) {

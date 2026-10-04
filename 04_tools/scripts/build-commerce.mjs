@@ -1,5 +1,7 @@
 import { build } from 'esbuild';
 import { readdir } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { instanceNodeRegistryPlugin } from '../release-engine/adapters/zdt-next/workspace-resolver.mjs';
 
 const entryDirectory = '01_core_hexin/services/commerce/src/entry';
 const entryPoints = Object.fromEntries((await readdir(entryDirectory))
@@ -19,13 +21,16 @@ Object.assign(entryPoints, {
   PostgresTlsProxyMain: '04_tools/tools/localinfra/src/PostgresTlsProxyMain.ts',
 });
 
+const instanceRoot = process.env.LK_INSTANCE_ROOT?.trim();
+const instanceRegistry = instanceNodeRegistryPlugin(instanceRoot);
 await build({
   banner: { js: "import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);" },
   bundle: true,
   entryPoints,
   format: 'esm',
-  outdir: '01_core_hexin/services/commerce/dist',
+  outdir: instanceRoot ? resolve(instanceRoot, 'dist/services/commerce') : '01_core_hexin/services/commerce/dist',
   packages: 'bundle',
   platform: 'node',
+  plugins: instanceRegistry === null ? [] : [instanceRegistry],
   sourcemap: true,
 });

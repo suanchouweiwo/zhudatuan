@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { createHash } from 'node:crypto';
-import { readFile, stat, writeFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { cp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { build } from 'esbuild';
@@ -81,6 +81,18 @@ const manifest = {
 };
 await writeFile(runtimeManifest, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
 process.stdout.write(`Storefront production runtime: ${runtimeBytes} bytes; bundled packages: ${bundledPackages.join(', ')}\n`);
+
+const instanceRoot = process.env.LK_INSTANCE_ROOT?.trim();
+if (instanceRoot) {
+  const absoluteInstanceRoot = resolve(instanceRoot);
+  const outputDirectory = resolve(absoluteInstanceRoot, 'dist', 'storefront-web');
+  if (relative(absoluteInstanceRoot, outputDirectory) !== join('dist', 'storefront-web')) {
+    throw new Error('Storefront output directory must remain inside the instance dist directory.');
+  }
+  await rm(outputDirectory, { recursive: true, force: true });
+  await cp(distRoot, outputDirectory, { recursive: true });
+  process.stdout.write(`Storefront instance output: ${outputDirectory}\n`);
+}
 
 async function normalizeVinextRuntimeSecrets() {
   const serverEntry = join(distRoot, 'server', 'index.js');

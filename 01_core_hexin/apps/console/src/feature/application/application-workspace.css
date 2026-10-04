@@ -1,6 +1,6 @@
 .consolelayout[data-route='applications'] {
-  --vi-route-accent: #1f5eff;
-  --vi-route-soft: #eaf1ff;
+  --vi-route-accent: var(--console-accent);
+  --vi-route-soft: var(--console-selected);
 }
 
 .commerceworkspace {
@@ -23,9 +23,9 @@
   min-height: 58px;
   align-items: center;
   gap: 12px;
-  border: 1px solid #d8e4f3;
+  border: 1px solid var(--console-border);
   border-radius: 10px;
-  background: linear-gradient(90deg, #f7faff, #fff);
+  background: linear-gradient(90deg, var(--console-warning-bg), var(--console-warning-bg));
   padding: 10px 14px;
 }
 
@@ -48,16 +48,16 @@
 .commerceownership strong,
 .commerceboundarybanner strong { display: block; color: var(--vi-ink); font-size: 12px; line-height: 19px; }
 .commerceownership p,
-.commerceboundarybanner p { margin: 1px 0 0; color: #667991; font-size: 11px; line-height: 18px; }
+.commerceboundarybanner p { margin: 1px 0 0; color: var(--console-text-muted); font-size: 11px; line-height: 18px; }
 
 .commercevitheme {
   display: inline-flex;
   min-height: 34px;
   align-items: center;
   gap: 8px;
-  border: 1px solid #c8d9f5;
+  border: 1px solid var(--console-selected-border);
   border-radius: 9px;
-  background: #fff;
+  background: var(--console-surface);
   padding: 0 11px;
   color: var(--vi-brand);
   font: inherit;
@@ -82,9 +82,9 @@
   overflow: hidden;
   border: 1px solid var(--vi-line);
   border-radius: 14px;
-  background: #fff;
+  background: var(--console-surface);
   padding: 14px 16px;
-  box-shadow: 0 1px 2px rgb(11 29 53 / 3%);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--console-shadow-color) 3%, transparent);
 }
 
 .commercesummary article::before {
@@ -93,7 +93,7 @@
   right: 0;
   left: 0;
   height: 2px;
-  background: #93a4bb;
+  background: var(--console-hover);
   content: '';
 }
 
@@ -101,26 +101,26 @@
 .commercesummary article.is-warning::before { background: var(--vi-warning); }
 .commercesummary article.is-danger::before { background: var(--vi-danger); }
 .commercesummary article.is-info::before { background: var(--vi-brand); }
-.commercesummary span { color: #677990; font-size: 11px; font-weight: 650; }
+.commercesummary span { color: var(--console-text-muted); font-size: 11px; font-weight: 650; }
 .commercesummary strong { margin-top: 6px; color: var(--vi-ink); font-size: clamp(21px, 1.7vw, 27px); font-variant-numeric: tabular-nums; line-height: 1.1; }
-.commercesummary small { margin-top: 7px; overflow: hidden; color: #8190a4; font-size: 10px; line-height: 16px; text-overflow: ellipsis; white-space: nowrap; }
+.commercesummary small { margin-top: 7px; overflow: hidden; color: var(--console-text-muted); font-size: 10px; line-height: 16px; text-overflow: ellipsis; white-space: nowrap; }
 
 .commerceboundarybanner {
-  border-color: #f2d69f;
-  background: linear-gradient(90deg, #fff8ea, #fffdf9);
+  border-color: var(--console-warning-border);
+  background: linear-gradient(90deg, var(--console-warning-bg), var(--console-warning-bg));
 }
 
-.commerceboundarybanner > span { border-radius: 50%; background: #ffedc7; color: #a85e03; }
-.commerceboundarybanner strong { color: #8d5106; }
-.commerceboundarybanner p { color: #8d6b3d; }
+.commerceboundarybanner > span { border-radius: 50%; background: var(--console-warning-bg); color: var(--console-warning-text); }
+.commerceboundarybanner strong { color: var(--console-warning-text); }
+.commerceboundarybanner p { color: var(--console-warning-text); }
 .commerceboundarybanner button,
 .commerceempty button {
   min-height: 32px;
   border: 1px solid currentColor;
   border-radius: 9px;
-  background: #fff;
+  background: var(--console-warning-bg);
   padding: 0 11px;
-  color: #a85e03;
+  color: var(--console-warning-text);
   font: inherit;
   font-size: 11px;
   font-weight: 700;
@@ -144,7 +144,7 @@
   gap: 9px;
   border: 1px solid var(--vi-line);
   border-radius: 11px;
-  background: #fff;
+  background: var(--console-surface);
   padding: 10px 11px;
 }
 
@@ -155,36 +155,36 @@
   right: -7px;
   width: 5px;
   height: 5px;
-  border-top: 1px solid #9eb0c6;
-  border-right: 1px solid #9eb0c6;
+  border-top: 1px solid var(--console-border-strong);
+  border-right: 1px solid var(--console-border-strong);
   content: '';
   transform: translateY(-50%) rotate(45deg);
 }
 
-.commerceflow li > span { display: grid; width: 25px; height: 25px; flex: 0 0 auto; border-radius: 50%; background: #eaf1ff; color: var(--vi-brand); font-size: 10px; font-weight: 800; place-items: center; }
-.commerceflow li:last-child { border-color: #bce4d5; background: #f3fcf8; }
-.commerceflow li:last-child > span { background: #d9f4e9; color: #087e58; }
+.commerceflow li > span { display: grid; width: 25px; height: 25px; flex: 0 0 auto; border-radius: 50%; background: var(--console-selected); color: var(--vi-brand); font-size: 10px; font-weight: 800; place-items: center; }
+.commerceflow li:last-child { border-color: var(--console-success-border); background: var(--console-success-bg); }
+.commerceflow li:last-child > span { background: var(--console-success-bg); color: var(--console-success-text); }
 .commerceflow div { display: grid; min-width: 0; gap: 2px; }
-.commerceflow strong { color: #243852; font-size: 11px; }
-.commerceflow small { overflow: hidden; color: #8090a5; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.commerceflow strong { color: var(--console-text); font-size: 11px; }
+.commerceflow small { overflow: hidden; color: var(--console-text-muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 
-.commerceboard { overflow: hidden; border: 1px solid var(--vi-line); border-radius: 14px; background: #fff; }
+.commerceboard { overflow: hidden; border: 1px solid var(--vi-line); border-radius: 14px; background: var(--console-surface); }
 .commercetabs { display: flex; min-height: 48px; align-items: stretch; gap: 26px; overflow-x: auto; border-bottom: 1px solid var(--vi-line); padding: 0 16px; }
-.commercetabs button { position: relative; flex: 0 0 auto; border: 0; background: transparent; padding: 0 2px; color: #60738b; font: inherit; font-size: 11px; font-weight: 650; cursor: pointer; }
+.commercetabs button { position: relative; flex: 0 0 auto; border: 0; background: transparent; padding: 0 2px; color: var(--console-text-muted); font: inherit; font-size: 11px; font-weight: 650; cursor: pointer; }
 .commercetabs button[aria-pressed='true'] { color: var(--vi-brand); font-weight: 800; }
 .commercetabs button[aria-pressed='true']::after { position: absolute; right: 0; bottom: -1px; left: 0; height: 2px; background: var(--vi-brand); content: ''; }
 
 .commercefilterbar { display: flex; min-height: 68px; align-items: center; justify-content: space-between; gap: 14px; padding: 10px 14px 6px; }
 .commercefilterbar > div { display: grid; gap: 3px; }
 .commercefilterbar strong { color: var(--vi-ink); font-size: 12px; }
-.commercefilterbar span { color: #8190a4; font-size: 9px; }
+.commercefilterbar span { color: var(--console-text-muted); font-size: 9px; }
 .commercesearch { display: block; width: min(310px, 38%); }
-.commercesearch input { width: 100%; min-height: 36px; border: 1px solid #d6e0ec; border-radius: 9px; outline: none; background: #fff; padding: 0 12px; color: var(--vi-ink); font: inherit; font-size: 11px; }
-.commercesearch input:focus { border-color: var(--vi-brand); box-shadow: 0 0 0 3px rgb(31 94 255 / 10%); }
-.commercefiltermeta { margin: 0; padding: 0 14px 10px; color: #8a98aa; font-size: 9px; }
+.commercesearch input { width: 100%; min-height: 36px; border: 1px solid var(--console-border); border-radius: 9px; outline: none; background: var(--console-surface); padding: 0 12px; color: var(--vi-ink); font: inherit; font-size: 11px; }
+.commercesearch input:focus { border-color: var(--vi-brand); box-shadow: 0 0 0 3px color-mix(in srgb, var(--console-accent) 10%, transparent); }
+.commercefiltermeta { margin: 0; padding: 0 14px 10px; color: var(--console-text-muted); font-size: 9px; }
 .commerceempty { display: grid; min-height: 180px; place-content: center; justify-items: center; padding: 28px; text-align: center; }
-.commerceempty strong { color: #334963; font-size: 13px; }
-.commerceempty p { max-width: 470px; margin: 7px 0 12px; color: #7a8ba0; font-size: 11px; line-height: 18px; }
+.commerceempty strong { color: var(--console-text-secondary); font-size: 13px; }
+.commerceempty p { max-width: 470px; margin: 7px 0 12px; color: var(--console-text-muted); font-size: 11px; line-height: 18px; }
 .commerceempty button { color: var(--vi-brand); }
 .commercepagination { display: flex; min-height: 58px; align-items: center; justify-content: space-between; border-top: 1px solid var(--vi-line); padding: 10px 14px; }
-.commercepagination > span { color: #71839a; font-size: 10px; }
+.commercepagination > span { color: var(--console-text-muted); font-size: 10px; }

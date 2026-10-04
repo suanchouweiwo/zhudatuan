@@ -2,8 +2,8 @@
   overflow: hidden;
   border: 1px solid var(--vi-line);
   border-radius: 12px;
-  background: #fff;
-  box-shadow: 0 1px 3px rgb(11 29 53 / 4%);
+  background: var(--console-surface);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--console-shadow-color) 4%, transparent);
 }
 
 .vouchertabs {
@@ -25,7 +25,7 @@
   outline: none;
   background: transparent;
   padding: 0 16px;
-  color: #677990;
+  color: var(--console-text-muted);
   font: inherit;
   font-size: 12px;
   cursor: pointer;
@@ -52,22 +52,22 @@
   min-height: 66px;
   align-items: center;
   gap: 10px;
-  border-bottom: 1px solid #edf1f5;
+  border-bottom: 1px solid var(--console-border);
   padding: 10px 14px;
 }
 
 .voucherfiltercopy { display: grid; min-width: 210px; gap: 2px; margin-right: auto; }
 .voucherfiltercopy strong { color: var(--vi-ink); font-size: 13px; }
-.voucherfiltercopy span { color: #8392a5; font-size: 10px; }
+.voucherfiltercopy span { color: var(--console-text-muted); font-size: 10px; }
 
 .vouchersearch input,
 .voucherstatusfilter select {
   height: 36px;
-  border: 1px solid #d8e1ec;
+  border: 1px solid var(--console-border);
   border-radius: 10px;
   outline: none;
-  background: #f9fbfd;
-  color: #2e425d;
+  background: var(--console-surface);
+  color: var(--console-text-secondary);
   font: inherit;
   font-size: 11px;
 }
@@ -82,10 +82,10 @@
 
 .voucherfiltermeta {
   margin: 0;
-  border-bottom: 1px solid #edf1f5;
-  background: #fbfcfe;
+  border-bottom: 1px solid var(--console-border);
+  background: var(--console-surface);
   padding: 7px 14px;
-  color: #8292a6;
+  color: var(--console-text-muted);
   font-size: 10px;
   text-align: right;
 }
@@ -93,22 +93,22 @@
 .voucherboard .tablewrap { overflow: auto; border: 0; border-radius: 0; box-shadow: none; }
 .voucherboard .tablewrap table { min-width: 860px; font-size: 11px; }
 .voucherboard .tablewrap th,
-.voucherboard .tablewrap td { height: 54px; border-bottom-color: #e9eef4; padding: 9px 13px; }
-.voucherboard .tablewrap th { height: 40px; background: #f5f8fb; color: #64768e; font-size: 11px; }
-.voucherboard .tablewrap tbody tr:hover { background: #f7faff; }
+.voucherboard .tablewrap td { height: 54px; border-bottom-color: var(--console-border); padding: 9px 13px; }
+.voucherboard .tablewrap th { height: 40px; background: var(--console-surface); color: var(--console-text-muted); font-size: 11px; }
+.voucherboard .tablewrap tbody tr:hover { background: var(--console-hover); }
 
 .voucheridentity { display: flex; min-width: 210px; align-items: center; gap: 10px; }
 .voucheridentity > span:last-child { display: grid; min-width: 0; gap: 2px; }
-.voucheridentity button { overflow: hidden; border: 0; background: transparent; padding: 0; color: #172b46; font: inherit; font-size: 12px; font-weight: 700; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.voucheridentity button { overflow: hidden; border: 0; background: transparent; padding: 0; color: var(--console-text); font: inherit; font-size: 12px; font-weight: 700; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
 .voucheridentity code,
-.vouchercode { color: #8594a7; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 9px; }
+.vouchercode { color: var(--console-text-muted); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 9px; }
 
 .vouchermark {
   display: grid;
   width: 36px;
   height: 36px;
   flex: 0 0 auto;
-  border: 1px solid #d3e0f4;
+  border: 1px solid var(--console-border);
   border-radius: 10px;
   background: var(--vi-brand-soft);
   color: var(--vi-brand);
@@ -117,9 +117,9 @@
   place-items: center;
 }
 
-.vouchermark.is-libraries { border-color: #cfe6de; background: #eef9f5; color: #087e58; }
-.vouchermark.is-reserves { border-color: #f2daa9; background: #fff8e9; color: #a85e03; }
-.vouchermark.is-batches { border-color: #ddd7fa; background: #f6f3ff; color: #6847cc; }
+.vouchermark.is-libraries { border-color: var(--console-success-border); background: var(--console-success-bg); color: var(--console-success-text); }
+.vouchermark.is-reserves { border-color: var(--console-warning-border); background: var(--console-warning-bg); color: var(--console-warning-text); }
+.vouchermark.is-batches { border-color: var(--console-border); background: var(--console-surface); color: var(--console-accent); }
 
 .voucherstate {
   display: inline-flex;
@@ -127,17 +127,17 @@
   align-items: center;
   gap: 6px;
   border-radius: 999px;
-  background: #eef2f6;
+  background: var(--console-canvas);
   padding: 4px 8px;
-  color: #60738b;
+  color: var(--console-text-muted);
   font-size: 10px;
   font-weight: 750;
 }
 
 .voucherstate i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-.voucherstate.is-success { background: #e8f8f1; color: #087e58; }
-.voucherstate.is-warning { background: #fff2d8; color: #a85e03; }
-.voucherstate.is-danger { background: #ffebee; color: #c81e32; }
+.voucherstate.is-success { background: var(--console-success-bg); color: var(--console-success-text); }
+.voucherstate.is-warning { background: var(--console-warning-bg); color: var(--console-warning-text); }
+.voucherstate.is-danger { background: var(--console-danger-bg); color: var(--console-danger-text); }
 .voucherstate.is-info { background: var(--vi-brand-soft); color: var(--vi-brand); }
 
 .voucherrowaction { min-height: 28px; border-color: transparent; background: transparent; padding: 0 5px; }
@@ -152,7 +152,7 @@
   text-align: center;
 }
 .voucherfilteredempty strong { color: var(--vi-ink); font-size: 14px; }
-.voucherfilteredempty p { margin: 0 0 6px; color: #7d8da2; font-size: 11px; }
+.voucherfilteredempty p { margin: 0 0 6px; color: var(--console-text-muted); font-size: 11px; }
 
 .voucherpagination {
   display: flex;
@@ -160,9 +160,9 @@
   align-items: center;
   justify-content: space-between;
   border-top: 1px solid var(--vi-line);
-  background: #fbfcfe;
+  background: var(--console-surface);
   padding: 8px 12px 8px 16px;
-  color: #71839a;
+  color: var(--console-text-muted);
   font-size: 11px;
 }
 

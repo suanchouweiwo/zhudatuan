@@ -1,9 +1,5 @@
 import { createRoot } from 'react-dom/client';
 import { StrictMode } from 'react';
-import '@shop/design/tokens.css';
-import '@shop/design/base.css';
-import '@shop/design/components.css';
-import '@shop/design/workspace.css';
 import './style.css';
 import { startDocumentPrefetch } from './shared/api/DocumentPrefetch';
 import { loadConsoleRuntimeConfig } from './shared/config/RuntimeConfig';

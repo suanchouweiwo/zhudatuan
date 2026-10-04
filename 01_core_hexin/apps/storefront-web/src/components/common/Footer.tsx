@@ -6,10 +6,12 @@
 
 import React from 'react';
 import { useMall } from '../../context/MallContext';
+import { resolveStorefrontPresentationIdentity } from '../../config/storefrontIdentity';
 import { ShieldCheck, Truck, CreditCard, Headphones, Award, Building2, Lock, Sparkles } from 'lucide-react';
 
 export const Footer: React.FC = () => {
   const { currentMall, navigateTo } = useMall();
+  const { brandName } = resolveStorefrontPresentationIdentity();
 
   return (
     <footer className="w-full bg-[#111827] text-gray-300 text-xs font-sans mt-12 border-t border-gray-800 select-none">
@@ -150,7 +152,10 @@ export const Footer: React.FC = () => {
 
           <div className="mt-4 pt-3 border-t border-gray-700/80">
             <div className="text-[11px] text-gray-400">项目状态：</div>
-            <img src="/brand/morvia-master-lockup-white.svg" alt="主打团" className="mt-1 h-10 w-40 object-contain" />
+            <div className="mt-1 flex items-center gap-2 text-white">
+              <img src="/brand/morvia-mark-white.svg" alt="" aria-hidden="true" className="h-10 w-10 flex-shrink-0 object-contain" />
+              <strong className="truncate text-xl font-black tracking-tight">{brandName}</strong>
+            </div>
             <div className="text-[10px] text-gray-500 mt-1">技术服务：雍彻科技</div>
           </div>
         </div>
@@ -173,7 +178,7 @@ export const Footer: React.FC = () => {
             </span>
           </div>
 
-          <div>© 2026 主打团企业福利商城。保留所有权利。 技术服务：雍彻科技</div>
+          <div>© 2026 {brandName}企业福利商城。保留所有权利。 技术服务：雍彻科技</div>
 
           <div className="text-gray-600 text-[10px]">商品、库存、企业权益与订单状态以登录账户的实时数据为准。</div>
         </div>

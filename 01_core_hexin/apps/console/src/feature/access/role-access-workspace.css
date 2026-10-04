@@ -1091,13 +1091,13 @@
   display: block;
   min-height: 46rem;
   padding-bottom: 5.25rem;
-  background: #fff;
+  background: var(--console-surface);
 }
 
 /* ZHU-VI 1.7 · approved administrator and role-template composition */
 .roleaccessworkspace {
   gap: 18px;
-  background: linear-gradient(180deg, #f7f9fd 0%, #f3f6fb 100%);
+  background: linear-gradient(180deg, var(--console-surface) 0%, var(--console-canvas) 100%);
   padding: 24px;
 }
 
@@ -1110,14 +1110,14 @@
   display: none;
 }
 .roleaccesshero .swworkspaceherotitle {
-  color: #10203b;
+  color: var(--console-text);
   font-size: 27px;
   line-height: 1.25;
   letter-spacing: -0.025em;
 }
 .roleaccesshero .swworkspaceherodescription {
   margin-top: 7px;
-  color: #77839a;
+  color: var(--console-text-muted);
   font-size: 13px;
   line-height: 1.6;
 }
@@ -1132,14 +1132,14 @@
 .roleaccessmasterdetail {
   min-height: 720px;
   grid-template-columns: 320px minmax(0, 1fr);
-  border-color: #dce2ec;
+  border-color: var(--console-border);
   border-radius: 14px;
-  box-shadow: 0 12px 34px rgb(25 52 91 / 7%);
+  box-shadow: 0 12px 34px color-mix(in srgb, var(--console-shadow-color) 7%, transparent);
 }
 
 .roleaccessmasterdetail > .swmasterdetailmaster {
-  border-right-color: #e3e7ef;
-  background: #fff;
+  border-right-color: var(--console-border);
+  background: var(--console-surface);
 }
 
 .roledirectory {
@@ -1147,12 +1147,12 @@
   padding: 22px 18px;
 }
 .roledirectory > header h2 {
-  color: #1d2a43;
+  color: var(--console-text);
   font-size: 18px;
 }
 .roledirectory > header p {
   margin-top: 5px;
-  color: #8a94a7;
+  color: var(--console-text-muted);
   font-size: 12px;
 }
 .roledirectorysearch {
@@ -1161,9 +1161,9 @@
 }
 .roledirectorysearch input {
   min-height: 42px;
-  border-color: #d9dfea;
+  border-color: var(--console-border);
   border-radius: 9px;
-  background: #f8faff;
+  background: var(--console-surface);
   padding-inline: 14px;
   font-size: 13px;
   box-shadow: none;
@@ -1174,68 +1174,68 @@
 }
 .roledirectorylist .swmasteritem {
   min-height: 86px;
-  border: 1px solid #e1e6ef;
+  border: 1px solid var(--console-border);
   border-radius: 10px;
-  background: #fff;
+  background: var(--console-surface);
   padding: 13px 12px;
 }
 .roledirectorylist .swmasteritem:hover {
-  border-color: #b9cced;
-  background: #f9fbff;
+  border-color: var(--console-selected-border);
+  background: var(--console-surface);
 }
 .roledirectorylist .swmasteritem[data-selected='true'] {
-  border-color: #bfd3f6;
-  background: #edf5ff;
+  border-color: var(--console-selected-border);
+  background: var(--console-selected);
   box-shadow: none;
 }
 .roledirectorylist .swmasteritem[data-selected='true']::before {
   top: 0;
   bottom: 0;
   width: 4px;
-  background: #2b6ef2;
+  background: var(--console-accent);
 }
 .roledirectorylist .swmasteritemcopy {
   gap: 4px;
 }
 .roledirectorylist .swmasteritemcopy > strong {
-  color: #15223b;
+  color: var(--console-text);
   font-size: 14px;
   font-weight: 700;
 }
 .roledirectorylist .swmasteritemcopy > small {
-  color: #8792a6;
+  color: var(--console-text-muted);
   font-size: 12px;
 }
 .rolestatusline {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: #168d64 !important;
+  color: var(--console-success-text) !important;
   font-size: 12px !important;
 }
 .rolestatusline i {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #15a876;
+  background: var(--console-success);
 }
 .roleavatar {
   width: 42px;
   height: 42px;
   border-radius: 12px;
-  background: #edf4ff;
-  color: #276be5;
+  background: var(--console-canvas);
+  color: var(--console-accent);
 }
 .roleavatar[data-kind='owner'] {
-  background: #f3edff;
-  color: #8355dd;
+  background: var(--console-canvas);
+  color: var(--console-info-text);
 }
 .roleavatar svg {
   width: 22px;
   height: 22px;
 }
 .roleitemchevron {
-  color: #6f7c91;
+  color: var(--console-text-muted);
   font-size: 24px;
   font-weight: 300;
 }
@@ -1243,7 +1243,7 @@
 .roleeditorv17 {
   min-height: 720px;
   padding-bottom: 76px;
-  background: #fff;
+  background: var(--console-surface);
 }
 .roleprofileheader {
   grid-template-columns: 50px minmax(0, 1fr);
@@ -1264,12 +1264,12 @@
   font-size: 13px;
 }
 .roleprofileheader h2 {
-  color: #13213a;
+  color: var(--console-text);
   font-size: 20px;
   font-weight: 750;
 }
 .roleprofileheader p {
-  color: #7c879b;
+  color: var(--console-text-muted);
   font-size: 13px;
 }
 .roledetailtabs {
@@ -1279,16 +1279,16 @@
 }
 .roledetailtabs > button {
   min-height: 52px;
-  color: #6f7a8e;
+  color: var(--console-text-muted);
   font-size: 13px;
 }
 .roledetailtabs > button[aria-selected='true'] {
-  color: #2165d8;
+  color: var(--console-accent);
   font-weight: 700;
 }
 .roledetailtabs > button[aria-selected='true']::after {
   height: 3px;
-  background: #2b6ff2;
+  background: var(--console-accent);
 }
 
 .roleeditorlayout {
@@ -1318,13 +1318,13 @@
   gap: 16px;
 }
 .rolepermissionoverview > header h3 {
-  color: #17243d;
+  color: var(--console-text);
   font-size: 18px;
   line-height: 1.35;
 }
 .rolepermissionoverview > header p {
   margin-top: 6px;
-  color: #8590a3;
+  color: var(--console-text-muted);
   font-size: 12px;
 }
 .rolepermissionoverview > header label {
@@ -1335,7 +1335,7 @@
 .rolepermissionoverview > header label input {
   min-height: 38px;
   border-radius: 9px;
-  background: #fafbfe;
+  background: var(--console-surface);
   font-size: 12px;
 }
 
@@ -1350,19 +1350,19 @@
   grid-template-rows: auto 24px;
   align-items: start;
   gap: 10px 12px;
-  border: 1px solid #dfe4ec;
+  border: 1px solid var(--console-border);
   border-radius: 11px;
-  background: #fff;
+  background: var(--console-surface);
   padding: 17px;
 }
 .rolecategorygrid button:hover {
-  border-color: #9ab9f5;
-  background: #f9fbff;
+  border-color: var(--console-selected-border);
+  background: var(--console-surface);
 }
 .rolecategorygrid button[data-selected='true'] {
-  border-color: #4e83f1;
-  background: #f8fbff;
-  box-shadow: 0 0 0 2px rgb(63 117 234 / 8%);
+  border-color: var(--console-accent);
+  background: var(--console-surface);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--console-accent) 8%, transparent);
 }
 .rolecategorygrid button > span {
   display: grid;
@@ -1370,12 +1370,12 @@
   white-space: normal;
 }
 .rolecategorygrid button > span strong {
-  color: #17243d;
+  color: var(--console-text);
   font-size: 14px;
   font-weight: 750;
 }
 .rolecategorygrid button > span small {
-  color: #7e899d;
+  color: var(--console-text-muted);
   font-size: 12px;
   line-height: 1.55;
 }
@@ -1383,27 +1383,27 @@
   display: grid;
   width: 20px;
   height: 20px;
-  border: 1px solid #bdc7d6;
+  border: 1px solid var(--console-border-strong);
   border-radius: 4px;
-  color: #fff;
+  color: var(--console-on-accent);
   font-size: 12px;
   font-style: normal;
   place-items: center;
 }
 .rolecategorygrid button[data-selected='true'] > i {
-  border-color: #2e6ff0;
-  background: #2e6ff0;
+  border-color: var(--console-accent);
+  background: var(--console-accent);
 }
 .rolecategorygrid button > em {
   grid-column: 1 / 3;
   align-self: end;
-  color: #67758c;
+  color: var(--console-text-muted);
   font-size: 12px;
   font-style: normal;
 }
 .rolecategorygrid button > b {
   align-self: end;
-  color: #66758d;
+  color: var(--console-text-muted);
   font-size: 20px;
   font-weight: 400;
 }
@@ -1412,8 +1412,8 @@
   width: 42px;
   height: 42px;
   border-radius: 11px;
-  background: #edf4ff;
-  color: #2d6de5;
+  background: var(--console-canvas);
+  color: var(--console-accent);
   place-items: center;
 }
 .rolecapabilityicon svg {
@@ -1427,18 +1427,18 @@
 }
 .rolepermissiondirectory > section {
   overflow: hidden;
-  border: 1px solid #e2e7ef;
+  border: 1px solid var(--console-border);
   border-radius: 10px;
-  background: #fff;
+  background: var(--console-surface);
 }
 .rolepermissiondirectory > section > header {
   display: flex;
   min-height: 44px;
   align-items: center;
   justify-content: space-between;
-  background: #f7f9fc;
+  background: var(--console-surface);
   padding: 8px 12px;
-  color: #24334c;
+  color: var(--console-text);
   font-size: 13px;
   font-weight: 700;
 }
@@ -1449,16 +1449,16 @@
   min-height: 58px;
 }
 .rolepermissionempty {
-  border: 1px dashed #dce2eb;
-  background: #fafbfd;
+  border: 1px dashed var(--console-border);
+  background: var(--console-surface);
   padding: 18px;
   text-align: center;
 }
 
 .roleimpactpreview {
   min-width: 0;
-  border-left: 1px solid #e1e6ee;
-  background: #fbfcfe;
+  border-left: 1px solid var(--console-border);
+  background: var(--console-surface);
   padding: 26px 24px;
 }
 .roleimpactpreview h3,
@@ -1467,28 +1467,28 @@
   margin: 0;
 }
 .roleimpactpreview > header h3 {
-  color: #17243c;
+  color: var(--console-text);
   font-size: 20px;
   line-height: 1.35;
 }
 .roleimpactpreview > header p {
   margin-top: 6px;
-  color: #929caf;
+  color: var(--console-text-muted);
   font-size: 12px;
 }
 .roleimpactpreview > section {
   padding: 22px 0;
-  border-bottom: 1px solid #e7ebf1;
+  border-bottom: 1px solid var(--console-border);
 }
 .roleimpactpreview > section:last-child {
   border-bottom: 0;
 }
 .roleimpactpreview h4 {
-  color: #198a61;
+  color: var(--console-success-text);
   font-size: 14px;
 }
 .roleimpactpreview section[data-tone='danger'] h4 {
-  color: #d44f5a;
+  color: var(--console-danger-text);
 }
 .roleimpactpreview ul {
   display: grid;
@@ -1502,7 +1502,7 @@
   grid-template-columns: 22px minmax(0, 1fr);
   align-items: start;
   gap: 8px;
-  color: #4e5c73;
+  color: var(--console-text-secondary);
   font-size: 12px;
   line-height: 1.55;
 }
@@ -1511,18 +1511,18 @@
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: #18a677;
-  color: #fff;
+  background: var(--console-success);
+  color: var(--console-on-accent);
   font-size: 11px;
   font-style: normal;
   place-items: center;
 }
 .roleimpactpreview section[data-tone='danger'] li i {
-  background: #e24e58;
+  background: var(--console-danger);
 }
 .roleimpactpreview section > p {
   margin-top: 12px;
-  color: #8792a5;
+  color: var(--console-text-muted);
   font-size: 12px;
 }
 .roleimpactmetric {
@@ -1540,7 +1540,7 @@
   height: 19px;
 }
 .roleimpactmetric strong {
-  color: #334158;
+  color: var(--console-text-secondary);
   font-size: 13px;
 }
 
@@ -1555,7 +1555,7 @@
   padding: 12px 24px;
 }
 .roleeditorsticky[data-dirty='false'] i {
-  background: #b9c2d0;
+  background: var(--console-hover);
 }
 .roleeditorsticky .shopbutton {
   min-width: 112px;
@@ -1571,7 +1571,7 @@
     grid-template-columns: minmax(0, 1fr);
   }
   .roleimpactpreview {
-    border-top: 1px solid #e1e6ee;
+    border-top: 1px solid var(--console-border);
     border-left: 0;
   }
 }
@@ -1601,7 +1601,7 @@
   align-items: center;
   gap: 1rem;
   padding: 1.75rem 2rem 1.25rem;
-  border-bottom: 1px solid #e7e9ef;
+  border-bottom: 1px solid var(--console-border);
 }
 
 .roleprofileavatar {
@@ -1609,8 +1609,8 @@
   width: 3rem;
   height: 3rem;
   border-radius: 0.875rem;
-  background: #edf3ff;
-  color: #1e62d0;
+  background: var(--console-canvas);
+  color: var(--console-accent);
   font-size: 1rem;
   font-weight: 700;
   place-items: center;
@@ -1634,14 +1634,14 @@
 }
 
 .roleprofileheader h2 {
-  color: #15223b;
+  color: var(--console-text);
   font-size: 1.25rem;
   line-height: 1.4;
 }
 
 .roleprofileheader p {
   margin-top: 0.25rem;
-  color: #778196;
+  color: var(--console-text-muted);
   font-size: 0.8125rem;
   line-height: 1.6;
 }
@@ -1649,15 +1649,15 @@
 .roleprofileheader > div > span {
   display: block;
   margin-top: 0.375rem;
-  color: #9aa2b2;
+  color: var(--console-text-muted);
   font-size: 0.75rem;
 }
 
 .roleprofileheader > .shopbutton {
   min-height: 2.25rem;
-  border-color: #cbd2df;
+  border-color: var(--console-border);
   border-radius: 0.5rem;
-  background: #fff;
+  background: var(--console-surface);
   padding-inline: 1rem;
   font-size: 0.8125rem;
 }
@@ -1668,7 +1668,7 @@
   gap: 2rem;
   min-height: 3.25rem;
   padding-inline: 2rem;
-  border-bottom: 1px solid #dfe3eb;
+  border-bottom: 1px solid var(--console-border);
 }
 
 .roledetailtabs > button {
@@ -1676,7 +1676,7 @@
   min-height: 3.25rem;
   border: 0;
   background: transparent;
-  color: #737d91;
+  color: var(--console-text-muted);
   padding: 0;
   font: inherit;
   font-size: 0.8125rem;
@@ -1695,19 +1695,19 @@
 }
 
 .roledetailtabs > button[aria-selected='true'] {
-  color: #1f5fbf;
+  color: var(--console-accent);
   font-weight: 650;
 }
 
 .roledetailtabs > button[aria-selected='true']::after {
-  background: #2f6fec;
+  background: var(--console-accent);
 }
 
 .roledetailtabs > button span {
   margin-left: 0.4rem;
   border-radius: 999px;
-  background: #f0f2f6;
-  color: #7b8496;
+  background: var(--console-canvas);
+  color: var(--console-text-muted);
   padding: 0.1rem 0.42rem;
   font-size: 0.6875rem;
 }
@@ -1727,10 +1727,10 @@
 .rolehistoryv16,
 .rolepermissionsview,
 .rolemembersview > .swsurface {
-  border: 1px solid #e0e4ec;
+  border: 1px solid var(--console-border);
   border-radius: 0.875rem;
-  background: #fff;
-  box-shadow: 0 5px 18px rgb(25 45 78 / 5%);
+  background: var(--console-surface);
+  box-shadow: 0 5px 18px color-mix(in srgb, var(--console-shadow-color) 5%, transparent);
 }
 
 .roleoverviewv16 > section {
@@ -1741,7 +1741,7 @@
 .roleoverviewheading h3,
 .roleoverviewv16 > aside h3,
 .rolehistoryv16 h3 {
-  color: #1d2a43;
+  color: var(--console-text);
   font-size: 0.9375rem;
   line-height: 1.45;
 }
@@ -1751,7 +1751,7 @@
 .roleoverviewv16 > aside p,
 .rolehistoryv16 header p {
   margin-top: 0.25rem;
-  color: #8790a2;
+  color: var(--console-text-muted);
   font-size: 0.75rem;
   line-height: 1.6;
 }
@@ -1765,29 +1765,29 @@
 
 .roledutygrid article {
   min-height: 5.5rem;
-  border: 1px solid #dfe6f2;
+  border: 1px solid var(--console-border);
   border-radius: 0.75rem;
-  background: #f8faff;
+  background: var(--console-surface);
   padding: 1rem;
 }
 
 .roledutygrid article:last-child {
-  border-color: #f1dfe2;
-  background: #fffafa;
+  border-color: var(--console-danger-border);
+  background: var(--console-surface);
 }
 
 .roledutygrid strong {
-  color: #1e9a67;
+  color: var(--console-success-text);
   font-size: 0.8125rem;
 }
 
 .roledutygrid article:last-child strong {
-  color: #d95c69;
+  color: var(--console-danger-text);
 }
 
 .roledutygrid p {
   margin-top: 0.5rem;
-  color: #626e83;
+  color: var(--console-text-muted);
   font-size: 0.75rem;
   line-height: 1.65;
 }
@@ -1804,14 +1804,14 @@
 .roleoverviewheading {
   margin-top: 1.5rem;
   padding-top: 1.25rem;
-  border-top: 1px solid #edf0f4;
+  border-top: 1px solid var(--console-border);
 }
 
 .roleoverviewheading button,
 .roleoverviewv16 > aside button {
   border: 0;
   background: transparent;
-  color: #2666c9;
+  color: var(--console-accent);
   padding: 0;
   font: inherit;
   font-size: 0.75rem;
@@ -1830,18 +1830,18 @@
   align-items: center;
   gap: 0.75rem;
   width: 100%;
-  border: 1px solid #e7eaf0;
+  border: 1px solid var(--console-border);
   border-radius: 0.65rem;
-  background: #fff;
-  color: #1f2d45;
+  background: var(--console-surface);
+  color: var(--console-text);
   padding: 0.75rem;
   text-align: left;
   cursor: pointer;
 }
 
 .rolesummarylist > button:hover {
-  border-color: #a9c4f3;
-  background: #f8fbff;
+  border-color: var(--console-selected-border);
+  background: var(--console-surface);
 }
 
 .rolesummarylist > button > span,
@@ -1850,8 +1850,8 @@
   width: 2.25rem;
   height: 2.25rem;
   border-radius: 0.625rem;
-  background: #edf3ff;
-  color: #2767cf;
+  background: var(--console-canvas);
+  color: var(--console-accent);
   font-size: 0.75rem;
   font-weight: 700;
   place-items: center;
@@ -1871,7 +1871,7 @@
 .rolesummarylist small,
 .rolesummarylist em {
   overflow: hidden;
-  color: #929bad;
+  color: var(--console-text-muted);
   font-size: 0.6875rem;
   font-style: normal;
   text-overflow: ellipsis;
@@ -1879,7 +1879,7 @@
 }
 
 .rolesummarylist b {
-  color: #8791a4;
+  color: var(--console-text-muted);
   font-size: 1.1rem;
 }
 
@@ -1896,7 +1896,7 @@
 .roleoverviewv16 > aside > div > strong {
   display: block;
   margin-top: 1.1rem;
-  color: #1d2a43;
+  color: var(--console-text);
   font-size: 0.875rem;
 }
 
@@ -1914,13 +1914,13 @@
 }
 
 .roleoverviewv16 > aside article strong {
-  color: #2b3850;
+  color: var(--console-text);
   font-size: 0.75rem;
 }
 
 .roleoverviewv16 > aside article small {
   margin-top: 0.15rem;
-  color: #9aa2b1;
+  color: var(--console-text-muted);
   font-size: 0.6875rem;
 }
 
@@ -1939,7 +1939,7 @@
   grid-template-columns: 2.25rem minmax(0, 1fr);
   gap: 0.75rem;
   padding: 1rem 0;
-  border-bottom: 1px solid #edf0f4;
+  border-bottom: 1px solid var(--console-border);
 }
 
 .rolehistoryv16 > article:last-child {
@@ -1951,29 +1951,29 @@
   width: 2.25rem;
   height: 2.25rem;
   border-radius: 999px;
-  background: #edf3ff;
-  color: #2767cf;
+  background: var(--console-canvas);
+  color: var(--console-accent);
   font-size: 0.6875rem;
   font-weight: 700;
   place-items: center;
 }
 
 .rolehistoryv16 article strong {
-  color: #27344b;
+  color: var(--console-text);
   font-size: 0.8125rem;
 }
 
 .rolehistoryv16 article p {
   margin-top: 0.25rem;
-  color: #929bad;
+  color: var(--console-text-muted);
   font-size: 0.6875rem;
 }
 
 .rolehistorystate {
-  border: 1px dashed #d9dee7;
+  border: 1px dashed var(--console-border);
   border-radius: 0.875rem;
-  background: #fafbfc;
-  color: #758096;
+  background: var(--console-surface);
+  color: var(--console-text-muted);
   padding: 3rem 1.5rem;
   font-size: 0.8125rem;
   text-align: center;
@@ -1989,10 +1989,10 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  border-top: 1px solid #dbe0e9;
-  background: rgb(255 255 255 / 96%);
+  border-top: 1px solid var(--console-border);
+  background: color-mix(in srgb, var(--console-surface) 96%, transparent);
   padding: 0.875rem 2rem;
-  box-shadow: 0 -6px 20px rgb(24 43 74 / 7%);
+  box-shadow: 0 -6px 20px color-mix(in srgb, var(--console-shadow-color) 7%, transparent);
   backdrop-filter: blur(10px);
 }
 
@@ -2012,7 +2012,7 @@
   width: 0.5rem;
   height: 0.5rem;
   border-radius: 999px;
-  background: #f0a23a;
+  background: var(--console-warning);
 }
 
 .roleeditorsticky strong,
@@ -2021,12 +2021,12 @@
 }
 
 .roleeditorsticky strong {
-  color: #27344b;
+  color: var(--console-text);
   font-size: 0.75rem;
 }
 
 .roleeditorsticky small {
-  color: #929bad;
+  color: var(--console-text-muted);
   font-size: 0.6875rem;
 }
 

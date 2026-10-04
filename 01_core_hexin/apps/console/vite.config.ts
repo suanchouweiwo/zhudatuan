@@ -1,30 +1,58 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { execFileSync } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
 import { defineConfig, loadEnv, type Plugin } from 'vite';
 import {
   materializeSflConsoleArtifact,
   normalizeConsoleClientVersion,
 } from '@shop/config/sfl-console-runtime';
-import { SFL_CONSOLE_RELEASE_DECLARATION } from '@shop/config/sfl-node-registry';
+import { materializeNodeManifestRegistryDeclaration } from '@shop/config/sfl-node-kernel';
+import {
+  consoleReleaseDeclarationOf,
+  nodeManifestDeclaration,
+  SFL_CONSOLE_RELEASE_DECLARATION,
+  SFL_NODE_REGISTRY,
+  type SflConsoleReleaseDeclaration,
+  type SflNodeRegistryDeclaration,
+} from '@shop/config/sfl-node-registry';
 import { consoleImmutableArtifactDigest } from '../../../04_tools/scripts/release/console-digest.mjs';
 import { createConsoleVersion } from './src/shared/config/ConsoleDeployment';
 
-export default defineConfig(({ command, mode }) => {
-  const environment = { ...loadEnv(mode, import.meta.dirname, ''), ...process.env };
+export default defineConfig(async ({ command, mode }) => {
+  const instanceRoot = process.env.LK_INSTANCE_ROOT?.trim();
+  const environmentDirectory = instanceRoot ? resolve(instanceRoot) : import.meta.dirname;
+  const environment = { ...loadEnv(mode, environmentDirectory, ''), ...process.env };
+  const instanceRegistry: SflNodeRegistryDeclaration | undefined = instanceRoot
+    ? JSON.parse(readFileSync(join(environmentDirectory, 'sfl-node-registry.declaration.json'), 'utf8'))
+    : undefined;
+  const declaration = instanceRegistry === undefined
+    ? SFL_CONSOLE_RELEASE_DECLARATION
+    : consoleReleaseDeclarationOf(instanceRegistry);
+  const instanceManifest = instanceRegistry === undefined ? undefined
+    : (await materializeNodeManifestRegistryDeclaration({
+      registry_version: instanceRegistry.registry_version,
+      generated_at: instanceRegistry.generated_at,
+      manifests: instanceRegistry.manifests,
+    })).manifests[0];
+  const apiOrigin = environment.COMMERCE_API_ORIGIN ?? 'http://127.0.0.1:3001';
   if (command === 'build') validateClientBuildEnvironment(environment);
   const build = buildDefinition(environment);
   const clientVersion = normalizeConsoleClientVersion(environment.VITE_CLIENT_VERSION);
   return {
-    plugins: [react(), tailwindcss(), consoleRuntimeEvidence(build, clientVersion)],
+    envDir: environmentDirectory,
+    plugins: [react(), tailwindcss(), consoleRuntimeEvidence(build, clientVersion, declaration, instanceRegistry)],
     define: {
       __SHOP_BUILD_COMMIT__: JSON.stringify(build.commit),
       __SHOP_BUILD_BRANCH__: JSON.stringify(build.branch),
       __SHOP_BUILD_ID__: JSON.stringify(build.id),
       __SHOP_BUILD_DIRTY__: JSON.stringify(build.dirty),
       __SHOP_BUILD_AT__: JSON.stringify(build.builtAt),
+      __LK_INSTANCE_NODE_MANIFEST__: instanceManifest === undefined ? 'undefined' : JSON.stringify(instanceManifest),
+      __LK_INSTANCE_NODE_BINDINGS__: JSON.stringify((instanceRegistry ?? SFL_NODE_REGISTRY).node_bindings
+        .map(({ node_id, brand_name, display_name }) => ({ node_id, brand_name, display_name }))),
+      __LK_INSTANCE_CONSOLE_RUNTIME_BINDINGS__: instanceRegistry === undefined ? 'undefined' : JSON.stringify(declaration.runtime_bindings),
     },
     build: { manifest: true },
     server: {
@@ -35,8 +63,9 @@ export default defineConfig(({ command, mode }) => {
        */
       proxy: {
         '/api': {
-          target: process.env.COMMERCE_API_ORIGIN ?? 'http://127.0.0.1:3001',
-          changeOrigin: false,
+          target: apiOrigin,
+          // HTTPS upstreams need their own Host/SNI; local HTTP keeps the original host.
+          changeOrigin: new URL(apiOrigin).protocol === 'https:',
         },
       },
       hmr: process.env.DISABLE_HMR !== 'true',
@@ -55,8 +84,21 @@ interface BuildDefinition {
   readonly builtAt: string;
 }
 
-function consoleRuntimeEvidence(build: BuildDefinition, clientVersion: string): Plugin {
+function consoleRuntimeEvidence(
+  build: BuildDefinition,
+  clientVersion: string,
+  declaration: SflConsoleReleaseDeclaration,
+  instanceRegistry: SflNodeRegistryDeclaration | undefined,
+): Plugin {
   let outputDirectory = resolve(import.meta.dirname, 'dist');
+  const nodeBinding = instanceRegistry?.node_bindings[0];
+  const consoleHost = nodeBinding === undefined ? undefined
+    : nodeManifestDeclaration(nodeBinding.node_id, instanceRegistry)
+      .domain_bindings.find((domain) => domain.surface_ref === 'surface:console')?.host;
+  const presentation = nodeBinding === undefined || consoleHost === undefined ? undefined : {
+    brandName: nodeBinding.brand_name,
+    consoleOrigin: `https://${consoleHost}`,
+  };
   return {
     name: 'sfl-console-runtime-evidence',
     configResolved(config) {
@@ -64,7 +106,38 @@ function consoleRuntimeEvidence(build: BuildDefinition, clientVersion: string): 
         ? config.build.outDir
         : resolve(import.meta.dirname, config.build.outDir);
     },
+    transformIndexHtml(html) {
+      if (presentation === undefined) return html;
+      const title = `运营管理后台｜${presentation.brandName}`;
+      const description = `${presentation.brandName}运营、会员与业务管理后台。`;
+      const metadata = {
+        description,
+        'og:site_name': presentation.brandName,
+        'og:title': title,
+        'og:description': description,
+        'og:url': `${presentation.consoleOrigin}/`,
+        'og:image': `${presentation.consoleOrigin}/brand/share-wechat.png`,
+      };
+      for (const [key, value] of Object.entries(metadata)) {
+        html = html.replace(new RegExp(`(<meta (?:name|property)="${key}" content=")[^"]*(")`),
+          (_, before, after) => `${before}${htmlText(value)}${after}`);
+      }
+      return html
+        .replace(/<title>[^<]*<\/title>/, () => `<title>${htmlText(title)}</title>`)
+        .replace(/(<link rel="canonical" href=")[^"]*(")/,
+          (_, before, after) => `${before}${htmlText(`${presentation.consoleOrigin}/`)}${after}`);
+    },
     async closeBundle() {
+      if (presentation !== undefined) {
+        const manifestPath = join(outputDirectory, 'brand/site.webmanifest');
+        const webManifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+        writeFileSync(manifestPath, `${JSON.stringify({
+          ...webManifest,
+          name: `${presentation.brandName}运营后台`,
+          short_name: presentation.brandName,
+          description: `${presentation.brandName}运营、会员与业务管理后台`,
+        }, null, 2)}\n`);
+      }
       const version = createConsoleVersion({
         sourceBranch: build.branch,
         sourceSha: build.commit,
@@ -77,7 +150,7 @@ function consoleRuntimeEvidence(build: BuildDefinition, clientVersion: string): 
         `${JSON.stringify(version, null, 2)}\n`,
       );
       const immutableArtifactDigest = consoleImmutableArtifactDigest(outputDirectory);
-      const artifact = await materializeSflConsoleArtifact(SFL_CONSOLE_RELEASE_DECLARATION, {
+      const artifact = await materializeSflConsoleArtifact(declaration, {
         source_sha: build.commit,
         build_id: build.id,
         source_tree: build.dirty ? 'dirty' : 'clean',
@@ -90,6 +163,12 @@ function consoleRuntimeEvidence(build: BuildDefinition, clientVersion: string): 
       );
     },
   };
+}
+
+function htmlText(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[character]!);
 }
 
 function buildDefinition(environment: Readonly<Record<string, string | undefined>>): BuildDefinition {

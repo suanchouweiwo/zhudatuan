@@ -1,27 +1,27 @@
 import React from 'react';
-import morviaMasterLockupWhite from '../../../../../05_docs_ziliao/VI_shijue/current/ZHU-VI-1.5/assets/svg/morvia-master-lockup-white.svg';
+import morviaMarkWhite from '../../../../../05_docs_ziliao/VI_shijue/current/ZHU-VI-1.5/assets/svg/morvia-mark-white.svg';
 import { IdentityFlowHeader } from './IdentityAudienceSwitch';
 
 export const MorviaIdentityShell: React.FC<Readonly<{
   audience: 'consumer' | 'operator';
   brand: 'morvia' | 'hongtai';
+  brandName?: string;
   contextLabel: string;
   onAudienceSwitch: () => void;
   children: React.ReactNode;
-}>> = ({ audience, brand, contextLabel, onAudienceSwitch, children }) => (
+}>> = ({ audience, brand, brandName = brand === 'hongtai' ? '宏泰甄选' : '主打团', contextLabel, onAudienceSwitch, children }) => (
   <main className="morvia-auth-page" data-brand={brand}>
     <section className="morvia-auth-shell">
       <aside className="morvia-auth-brand">
         {brand === 'morvia' ? (
-          <img
-            src={morviaMasterLockupWhite}
-            alt="主打团"
-            className="w-[250px] max-w-[74%]"
-          />
+          <div className="flex max-w-full items-center gap-4" aria-label={brandName}>
+            <img src={morviaMarkWhite} alt="" className="h-14 w-14 shrink-0" />
+            <strong className="text-3xl font-bold tracking-[-0.035em] text-white">{brandName}</strong>
+          </div>
         ) : (
-          <div className="hongtai-lockup" aria-label="宏泰甄选 Hongtai Select">
+          <div className="hongtai-lockup" aria-label={brandName}>
             <span className="hongtai-mark">H</span>
-            <span><strong>宏泰甄选</strong><small>HONGTAI SELECT</small></span>
+            <span><strong>{brandName}</strong><small>HONGTAI SELECT</small></span>
           </div>
         )}
 
@@ -42,7 +42,7 @@ export const MorviaIdentityShell: React.FC<Readonly<{
       </aside>
 
       <div className="morvia-auth-surface">
-        <IdentityFlowHeader active={audience} brand={brand} onSwitch={onAudienceSwitch} />
+        <IdentityFlowHeader active={audience} brand={brand} brandName={brandName} onSwitch={onAudienceSwitch} />
         <div className="morvia-auth-body">{children}</div>
       </div>
     </section>

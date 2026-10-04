@@ -5,7 +5,7 @@
   overflow: hidden;
   border: 0;
   border-radius: 0;
-  background: #fff;
+  background: var(--console-surface);
 }
 .producttableskeleton {
   min-height: 350px;
@@ -21,14 +21,14 @@
 }
 .producttableskeletonhead {
   height: 38px;
-  border-bottom: 1px solid #e6ebf2;
-  background: #f9fbfd;
+  border-bottom: 1px solid var(--console-border);
+  background: var(--console-surface);
 }
 .producttableskeletonhead::before,
 .producttableskeletonrow span {
   display: block;
   border-radius: 999px;
-  background: #e9eef5;
+  background: var(--console-subtle);
   content: '';
 }
 .producttableskeletonhead::before {
@@ -38,7 +38,7 @@
 }
 .producttableskeletonrow {
   height: 52px;
-  border-bottom: 1px solid #edf1f5;
+  border-bottom: 1px solid var(--console-border);
 }
 .producttableskeletonrow span {
   width: 72%;
@@ -59,22 +59,22 @@
   min-height: 40px;
   align-items: center;
   gap: 12px;
-  border-bottom: 1px solid #bfd0fb;
-  background: #f3f7ff;
-  color: #334155;
+  border-bottom: 1px solid var(--console-selected-border);
+  background: var(--console-surface);
+  color: var(--console-text-secondary);
   padding: 6px 12px;
   font-size: 12px;
 }
 .productselectionbar > span:nth-child(2) {
   flex: 1;
-  color: #64748b;
+  color: var(--console-text-muted);
 }
 .productselectionbar button {
   min-height: 28px;
-  border: 1px solid #b7c8e5;
+  border: 1px solid var(--console-selected-border);
   border-radius: 5px;
-  background: #fff;
-  color: #1557ec;
+  background: var(--console-surface);
+  color: var(--console-accent);
   padding: 0 9px;
 }
 .producttablewrap {
@@ -93,7 +93,7 @@
 .producttablewrap th,
 .producttablewrap td {
   height: 58px;
-  border-bottom: 1px solid #e6ebf2;
+  border-bottom: 1px solid var(--console-border);
   padding: 6px 10px;
   text-align: left;
   white-space: nowrap;
@@ -103,21 +103,21 @@
   position: sticky;
   top: 0;
   z-index: 1;
-  background: #f9fbfd;
-  color: #5d6b80;
+  background: var(--console-surface);
+  color: var(--console-text-muted);
   font-size: 11px;
   font-weight: 750;
 }
 .producttablewrap tbody tr {
-  color: #172033;
+  color: var(--console-text);
   cursor: pointer;
 }
 .producttablewrap tbody tr:hover {
-  background: #f8faff;
+  background: var(--console-surface);
 }
 .producttablewrap tbody tr[data-active='true'] {
-  background: #edf4ff;
-  box-shadow: inset 0 0 0 1px #9dbdff;
+  background: var(--console-canvas);
+  box-shadow: inset 0 0 0 1px var(--console-shadow-color);
 }
 .producttablewrap tbody tr:last-child td {
   border-bottom: 0;
@@ -129,7 +129,7 @@
 .productcheckcell input {
   width: 15px;
   height: 15px;
-  accent-color: #1f5eff;
+  accent-color: var(--console-accent);
 }
 .productidentity {
   display: flex;
@@ -155,12 +155,12 @@
   white-space: nowrap;
 }
 .productidentity strong {
-  color: #172033;
+  color: var(--console-text);
   font-size: 13px;
   font-weight: 700;
 }
 .productidentity span {
-  color: #8995a8;
+  color: var(--console-text-muted);
   font-size: 11px;
 }
 .productthumbnail,
@@ -168,9 +168,9 @@
   display: grid;
   overflow: hidden;
   flex: 0 0 auto;
-  border: 1px solid #dde4ec;
+  border: 1px solid var(--console-border);
   border-radius: 5px;
-  background: #eef3f8;
+  background: var(--console-canvas);
   place-items: center;
 }
 .productthumbnail {
@@ -181,7 +181,7 @@
 .productthumbnail svg {
   width: 21px;
   height: 21px;
-  color: #64748b;
+  color: var(--console-text-muted);
 }
 .productthumbnail img,
 .productdrawerthumbnail img {
@@ -195,23 +195,23 @@
 }
 [data-tone='warm'].productthumbnail,
 [data-tone='warm'].productdrawerthumbnail {
-  background: #fff4e8;
-  color: #b45309;
+  background: var(--console-warning-bg);
+  color: var(--console-warning-text);
 }
 [data-tone='dark'].productthumbnail,
 [data-tone='dark'].productdrawerthumbnail {
-  background: #172033;
-  color: #fff;
+  background: var(--console-brand-fill);
+  color: var(--console-on-accent);
 }
 [data-tone='green'].productthumbnail,
 [data-tone='green'].productdrawerthumbnail {
-  background: #e7f7ef;
-  color: #087a55;
+  background: var(--console-success-bg);
+  color: var(--console-success-text);
 }
 [data-tone='blue'].productthumbnail,
 [data-tone='blue'].productdrawerthumbnail {
-  background: #eaf1ff;
-  color: #1557ec;
+  background: var(--console-selected);
+  color: var(--console-accent);
 }
 .productcellpair {
   display: grid;
@@ -222,24 +222,24 @@
   font-weight: 600;
 }
 .productcellpair small {
-  color: #7c8aa0;
+  color: var(--console-text-muted);
   font-size: 11px;
 }
 .productcellpair.isunavailable small {
-  color: #a0aabc;
+  color: var(--console-text-muted);
 }
 .productmoney {
   font-weight: 650;
 }
 .producttime,
 .productunavailable {
-  color: #77869c;
+  color: var(--console-text-muted);
 }
 .productstatus {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  color: #475569;
+  color: var(--console-text-secondary);
   font-size: 11px;
   font-weight: 700;
 }
@@ -256,16 +256,16 @@
   height: 10px;
 }
 .productstatus[data-tone='success'] {
-  color: #0f8c52;
+  color: var(--console-success-text);
 }
 .productstatus[data-tone='warning'] {
-  color: #e17b05;
+  color: var(--console-warning-text);
 }
 .productstatus[data-tone='info'] {
-  color: #1557ec;
+  color: var(--console-accent);
 }
 .productstatus[data-tone='muted'] {
-  color: #7c8aa0;
+  color: var(--console-text-muted);
 }
 .productrowactions {
   display: flex;
@@ -279,26 +279,26 @@
   gap: 4px;
   border: 0;
   background: transparent;
-  color: #1557ec;
+  color: var(--console-accent);
   padding: 0 6px;
   font-size: 11px;
 }
 .productrowactions button:last-child {
-  color: #475569;
+  color: var(--console-text-secondary);
 }
 .productrowactions svg {
   width: 13px;
   height: 13px;
 }
 .productrowactions button:hover:not(:disabled) {
-  background: #edf2fb;
+  background: var(--console-hover);
 }
 .productrowactions button:focus-visible,
 .productcheckcell input:focus-visible,
 .productidentity > button:focus-visible,
 .productpagebuttons button:focus-visible,
 .productpagination select:focus-visible {
-  outline: 3px solid rgb(47 111 237 / 24%);
+  outline: 3px solid color-mix(in srgb, var(--console-accent) 24%, transparent);
   outline-offset: 2px;
 }
 .productpagination {
@@ -308,25 +308,25 @@
   align-items: center;
   margin-top: 0;
   border: 0;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--console-border);
   border-radius: 0;
   padding: 0 18px;
 }
 .productpagination p {
   margin: 0;
-  color: #526179;
+  color: var(--console-text-secondary);
   font-size: 12px;
 }
 .productpagination label {
-  color: #64748b;
+  color: var(--console-text-muted);
   font-size: 11px;
 }
 .productpagination select {
   height: 32px;
   margin-left: 5px;
-  border: 1px solid #dbe3ed;
+  border: 1px solid var(--console-border);
   border-radius: 5px;
-  background: #fff;
+  background: var(--console-surface);
   padding: 0 22px 0 8px;
 }
 .productpagebuttons {
@@ -334,7 +334,7 @@
   align-items: center;
   justify-content: flex-end;
   gap: 6px;
-  color: #64748b;
+  color: var(--console-text-muted);
   font-size: 11px;
 }
 .productpagebuttons button,
@@ -343,15 +343,15 @@
   width: 34px;
   min-width: 34px;
   min-height: 34px;
-  border: 1px solid #dbe3ed;
+  border: 1px solid var(--console-border);
   border-radius: 5px;
-  background: #fff;
+  background: var(--console-surface);
   place-items: center;
 }
 .productpagebuttons strong {
-  border-color: #1557ec;
-  background: #1557ec;
-  color: #fff;
+  border-color: var(--console-accent);
+  background: var(--console-accent);
+  color: var(--console-on-accent);
 }
 .productpagebuttons svg {
   width: 14px;

@@ -23,7 +23,7 @@
 
 .profilebusinesscard {
   border-color: color-mix(in srgb, var(--profile-blue) 20%, var(--profile-line));
-  background: color-mix(in srgb, var(--profile-blue) 4%, #ffffff);
+  background: color-mix(in srgb, var(--profile-blue) 4%, var(--console-surface));
 }
 
 .profileidentitysummary > div > span,
@@ -57,7 +57,7 @@
   gap: var(--sw-space-1-5);
   border: 1px solid color-mix(in srgb, var(--profile-blue) 14%, var(--profile-line));
   border-radius: 12px;
-  background: #ffffff;
+  background: var(--console-surface);
   padding: var(--sw-space-1-5);
 }
 
@@ -164,7 +164,7 @@
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--profile-line) 85%, transparent);
   border-radius: 12px;
-  background: #ffffff;
+  background: var(--console-surface);
 }
 
 .profilepermissiongroup[open] {
@@ -279,7 +279,7 @@
   justify-content: space-between;
   gap: var(--sw-space-2);
   border-radius: 12px;
-  background: color-mix(in srgb, var(--profile-blue) 6%, #ffffff);
+  background: color-mix(in srgb, var(--profile-blue) 6%, var(--console-surface));
   padding: var(--sw-space-1-5);
 }
 

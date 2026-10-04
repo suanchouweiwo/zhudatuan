@@ -69,7 +69,7 @@
   gap: 6px;
   border-color: var(--sw-brand);
   background: var(--sw-brand);
-  color: white;
+  color: var(--console-on-accent);
 }
 .financeconfigsurface > header button svg {
   width: 13px;
@@ -283,7 +283,7 @@
 .financeconfigactionsbar button:nth-last-child(2):not(:disabled) {
   border-color: var(--sw-brand);
   background: var(--sw-brand);
-  color: white;
+  color: var(--console-on-accent);
 }
 .financeconfigdetail {
   display: grid;
@@ -367,8 +367,8 @@
   max-height: calc(100vh - 32px);
   overflow: auto;
   border-radius: 16px;
-  background: var(--sw-surface, #fff);
-  box-shadow: 0 24px 80px rgb(15 23 42 / 28%);
+  background: var(--sw-surface, var(--console-surface));
+  box-shadow: 0 24px 80px color-mix(in srgb, var(--console-shadow-color) 28%, transparent);
 }
 
 .financepolicyworkflow > header,
@@ -378,12 +378,12 @@
   justify-content: space-between;
   gap: 16px;
   padding: 20px 24px;
-  border-bottom: 1px solid var(--sw-border, #e2e8f0);
+  border-bottom: 1px solid var(--sw-border, var(--console-border));
 }
 
 .financepolicyworkflow > header p {
   margin: 0 0 4px;
-  color: var(--sw-brand, #2563eb);
+  color: var(--sw-brand, var(--console-accent));
   font-size: 11px;
   font-weight: 750;
   letter-spacing: .08em;
@@ -396,7 +396,7 @@
 
 .financepolicyworkflow > footer {
   justify-content: flex-end;
-  border-top: 1px solid var(--sw-border, #e2e8f0);
+  border-top: 1px solid var(--sw-border, var(--console-border));
   border-bottom: 0;
 }
 
@@ -412,8 +412,8 @@
   padding: 0 18px;
   border: 0;
   border-radius: 8px;
-  color: #fff;
-  background: var(--sw-brand, #2563eb);
+  color: var(--console-on-accent);
+  background: var(--sw-brand, var(--console-accent));
   font-weight: 700;
 }
 
@@ -425,9 +425,9 @@
 .financeworkflowfacts,
 .financeworkflowstepup {
   padding: 18px;
-  border: 1px solid var(--sw-border, #e2e8f0);
+  border: 1px solid var(--sw-border, var(--console-border));
   border-radius: 12px;
-  background: var(--sw-subtle, #f8fafc);
+  background: var(--sw-subtle, var(--console-surface));
 }
 
 .financeworkflowfacts h3,
@@ -447,7 +447,7 @@
 }
 
 .financeworkflowfacts dt {
-  color: var(--sw-muted, #64748b);
+  color: var(--sw-muted, var(--console-text-muted));
   font-size: 12px;
 }
 
@@ -460,10 +460,10 @@
   display: flex;
   gap: 12px;
   padding: 16px;
-  border: 1px solid #86efac;
+  border: 1px solid var(--console-success-border);
   border-radius: 12px;
-  background: #f0fdf4;
-  color: #14532d;
+  background: var(--console-success-bg);
+  color: var(--console-success-text);
 }
 
 .financeworkflowreceipt h3,

@@ -3,6 +3,7 @@ import { useMall } from '../../context/MallContext';
 import type { LaptopPage } from '../../context/MallContext.types';
 import { Search, ShoppingCart, Building2, ChevronDown, User, CreditCard, Headphones, FileText, MapPin, Ticket, Zap, Gift, Menu, ShieldCheck } from 'lucide-react';
 import { storefrontAuthHref } from '../../config/storefrontAuth';
+import { resolveStorefrontPresentationIdentity } from '../../config/storefrontIdentity';
 import { defaultStorefrontWebPage, STOREFRONT_WEB_SURFACE_COPY, type StorefrontWebSurface } from './StorefrontWebStandard';
 
 interface LaptopHeaderProps {
@@ -13,6 +14,7 @@ interface LaptopHeaderProps {
 
 export const LaptopHeader: React.FC<LaptopHeaderProps> = ({ activeTab, onSelectTab, surface = 'laptop' }) => {
   const { currentMall, user, cartCount, setLaptopPage, malls, switchMall, triggerPendingFeature } = useMall();
+  const { brandName } = resolveStorefrontPresentationIdentity();
   const surfaceCopy = STOREFRONT_WEB_SURFACE_COPY[surface];
   const homePage = defaultStorefrontWebPage(surface);
   const isGuest = user.id === 'guest';
@@ -90,7 +92,7 @@ export const LaptopHeader: React.FC<LaptopHeaderProps> = ({ activeTab, onSelectT
             </button>
             <span className="text-blue-400/60">|</span>
             {isGuest ? (
-              <a href={authHref} className="flex items-center gap-1 text-yellow-300 font-medium hover:text-yellow-200 transition-colors" aria-label="登录或注册主打团 账户">
+              <a href={authHref} className="flex items-center gap-1 text-yellow-300 font-medium hover:text-yellow-200 transition-colors" aria-label={`登录或注册${brandName}账户`}>
                 <User className="w-3 h-3" />
                 <span>登录 / 注册</span>
               </a>
@@ -111,7 +113,8 @@ export const LaptopHeader: React.FC<LaptopHeaderProps> = ({ activeTab, onSelectT
         <div className="sw-web-container max-w-[1240px] mx-auto w-full flex items-center justify-between gap-4">
           {/* Logo */}
           <div onClick={() => handleNavClick(homePage)} className="flex items-center gap-2 cursor-pointer select-none flex-shrink-0">
-            <img src="/brand/morvia-master-lockup.svg" alt="主打团" className="h-9 w-36 object-contain" />
+            <img src="/brand/morvia-mark.svg" alt="" aria-hidden="true" className="h-9 w-9 object-contain" />
+            <strong className="max-w-40 truncate text-xl font-black tracking-tight text-[var(--sw-brand-dark)]">{brandName}</strong>
             <span className="text-[9px] bg-red-100 text-[#E5484D] font-bold px-1 py-0.2 rounded">{surfaceCopy.headerBadge}</span>
           </div>
 
