@@ -1139,6 +1139,22 @@ async function executeDatabaseMigration(context, candidate, manifest) {
     const credentials = parseEnvironmentFile(await readFile(definition.credentialFile,'utf8'));
     await command(['chgrp',definition.runtimeGroup,join(nodeRoot,'database')]);
     await chmod(join(nodeRoot,'database'),0o750);
+    const container = `${context.node}-postgres`;
+    const hostNetwork = `${context.node}-database-link`;
+    const containerState = JSON.parse((await command(['docker','inspect',container])).stdout)[0];
+    if (!containerState.NetworkSettings.Networks[hostNetwork]) {
+      try { await command(['docker','network','inspect',hostNetwork]); }
+      catch { await command(['docker','network','create',hostNetwork]); }
+      await command(['docker','network','connect',hostNetwork,container]);
+    }
+    const composeFile = join(nodeRoot,'database/compose.yml');
+    let compose = await readFile(composeFile,'utf8');
+    if (!compose.includes('host_link:')) {
+      compose = compose.replace('      - registration','      - registration\n      - host_link')
+        + `\n  host_link:\n    external: true\n    name: ${hostNetwork}\n`;
+      await writeFile(composeFile,compose);
+    }
+
     const sql = `do $roles$ begin
       if not exists(select 1 from pg_roles where rolname='anon') then create role anon nologin; end if;
       if not exists(select 1 from pg_roles where rolname='authenticated') then create role authenticated nologin; end if;
