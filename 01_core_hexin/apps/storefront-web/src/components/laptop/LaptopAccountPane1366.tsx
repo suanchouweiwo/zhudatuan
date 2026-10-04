@@ -1,4 +1,5 @@
 import React from 'react';
+import { MemberAccountSettings } from '../MemberAccountSettings';
 import { ArrowRight, Award, CheckCircle2, Clock, CreditCard, FileText, Gift, ShieldCheck, ShoppingCart, Truck } from 'lucide-react';
 import { useMall, type LaptopPage } from '../../context/MallContext';
 
@@ -18,6 +19,7 @@ export const LaptopAccountPane1366: React.FC<{
               <div className="font-extrabold text-xs text-gray-900 truncate">{user.name}</div>
               <div className="text-[10px] text-gray-500 truncate">{user.department}</div>
               {user.identityCode && <div className="text-[9px] text-[var(--sw-brand)] font-bold mt-0.5">会员身份码：{user.identityCode}</div>}
+              <MemberAccountSettings />
             </div>
           </div>
 

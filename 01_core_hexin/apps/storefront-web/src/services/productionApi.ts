@@ -282,6 +282,21 @@ export const productionApi = {
     };
   },
 
+  async changeMemberPassword(currentPassword: string, newPassword: string): Promise<void> {
+    await canonicalCall(() => canonicalClient().identity.passwordVerify({ body: { password: currentPassword } }, sessionContext({ write: true, idempotencyKey: createSecureId() })));
+    await canonicalCall(() => canonicalClient().identity.passwordChange({ body: { currentPassword, newPassword } }, sessionContext({ write: true, idempotencyKey: createSecureId() })));
+  },
+
+  async startMemberMobileBinding(mobile: string, password: string): Promise<string> {
+    await canonicalCall(() => canonicalClient().identity.passwordVerify({ body: { password } }, sessionContext({ write: true, idempotencyKey: createSecureId() })));
+    const challenge = record(await canonicalCall(() => canonicalClient().identity.mobileChallenge({ body: { destination: mobile } }, sessionContext({ write: true, idempotencyKey: createSecureId() }))), 'identity.mobile.challenge');
+    return text(challenge.id, 'identity.mobile.challenge.id');
+  },
+
+  async completeMemberMobileBinding(mobile: string, challenge: string, code: string): Promise<void> {
+    await canonicalCall(() => canonicalClient().identity.mobileManage({ body: { mobile, challenge, code } }, sessionContext({ write: true, idempotencyKey: createSecureId() })));
+  },
+
   async completePaymentPhoneVerification(challengeId: string, code: string, bindingToken?: string): Promise<{ verified: true }> {
     await canonicalCall(() => canonicalClient().identity.stepupComplete({
       body: { challenge: challengeId, code, ...(bindingToken === undefined ? {} : { bindingToken }) },

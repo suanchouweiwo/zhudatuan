@@ -1,4 +1,5 @@
 import React from 'react';
+import { MemberAccountSettings } from '../../components/MemberAccountSettings';
 import { ArrowRight, CheckCircle, Clock, CreditCard, ShoppingCart, Truck, Utensils } from 'lucide-react';
 import { useMall } from '../../context/MallContext';
 
@@ -24,6 +25,7 @@ export const TabletLandscapeAccountPane: React.FC = () => {
               </div>
               <div className="text-[10px] text-blue-100 truncate">{user.enterpriseName}</div>
               {user.identityCode && <div className="text-[10px] font-mono text-blue-100">会员身份码：{user.identityCode}</div>}
+              <MemberAccountSettings />
             </div>
           </div>
 

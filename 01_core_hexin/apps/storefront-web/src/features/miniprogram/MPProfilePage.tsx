@@ -1,4 +1,5 @@
 import React from 'react';
+import { MemberAccountSettings } from '../../components/MemberAccountSettings';
 import { useMall } from '../../context/MallContext';
 import { WeChatCapsule } from '../../components/mobile/WeChatCapsule';
 import { CreditCard, Utensils, Clock, Truck, CheckCircle, HelpCircle, Ticket, MapPin, FileText, BellRing, Headphones, ShieldCheck, ChevronRight, Building2, Smartphone, LogOut } from 'lucide-react';
@@ -42,6 +43,7 @@ export const MPProfilePage: React.FC = () => {
               <span className="bg-yellow-400 text-gray-900 text-[9px] font-bold px-1.5 py-0.2 rounded">{user.jobTitle}</span>
             </div>
             {user.identityCode && <div className="text-xs font-mono text-blue-100">会员身份码：{user.identityCode}</div>}
+            <MemberAccountSettings />
             <div className="text-[11px] text-blue-100 flex items-center gap-1">
               <Building2 className="w-3 h-3 text-yellow-300" />
               <span className="truncate">{user.enterpriseName}</span>

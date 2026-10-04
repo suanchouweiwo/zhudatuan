@@ -64,7 +64,7 @@ export function mobileWechatOperations(runtime: RealmOperationContext): Operatio
           return { access, body, mobile, envelope };
         },
         execute: async (_request, database, { access, body, mobile, envelope }) => {
-          const governance = requireGovernanceContext(access);
+          const governance = access.actor.target === 'storefront' ? access.governance : requireGovernanceContext(access);
           await database.query("select pg_advisory_xact_lock(hashtext('zhudatuan:platform-owner-transfer:v1'))");
           const account = await currentRealmAccount(database, access.membership.id, access.actor.id);
           const destinationHash = digest(mobile);
@@ -86,7 +86,7 @@ export function mobileWechatOperations(runtime: RealmOperationContext): Operatio
           await consumeChallenge(database, textField(body, 'challenge'), textField(body, 'code'), codeDigest, access.actor.id,
             { purpose: 'phone_change', destinationHash, sessionHash: sessionDigest(access.actor.session),
               realmId: account.realmId, accountId: account.accountId });
-          if (governance.isExactOwner) {
+          if (governance?.isExactOwner) {
             const changed = await database.query<{ profile: Readonly<Record<string, unknown>> }>(
               `select access.change_zhudatuan_owner_mobile($1,$2,$3,$4,$5,$6,$7,$8,$9) profile`,
               [access.actor.id, access.actor.session, textField(body, 'challenge'), envelope.ciphertext,

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { MemberAccountSettings } from '../../components/MemberAccountSettings';
 import { useMall } from '../../context/MallContext';
 import { AndroidStatusBar } from '../../components/mobile/AndroidStatusBar';
 import { AndroidBottomNav } from '../../components/mobile/AndroidBottomNav';
@@ -53,6 +54,7 @@ export const AndroidProfilePage: React.FC = () => {
               <span className="bg-yellow-400 text-gray-900 text-[9px] font-bold px-2 py-0.2 rounded-full">{user.jobTitle}</span>
             </div>
             {user.identityCode && <div className="text-xs font-mono text-blue-100">会员身份码：{user.identityCode}</div>}
+            <MemberAccountSettings />
             <div className="text-[11px] text-blue-100 flex items-center gap-1">
               <Building2 className="w-3.5 h-3.5 text-yellow-300" />
               <span className="truncate">{user.enterpriseName}</span>

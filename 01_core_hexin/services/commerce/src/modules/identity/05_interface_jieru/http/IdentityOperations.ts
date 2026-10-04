@@ -47,6 +47,7 @@ export const IDENTITY_REGISTRATION_CORE_OPERATION_IDS = Object.freeze([
   'identity.invitations.revoke',
   'identity.members.create',
   'identity.password.reset',
+  'identity.password.change',
   'identity.password.verify',
   'identity.mobile.challenge',
   'identity.mobile.manage',
