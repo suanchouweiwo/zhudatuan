@@ -923,7 +923,20 @@ async function initializeNodeDatabase(context, candidate, manifest) {
     .replace('/var/lib/zhudatuan/postgres', join(database, 'data'))
     .replace('/opt/zhudatuan/current/02_platform_pingtai/infrastructure/zhudatuan/aliyun/postgres-init-registration.sh', initFile);
   await writeFile(composeFile, compose);
-  await command(['docker', 'compose', '-f', composeFile, 'up', '-d'], { timeoutMs: 120_000 });
+  try {
+    await command(['docker', 'version', '--format', '{{.Client.Version}}']);
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+    const installOptions = { timeoutMs: 240_000, env: { ...process.env, DEBIAN_FRONTEND: 'noninteractive' } };
+    await command(['apt-get', 'update'], installOptions);
+    try { await command(['apt-get','install','-y','docker.io','docker-compose-v2'], installOptions); }
+    catch { await command(['apt-get','install','-y','docker.io','docker-compose'], installOptions); }
+    await command(['systemctl','start','docker']);
+  }
+  let composeCommand = ['docker','compose'];
+  try { await command([...composeCommand,'version']); }
+  catch { composeCommand = ['docker-compose']; }
+  await command([...composeCommand, '-f', composeFile, 'up', '-d'], { timeoutMs: 240_000 });
   const deadline = Date.now() + 60_000;
   while (true) {
     try {
@@ -987,6 +1000,7 @@ alter role zhudatuanwebapi login password '${credentials.ZHUDATUAN_WEB_API_PASSW
       env.STOREFRONT_HOST = '127.0.0.1';
     }
     if (target === 'identity-api') {
+      env.NODE_IDENTITY_RUNTIME_PATH = join(runtime, 'identity-runtime.json');
       env.SESSION_KEY_REF = `${prefix}/identity/session`;
       env.IDENTITY_KEY_REF = `${prefix}/identity/index`;
       // WeChat configuration remains unset until this instance has its own application.
@@ -1000,14 +1014,21 @@ alter role zhudatuanwebapi login password '${credentials.ZHUDATUAN_WEB_API_PASSW
     await writeFile(join(runtime, `${target}.env`), environmentText(env), { mode: 0o640 });
   }
   const objectEnvironment = parseEnvironmentFile(await readFile(join(sourceRoot, 'object-store.env'), 'utf8'));
+  if (nodeManifest) Object.assign(objectEnvironment, {
+    NODE_MANIFEST_PATH: join(root, 'manifest.json'), NODE_MANIFEST_ID: nodeManifest.manifest_id,
+    NODE_MANIFEST_DIGEST: nodeManifest.manifest_digest, NODE_RUNTIME_INSTANCE_ID: nodeManifest.runtime_instance_id,
+    NODE_RUNTIME_CONFIG_REF: nodeManifest.runtime_config_ref.ref,
+    NODE_RESOURCE_BINDING_VERSION: nodeManifest.resource_binding_set_ref.version,
+    NODE_RELEASE_POINTER_REF: nodeManifest.release_pointer_ref.ref,
+  });
   objectEnvironment.LOCAL_OBJECTS_PORT = String(setup.objectPort);
   objectEnvironment.LOCAL_OBJECTS_DIRECTORY = join(root, 'objects');
   await mkdir(objectEnvironment.LOCAL_OBJECTS_DIRECTORY, { recursive: true, mode: 0o750 });
   await writeFile(join(runtime, 'object-store.env'), environmentText(objectEnvironment), { mode: 0o640 });
   const shared = parseEnvironmentFile(await readFile('/opt/zhudatuan/shared/runtime.env', 'utf8'));
   const secretEnvironment = {
-    LOCAL_TLS_KEY_FILE: shared.LOCAL_TLS_KEY_FILE,
-    LOCAL_TLS_CERT_FILE: shared.LOCAL_TLS_CERT_FILE,
+    LOCAL_TLS_KEY_FILE: shared.LOCAL_TLS_KEY_FILE ?? objectEnvironment.LOCAL_TLS_KEY_FILE,
+    LOCAL_TLS_CERT_FILE: shared.LOCAL_TLS_CERT_FILE ?? objectEnvironment.LOCAL_TLS_CERT_FILE,
     LOCAL_SECRETS_FILE: secretsFile,
     LOCAL_SECRETS_PORT: String(setup.secretPort),
     LOCAL_SECRET_STORE_BEARER_TOKEN: inputs['identity-api'].SECRET_STORE_BEARER_TOKEN,
