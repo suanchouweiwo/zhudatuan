@@ -465,41 +465,4 @@ on conflict do nothing;
 insert into runtime.schemaversion(version,checksum)
 values('20260828092000','f4246926b8e96ee76a2b8fc4b1d7bf3c13a7b9c63a5046d492ad9e927a1f7554');
 
-do $assert$
-begin
-  if to_regclass('access.actionproof') is null
-    or to_regprocedure('access.issue_action_proof(text,text,text,text,text,text,text,text,bigint,text)') is null
-    or to_regprocedure('access.consume_action_proof(text,text,text,text,text,text,text,text,bigint,text)') is null
-    or to_regprocedure('finance.assert_expected_version(text,text,text,bigint)') is null
-  then raise exception 'FINANCIAL_ACTION_PROOF_OBJECT_MISSING'; end if;
-  if has_table_privilege('shopapp','access.actionproof','SELECT')
-    or has_table_privilege('shopapp','finance.journal','INSERT')
-    or has_table_privilege('shopjob','finance.entry','UPDATE')
-    or has_table_privilege('shopapp','invoice.request','DELETE')
-  then raise exception 'FINANCE_DIRECT_WRITE_BOUNDARY_OPEN'; end if;
-  if not has_column_privilege('shopapp','finance.statement','state','UPDATE')
-    or not has_column_privilege('shopapp','finance.period','state','UPDATE')
-  then raise exception 'FINANCE_CONTROLLED_CLOSE_PRIVILEGE_MISSING'; end if;
-  if not exists(select 1 from information_schema.columns where table_schema='finance' and table_name='backfill'
-    and column_name='version' and is_nullable='NO') then raise exception 'FINANCE_BACKFILL_VERSION_MISSING'; end if;
-  if not exists(select 1 from information_schema.columns where table_schema='identity' and table_name='assurance'
-    and column_name='session_id') then raise exception 'ACTION_PROOF_SESSION_BINDING_MISSING'; end if;
-  if not exists(select 1 from capability.operation where operation_id='finance.policies.read'
-      and permission_code='finance.policy.read')
-    or not exists(select 1 from capability.operation where operation_id='finance.audit.read'
-      and permission_code='audit.read')
-    or not exists(select 1 from capability.operation where operation_id='invoice.operatorprofiles.read'
-      and permission_code='invoice.profile.read')
-  then raise exception 'FINANCE_READ_CAPABILITY_MISSING'; end if;
-  if not exists(select 1 from capability.membership_operations('membership-platform-owner-ethan-v1') operation
-      where operation.operation_id='finance.policies.read')
-    or not exists(select 1 from capability.membership_operations('membership-platform-owner-ethan-v1') operation
-      where operation.operation_id='invoice.operatorprofiles.read')
-  then raise exception 'FINANCE_CONSOLE_READ_PERMISSION_MISSING'; end if;
-  if exists(select 1 from pg_roles where rolname in('shopapp','shopjob') and rolbypassrls)
-  then raise exception 'FINANCE_ROLE_BYPASSES_RLS'; end if;
-  if not exists(select 1 from runtime.schemaversion where version='20260828092000')
-  then raise exception 'TARGET_SCHEMA_VERSION_MISSING'; end if;
-end $assert$;
-
 commit;

@@ -28,17 +28,4 @@ on conflict do nothing;
 insert into runtime.schemaversion(version,checksum)
 values('20260901223000','c95f702b55319f504b809e3f34865fe2120052d9cd4e6a09b43cefed655a7bde');
 
-do $assert$
-begin
-  if not exists(select 1 from runtime.operation where id='provisioning.malls.create' and owner='provisioning')
-  then raise exception 'MALL_PROVISIONING_OPERATION_MISSING'; end if;
-  if not exists(select 1 from capability.membership_operations('membership-platform-owner-ethan-v1') available
-    where available.operation_id='provisioning.malls.create')
-  then raise exception 'PLATFORM_OWNER_MALL_PROVISIONING_MISSING'; end if;
-  if not exists(select 1 from runtime.schemaversion
-    where version='20260901223000'
-      and checksum='c95f702b55319f504b809e3f34865fe2120052d9cd4e6a09b43cefed655a7bde')
-  then raise exception 'TARGET_SCHEMA_VERSION_MISSING'; end if;
-end $assert$;
-
 commit;

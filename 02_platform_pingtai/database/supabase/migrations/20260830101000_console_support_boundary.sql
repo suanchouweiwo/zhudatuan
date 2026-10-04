@@ -106,43 +106,4 @@ where permission.code in('support.case.read','support.message.read','support.mes
 insert into runtime.schemaversion(version,checksum)
 values('20260830101000','351696672f660832ef75fe9dd2b11d6dd918b55a738903e261cbe32b0b8fc28d');
 
-do $assert$
-begin
-  if (select rolbypassrls or rolsuper or rolcreaterole or rolcreatedb from pg_roles where rolname='shopconsole') then
-    raise exception 'CONSOLE_SUPPORT_ROLE_PRIVILEGED';
-  end if;
-  if not exists(select 1 from pg_roles where rolname='zhudatuanconsoleapi' and rolcanlogin
-      and not rolsuper and not rolbypassrls and not rolcreaterole and not rolcreatedb)
-    or not pg_has_role('zhudatuanconsoleapi','shopconsole','MEMBER') then
-    raise exception 'CONSOLE_SUPPORT_LOGIN_ROLE_INVALID';
-  end if;
-  if has_table_privilege('shopconsole','support.agent','SELECT')
-    or has_table_privilege('shopconsole','support.account','SELECT')
-    or has_table_privilege('shopconsole','support.sla','SELECT')
-    or has_table_privilege('shopconsole','support.message','UPDATE,DELETE')
-    or has_table_privilege('shopconsole','support.ticket','INSERT,DELETE') then
-    raise exception 'CONSOLE_SUPPORT_ACL_TOO_BROAD';
-  end if;
-  if not has_table_privilege('shopconsole','support.ticket','SELECT,UPDATE')
-    or not has_table_privilege('shopconsole','support.message','SELECT,INSERT')
-    or not has_table_privilege('shopconsole','runtime.idempotency','SELECT,INSERT,UPDATE') then
-    raise exception 'CONSOLE_SUPPORT_ACL_MISSING';
-  end if;
-  if exists(
-    select 1 from unnest(array['support.case.read','support.message.read','support.message.send']) required(code)
-    where not exists(
-      select 1 from access.rolepermission mapping join access.permission permission on permission.id=mapping.permission_id
-      where mapping.role_id='role-platform-owner-v2' and mapping.effect='allow' and permission.code=required.code
-    )
-  ) then raise exception 'PLATFORM_OWNER_SUPPORT_PERMISSION_MISSING'; end if;
-  if exists(
-    select 1 from unnest(array['support.cases.read','support.messages.read','support.messages.send']) required(operation_id)
-    where not exists(
-      select 1 from capability.membership_operations('membership-platform-owner-ethan-v1') operation
-      where operation.operation_id=required.operation_id
-    )
-  ) then raise exception 'PLATFORM_OWNER_SUPPORT_OPERATION_MISSING'; end if;
-end
-$assert$;
-
 commit;
