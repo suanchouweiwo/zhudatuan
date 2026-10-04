@@ -1137,6 +1137,8 @@ async function executeDatabaseMigration(context, candidate, manifest) {
   if (definition.initialize?.applyBusiness) {
     const nodeRoot = join('/opt/sfl/nodes',context.node);
     const credentials = parseEnvironmentFile(await readFile(definition.credentialFile,'utf8'));
+    await command(['chgrp',definition.runtimeGroup,join(nodeRoot,'database')]);
+    await chmod(join(nodeRoot,'database'),0o750);
     const sql = `do $roles$ begin
       if not exists(select 1 from pg_roles where rolname='anon') then create role anon nologin; end if;
       if not exists(select 1 from pg_roles where rolname='authenticated') then create role authenticated nologin; end if;
@@ -1170,6 +1172,7 @@ async function executeDatabaseMigration(context, candidate, manifest) {
     assert(existing?.sourceSha === manifest.sourceSha && existing?.treeDigest === manifest.treeDigest && existing?.manifestDigest === manifest.manifestDigest, 'DATABASE_MIGRATION_EXECUTION_RELEASE_MISMATCH', { executionDirectory });
   }
   await chmod(executionDirectory, 0o755);
+  if (definition.initialize?.applyBusiness) await command(['chown','-R',`${definition.runtimeUser}:${definition.runtimeGroup}`,executionDirectory]);
   const runner = resolve(executionDirectory, definition.runner);
   const migrationDirectory = resolve(executionDirectory, definition.migrationDirectory);
   assert(runner.startsWith(`${executionDirectory}/`) && migrationDirectory.startsWith(`${executionDirectory}/`), 'DATABASE_MIGRATION_EXECUTION_PATH_UNSAFE', { runner, migrationDirectory });
