@@ -19,6 +19,10 @@ inputs:
   physical-node:
     required: false
     default: ''
+  instance-path:
+    description: Public instance snapshot directory within the selected Source SHA
+    required: false
+    default: ''
   runner-class:
     required: true
   control-root:
@@ -45,7 +49,8 @@ runs:
       env:
         CONTROL_ROOT: ${{ inputs.control-root != '' && inputs.control-root || github.workspace }}
         RELEASE_TARGET: ${{ inputs.target }}
-      run: node "$CONTROL_ROOT/04_tools/release-engine/source-checkout-1-7.mjs" "$CONTROL_ROOT" "$RELEASE_TARGET" >> "$GITHUB_OUTPUT"
+        INSTANCE_PATH: ${{ inputs.instance-path }}
+      run: node "$CONTROL_ROOT/04_tools/release-engine/source-checkout-1-7.mjs" "$CONTROL_ROOT" "$RELEASE_TARGET" "$INSTANCE_PATH" >> "$GITHUB_OUTPUT"
     - name: Load exact source
       if: inputs.phase == 'prepare' && inputs.source-sha != '' && (inputs.operation == 'release' || inputs.operation == 'retry')
       uses: actions/checkout@v6
@@ -68,6 +73,7 @@ runs:
         RELEASE_IDENTIFIER: ${{ inputs.identifier }}
         RELEASE_TARGET: ${{ inputs.target }}
         PHYSICAL_NODE: ${{ inputs.physical-node }}
+        INSTANCE_PATH: ${{ inputs.instance-path }}
         RUNNER_CLASS: ${{ inputs.runner-class }}
       run: |
         bash "$CONTROL_ROOT/scripts/runner-1-6.sh" "${{ inputs.operation }}"

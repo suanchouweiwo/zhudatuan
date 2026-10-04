@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { appendFile, chmod, copyFile, cp, link, lstat, mkdir, readFile, readlink, readdir, realpath, rename, rm, statfs, symlink, writeFile } from 'node:fs/promises';
+import { appendFile, chmod, chown, copyFile, cp, link, lstat, mkdir, readFile, readlink, readdir, realpath, rename, rm, statfs, symlink, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { spawn } from 'node:child_process';
 import { performance } from 'node:perf_hooks';
@@ -687,12 +687,15 @@ async function activate(context, options) {
   }
   let readiness;
   let protectedAfter = null;
+  let nodeRuntimeRecovery = null;
   try {
     const cutoverStarted = Date.now();
+    nodeRuntimeRecovery = await captureNodeRuntime(context, candidate);
     if (previousCurrent) await atomicPointer(join(root, 'previous'), previousCurrent);
     if (previousRuntime) await atomicPointer(join(root, 'previous-runtime'), previousRuntime);
     if (candidateRuntime) await atomicPointer(join(root, 'runtime'), candidateRuntime);
     await atomicPointer(join(root, 'current'), candidate);
+    await installNodeRuntime(context, candidate);
     timings.cutover = Date.now() - cutoverStarted;
     const restartStarted = Date.now();
     activationRestart = await restart(context.deployment.restart);
@@ -773,6 +776,7 @@ async function activate(context, options) {
     };
     let rollbackFailure = null;
     try {
+      await restoreNodeRuntime(nodeRuntimeRecovery);
       assert(previousCurrent, 'ROLLBACK_BASELINE_MISSING', { root });
       await chmod(previousCurrent, 0o755);
       const pointerStarted = performance.now();
@@ -1036,6 +1040,9 @@ async function rollback(context) {
     if (current) await atomicPointer(join(root, 'previous'), current);
     await restoreOptionalPointer(join(root, 'runtime'), previousRuntime);
     await restoreOptionalPointer(join(root, 'previous-runtime'), currentRuntime);
+    if (!(await installNodeRuntime(context, previous))) {
+      await restoreNodeRuntime(nodeRuntimeRecoveryPath(context, current));
+    }
     timings.pointer = elapsedMs(pointerStarted);
     const restartStarted = performance.now();
     const restartOperation = await restart(context.deployment.restart);
@@ -1084,6 +1091,142 @@ async function status(context) {
     previousRuntime: await statusPointer(root, 'previous-runtime'),
     restart: context.deployment.restart,
   };
+}
+
+function nodeRuntimeRecoveryPath(context, release) {
+  if (!release) return null;
+  const key = createHash('sha256').update(release).digest('hex');
+  return join(context.deployment.pointerRoot, 'state', 'node-runtime', key);
+}
+
+function nodeRuntimeDestinations(context) {
+  const nodeRoot = join('/opt/sfl/nodes', context.node);
+  const runtimeRoot = join(nodeRoot, 'runtime');
+  const environment = ['identity-api', 'web-api', 'storefront'].includes(context.target)
+    ? join(runtimeRoot, `${context.target}.env`) : null;
+  const centralFile = context.target === 'console' ? 'console-runtime.json'
+    : context.target === 'auth-web' ? 'identity-runtime.json' : null;
+  return { environment, centralFile, central: centralFile ? join(runtimeRoot, centralFile) : null };
+}
+
+async function readNodeRuntimeManifest(release) {
+  if (!release) return null;
+  return readJson(join(release, 'node-runtime', 'manifest.json'));
+}
+
+async function captureNodeRuntime(context, release) {
+  if (!(await readNodeRuntimeManifest(release))) return null;
+  const directory = nodeRuntimeRecoveryPath(context, release);
+  const destinations = nodeRuntimeDestinations(context);
+  await mkdir(directory, { recursive: true, mode: 0o700 });
+  await chmod(directory, 0o700);
+  const entries = [];
+  for (const path of [destinations.environment, destinations.central].filter(Boolean)) {
+    const stats = await lstatOrNull(path);
+    const entry = { path, kind: stats === null ? 'missing' : stats.isSymbolicLink() ? 'link' : 'file' };
+    if (entry.kind === 'link') entry.target = await readlink(path);
+    if (entry.kind === 'file') {
+      entry.mode = stats.mode & 0o777;
+      entry.uid = stats.uid;
+      entry.gid = stats.gid;
+      entry.backup = String(entries.length);
+      await writeFile(join(directory, entry.backup), await readFile(path), { mode: 0o600 });
+      await chmod(join(directory, entry.backup), 0o600);
+    }
+    entries.push(entry);
+  }
+  await writeAtomicJson(join(directory, 'before.json'), entries);
+  return directory;
+}
+
+async function installNodeRuntime(context, release) {
+  const manifest = await readNodeRuntimeManifest(release);
+  if (!manifest) return false;
+  const destinations = nodeRuntimeDestinations(context);
+  const activeRuntime = join(context.deployment.pointerRoot, 'current', 'node-runtime');
+  if (destinations.environment) {
+    const path = destinations.environment;
+    const stats = await lstat(path);
+    const before = await readFile(path, 'utf8');
+    const updates = {
+      SERVICE_VERSION: manifest.release_pointer_ref.source_sha,
+      NODE_MANIFEST_PATH: join(activeRuntime, 'manifest.json'),
+      NODE_MANIFEST_ID: manifest.manifest_id,
+      NODE_MANIFEST_DIGEST: manifest.manifest_digest,
+      NODE_RUNTIME_INSTANCE_ID: manifest.runtime_instance_id,
+      NODE_RUNTIME_CONFIG_REF: manifest.runtime_config_ref.ref,
+      NODE_RESOURCE_BINDING_VERSION: manifest.resource_binding_set_ref.version,
+      NODE_RELEASE_POINTER_REF: manifest.release_pointer_ref.ref,
+    };
+    if (context.target === 'identity-api' && await exists(join(release, 'node-runtime', 'identity-runtime.json'))) {
+      updates.NODE_IDENTITY_RUNTIME_PATH = join(activeRuntime, 'identity-runtime.json');
+    }
+    if (context.target === 'storefront') {
+      const identity = await readJson(join(release, 'node-runtime', 'identity-runtime.json'));
+      const node = identity?.identity_node_registry?.nodes?.find((entry) => entry.nodeId === manifest.node_id);
+      if (node) {
+        const registry = JSON.stringify(identity.identity_node_registry);
+        const publicUpdates = {
+          NEXT_PUBLIC_API_BASE_URL: node.apiOrigin,
+          NEXT_PUBLIC_AUTH_ORIGIN: node.accountsOrigin,
+          NEXT_PUBLIC_CLIENT_VERSION: `0.0.0-g${manifest.release_pointer_ref.source_sha}`,
+          NEXT_PUBLIC_STOREFRONT_HOSTNAME: new URL(node.storefrontOrigin).hostname,
+          NEXT_PUBLIC_STOREFRONT_APPLICATION: node.consumerApplication,
+          NEXT_PUBLIC_IDENTITY_NODE_REGISTRY: registry,
+          SFL_STOREFRONT_HOSTNAME: new URL(node.storefrontOrigin).hostname,
+          SFL_STOREFRONT_APPLICATION: node.consumerApplication,
+          SFL_STOREFRONT_IDENTITY_NODE_REGISTRY: registry,
+        };
+        const existingKeys = new Set(before.split(/\r?\n/).map((line) =>
+          /^\s*(?:export\s+)?([A-Z0-9_]+)\s*=/.exec(line)?.[1]));
+        for (const [key, value] of Object.entries(publicUpdates)) {
+          if (existingKeys.has(key)) updates[key] = value;
+        }
+      }
+    }
+    const pending = new Set(Object.keys(updates));
+    const lines = before.split(/\r?\n/).map((line) => {
+      const key = /^\s*(?:export\s+)?([A-Z0-9_]+)\s*=/.exec(line)?.[1];
+      if (!Object.hasOwn(updates, key ?? '')) return line;
+      pending.delete(key);
+      return environmentAssignment(key, updates[key]);
+    });
+    while (lines.at(-1) === '') lines.pop();
+    for (const key of pending) lines.push(environmentAssignment(key, updates[key]));
+    await writeNodeRuntimeFile(path, `${lines.join('\n')}\n`, stats);
+  }
+  if (destinations.central && await exists(join(release, 'node-runtime', destinations.centralFile))) {
+    await atomicPointer(destinations.central, join(activeRuntime, destinations.centralFile));
+  }
+  return true;
+}
+
+function environmentAssignment(key, value) {
+  const escaped = String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"').replaceAll('\n', '\\n');
+  return `${key}="${escaped}"`;
+}
+
+async function writeNodeRuntimeFile(path, contents, stats) {
+  const temporary = join(dirname(path), `.${basename(path)}.${process.pid}.${Date.now()}`);
+  try {
+    await writeFile(temporary, contents, { mode: stats.mode & 0o777 });
+    await chown(temporary, stats.uid, stats.gid);
+    await chmod(temporary, stats.mode & 0o777);
+    await rename(temporary, path);
+  } finally {
+    await rm(temporary, { force: true });
+  }
+}
+
+async function restoreNodeRuntime(directory) {
+  if (!directory) return;
+  const entries = await readJson(join(directory, 'before.json'));
+  if (!entries) return;
+  for (const entry of entries) {
+    if (entry.kind === 'missing') await rm(entry.path, { force: true });
+    else if (entry.kind === 'link') await atomicPointer(entry.path, entry.target);
+    else await writeNodeRuntimeFile(entry.path, await readFile(join(directory, entry.backup)), entry);
+  }
 }
 
 async function observeMany(targetIds, makeContext) {

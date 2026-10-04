@@ -5,9 +5,14 @@ set -euo pipefail
 operation="${1:?operation required}"
 control_root="${CONTROL_ROOT:?CONTROL_ROOT required}"
 source_root="${SOURCE_ROOT:-}"
+instance_path="${INSTANCE_PATH:-}"
 identifier="${RELEASE_IDENTIFIER:-}"
 target="${RELEASE_TARGET:-}"
 node="${PHYSICAL_NODE:-}"
+
+if [ -n "$instance_path" ] && [ -n "$source_root" ]; then
+  export LK_INSTANCE_ROOT="${source_root%/}/${instance_path#/}"
+fi
 
 ssh_dir="$(mktemp -d "${RUNNER_TEMP:-/tmp}/zdt-runner-1-6-ssh.XXXXXX")"
 cleanup() {

@@ -21,6 +21,10 @@ on:
         description: Optional fast exact release/retry node(s), comma-paired with target(s); required for rollback
         required: false
         type: string
+      instance_path:
+        description: Optional public instance snapshot directory in the selected Source SHA
+        required: false
+        type: string
       execution_location:
         description: Internal startup fallback override
         required: false
@@ -164,6 +168,7 @@ jobs:
           operation: ${{ inputs.operation }}
           source-sha: ${{ needs.route.outputs.source_sha }}
           target: ${{ inputs.release_target }}
+          instance-path: ${{ inputs.instance_path }}
           runner-class: ${{ needs.route.outputs.runner_class }}
           control-root: ${{ github.workspace }}/.runner-1-6/control-release
       - name: Prepare live status core
@@ -188,6 +193,7 @@ jobs:
           source-sha: ${{ needs.route.outputs.source_sha }}
           target: ${{ inputs.release_target }}
           physical-node: ${{ inputs.physical_node }}
+          instance-path: ${{ inputs.instance_path }}
           runner-class: ${{ needs.route.outputs.runner_class }}
           control-root: ${{ github.workspace }}/.runner-1-6/control-release
       - name: Read live status with the same core
@@ -249,6 +255,7 @@ jobs:
           operation: ${{ inputs.operation }}
           source-sha: ${{ needs.route.outputs.source_sha }}
           target: ${{ inputs.release_target }}
+          instance-path: ${{ inputs.instance_path }}
           runner-class: github-hosted
           control-root: ${{ github.workspace }}/.runner-1-6/control-release
       - name: Prepare live status core on Hosted
@@ -272,6 +279,7 @@ jobs:
           source-sha: ${{ needs.route.outputs.source_sha }}
           target: ${{ inputs.release_target }}
           physical-node: ${{ inputs.physical_node }}
+          instance-path: ${{ inputs.instance_path }}
           runner-class: github-hosted
           control-root: ${{ github.workspace }}/.runner-1-6/control-release
       - name: Read live status with the same core after portable runner startup failure

@@ -6,6 +6,7 @@ operation="${1:-}"
 identifier=''
 target=''
 physical_node=''
+instance_path="${ZDT_INSTANCE_PATH:-}"
 case "$operation" in
   release|status)
     if [ "$operation" = release ]; then
@@ -50,10 +51,13 @@ dispatch_run() {
   local execution_location="$2"
   local dispatch_output
   local request_id
+  local dispatch_args
   request_id="$(od -An -N12 -tx1 /dev/urandom | tr -d '[:space:]')"
-  dispatch_output="$(gh workflow run "$workflow" --ref zdt-next \
-    -f operation="$operation" -f identifier="$identifier" -f release_target="$target" -f physical_node="$physical_node" \
-    -f execution_location="$execution_location" -f request_id="$request_id")"
+  dispatch_args=(workflow run "$workflow" --ref zdt-next
+    -f operation="$operation" -f identifier="$identifier" -f release_target="$target" -f physical_node="$physical_node"
+    -f execution_location="$execution_location" -f request_id="$request_id")
+  if [ -n "$instance_path" ]; then dispatch_args+=(-f instance_path="$instance_path"); fi
+  dispatch_output="$(gh "${dispatch_args[@]}")"
   [ -z "$dispatch_output" ] || printf '%s\n' "$dispatch_output"
   echo '状态：QUEUED'
   run_id=''

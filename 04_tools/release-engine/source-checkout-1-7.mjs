@@ -25,15 +25,16 @@ const commercePaths = [
   '/04_tools/tools/*/package.json',
 ];
 
-export function sourceCheckoutPaths(target, targets) {
+export function sourceCheckoutPaths(target, targets, instancePath = '') {
   const requested = target.split(',');
-  return requested.every((name) => (targets[name]?.buildWorkspace ?? targets[name]?.workspace) === '@shop/commerce') ? commercePaths : [];
+  if (!requested.every((name) => (targets[name]?.buildWorkspace ?? targets[name]?.workspace) === '@shop/commerce')) return [];
+  return instancePath ? [...commercePaths, `/${instancePath.replace(/^\/+|\/+$/g, '')}/`] : commercePaths;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const [controlRoot, target] = process.argv.slice(2);
+  const [controlRoot, target, instancePath] = process.argv.slice(2);
   const project = JSON.parse(await readFile(join(controlRoot, '02_platform_pingtai/infrastructure/release/zdt-next.release.json'), 'utf8'));
-  const paths = sourceCheckoutPaths(target, project.targets);
+  const paths = sourceCheckoutPaths(target, project.targets, instancePath);
   if (paths.length) process.stdout.write(`paths<<RUNNER_SOURCE_PATHS\n${paths.join('\n')}\nRUNNER_SOURCE_PATHS\n`);
   else process.stdout.write('paths=\n');
 }
