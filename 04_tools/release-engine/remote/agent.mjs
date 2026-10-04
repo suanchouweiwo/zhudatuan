@@ -365,7 +365,7 @@ async function prepareOssCandidate(context, options, direct) {
   const started = Date.now();
   const identity = artifactIdentity(context, options);
   const found = await lookup(context, options);
-  const ingressPayload = context.deployment.databaseMigration?.initialize?.ingress ? await readStdinJson() : null;
+  const ingressPayload = context.deployment.databaseMigration?.initialize?.ingress && !context.deployment.databaseMigration.initialize.applyBusiness ? await readStdinJson() : null;
   if (ingressPayload) context.cloudflare = ingressPayload.cloudflare;
   let staged;
   let downloadedBytes = 0;
@@ -1123,11 +1123,25 @@ function environmentText(values) {
 }
 
 async function executeDatabaseMigration(context, candidate, manifest) {
-  if (context.deployment.databaseMigration.initialize) {
+  if (context.deployment.databaseMigration.initialize && !context.deployment.databaseMigration.initialize.applyBusiness) {
     const result = await initializeNodeDatabase(context, candidate, manifest);
     return { ...result, restart: restartEvidence(context.deployment.restart, false) };
   }
   const definition = context.deployment.databaseMigration;
+  if (definition.initialize?.applyBusiness) {
+    const nodeRoot = join('/opt/sfl/nodes',context.node);
+    const credentials = parseEnvironmentFile(await readFile(definition.credentialFile,'utf8'));
+    const sql = `do $roles$ begin
+      if not exists(select 1 from pg_roles where rolname='anon') then create role anon nologin; end if;
+      if not exists(select 1 from pg_roles where rolname='authenticated') then create role authenticated nologin; end if;
+      if not exists(select 1 from pg_roles where rolname='service_role') then create role service_role nologin; end if;
+    end $roles$;
+    grant shopapp,shopjob to shopmigration;
+    alter database "${credentials.POSTGRES_DB}" owner to shopmigration;
+    `;
+    await command(['docker','exec','-i',`${context.node}-postgres`,'psql','-U',credentials.POSTGRES_USER,'-d',credentials.POSTGRES_DB,'-v','ON_ERROR_STOP=1'],{input:sql});
+    await command(['systemctl','start',`sfl-secret-store@${context.node}.service`,`sfl-catalog-object-store@${context.node}.service`]);
+  }
   const executionRoot = resolve(required(definition.executionRoot, 'DATABASE_MIGRATION_EXECUTION_ROOT_REQUIRED'));
   const environmentFile = resolve(required(definition.environmentFile, 'DATABASE_MIGRATION_ENVIRONMENT_FILE_REQUIRED'));
   const credentialFile = definition.credentialFile === undefined ? null : resolve(definition.credentialFile);
@@ -1163,6 +1177,8 @@ async function executeDatabaseMigration(context, candidate, manifest) {
     MIGRATION_DIRECTORY: migrationDirectory,
     AI_DELIVERY_SOURCE_SHA: manifest.sourceSha,
     AI_DELIVERY_TREE_DIGEST: manifest.treeDigest,
+    NODE_BOOTSTRAP_MANIFEST_FILE: join('/opt/sfl/nodes',context.node,'manifest.json'),
+    NODE_BOOTSTRAP_IDENTITY_FILE: join(candidate,'node-runtime/identity-node-projection.json'),
     DATABASE_MIGRATION_EXECUTION_MODE: definition.executionMode ?? 'migration-role',
     ...(definition.ownerDatabaseHost === undefined ? {} : { MIGRATION_OWNER_DATABASE_HOST: definition.ownerDatabaseHost }),
     ...(definition.ownerDatabasePort === undefined ? {} : { MIGRATION_OWNER_DATABASE_PORT: String(definition.ownerDatabasePort) }),

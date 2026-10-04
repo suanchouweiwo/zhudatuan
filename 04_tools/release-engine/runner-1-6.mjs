@@ -232,6 +232,7 @@ async function deployTarget(adapter, controlRoot, publicClient, { target, node, 
     health: remote.result?.activation?.readiness ?? null,
     recovery: remote.result?.activation?.rollback ?? null,
     nodeIngress: remote.result?.activation?.receipt?.databaseMigration?.ingress ?? null,
+    databaseMigration: remote.result?.activation?.receipt?.databaseMigration ?? null,
     durationMs: result.durationMs,
   };
 }
