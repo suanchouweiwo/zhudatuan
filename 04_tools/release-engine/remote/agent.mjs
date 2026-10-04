@@ -1726,6 +1726,7 @@ function restartEvidence(definition = { kind: 'none', name: 'none' }, executed =
 
 async function restart(definition = { kind: 'none', name: 'none' }) {
   const evidence = restartEvidence(definition, true);
+  const restartAt = new Date().toISOString();
   if (evidence.commandCount === 0) return evidence;
   try {
     await command(evidence.commands[0], { timeoutMs: 45_000 });
@@ -1733,8 +1734,8 @@ async function restart(definition = { kind: 'none', name: 'none' }) {
     let serviceError = null;
     if (evidence.kind === 'systemd') {
       try {
-        const journal = await command(['journalctl','-u',evidence.target,'-n','80','--no-pager','-o','cat']);
-        serviceError = journal.stdout.split('\n').filter((line) => /Error:|"error":|^error:|_TIMEOUT|_MISMATCH|_MISSING|_INVALID|_REQUIRED/i.test(line)).slice(-3).join('\n');
+        const journal = await command(['journalctl','-u',evidence.target,'--since',restartAt,'-n','80','--no-pager','-o','cat']);
+        serviceError = journal.stdout.split('\n').filter((line) => /Error:|"error":|^error:|Warning:|unsettled|_TIMEOUT|_MISMATCH|_MISSING|_INVALID|_REQUIRED/i.test(line)).slice(-3).join('\n');
       } catch {}
       const instance = /^sfl-identity-api@(.+)\.service$/.exec(evidence.target)?.[1];
       if (instance) {
