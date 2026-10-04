@@ -1053,7 +1053,7 @@ alter role zhudatuanwebapi login password '${credentials.ZHUDATUAN_WEB_API_PASSW
     });
     if (target !== 'storefront') {
       env.API_PORT = String(setup.servicePorts[target]);
-      env.API_ALLOWED_ORIGINS = Object.values(origins).join(',');
+      env.API_ALLOWED_ORIGINS = [origins.accounts, origins.console, origins.storefront].filter(Boolean).join(',');
       env.DATABASE_API_CONNECTION_REF = `${prefix}/database/${target}`;
       env.DATABASE_API_ROLE = target === 'identity-api' ? 'zhudatuanidentityapi' : 'zhudatuanwebapi';
       env.SECRET_STORE_ENDPOINT = `https://127.0.0.1:${setup.secretPort}`;
@@ -1442,6 +1442,9 @@ async function installNodeRuntime(context, release) {
       NODE_RESOURCE_BINDING_VERSION: manifest.resource_binding_set_ref.version,
       NODE_RELEASE_POINTER_REF: manifest.release_pointer_ref.ref,
     };
+    if (['identity-api', 'web-api'].includes(context.target)) {
+      updates.API_ALLOWED_ORIGINS = manifest.domain_bindings.filter((binding) => binding.surface_ref !== 'surface:api').map((binding) => 'https://' + binding.host).join(',');
+    }
     if (context.target === 'identity-api' && await exists(join(release, 'node-runtime', 'identity-runtime.json'))) {
       updates.NODE_IDENTITY_RUNTIME_PATH = join(activeRuntime, 'identity-runtime.json');
     }
