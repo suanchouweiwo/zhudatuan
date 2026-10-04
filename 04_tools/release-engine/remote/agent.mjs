@@ -929,7 +929,7 @@ async function initializeNodeIngress(context, candidate, artifact) {
   if (!(await exists('/usr/local/bin/cloudflared'))) {
     if (await exists('/usr/bin/cloudflared')) await symlink('/usr/bin/cloudflared', '/usr/local/bin/cloudflared');
     else {
-      const architecture = (await command(['uname', '-m'])).output.trim();
+      const architecture = (await command(['uname', '-m'])).stdout.trim();
       const binary = architecture === 'aarch64' ? 'arm64' : 'amd64';
       await command(['curl', '-fL', '--retry', '2', '-o', '/usr/local/bin/cloudflared', `https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-${binary}`], { timeoutMs: 120000 });
       await chmod('/usr/local/bin/cloudflared', 0o755);
@@ -949,12 +949,12 @@ async function initializeNodeIngress(context, candidate, artifact) {
   }
   const records = [];
   for (const host of hosts) records.push(await client.ensureCname(host, `${tunnel.id}.cfargotunnel.com`, `LK ${context.node}`));
-  const serviceState = (await command(['systemctl', 'is-active', ...services])).output.trim().split(/\s+/);
+  const serviceState = (await command(['systemctl', 'is-active', ...services])).stdout.trim().split(/\s+/);
   const apiHost = nodeManifest.domain_bindings.find((binding) => binding.surface_ref === 'surface:api').host;
   const localResponse = await command(['curl', '--fail', '--silent', '--show-error', '--max-time', '10', '-H', `Host: ${apiHost}`, `http://127.0.0.1:${setup.ports.gateway}/health/gateway`]);
   return { schema: 'ai.delivery.database-migration-result.v1', sourceSha: artifact.sourceSha, status: 'initialized', node: context.node,
     ingress: { tunnelId: tunnel.id, records, services: services.map((name, index) => ({ name, state: serviceState[index] })),
-      gateway: JSON.parse(localResponse.output), applicationActivation: 'pending' }, migrationsApplied: false, credentialsReported: false };
+      gateway: JSON.parse(localResponse.stdout), applicationActivation: 'pending' }, migrationsApplied: false, credentialsReported: false };
 }
 
 async function initializeNodeDatabase(context, candidate, manifest) {
@@ -1185,7 +1185,7 @@ async function executeDatabaseMigration(context, candidate, manifest) {
     AI_DELIVERY_TREE_DIGEST: manifest.treeDigest,
     NODE_BOOTSTRAP_MANIFEST_FILE: join('/opt/sfl/nodes',context.node,'manifest.json'),
     NODE_BOOTSTRAP_IDENTITY_FILE: join(candidate,'node-runtime/identity-node-projection.json'),
-    DATABASE_MIGRATION_EXECUTION_MODE: definition.executionMode ?? 'migration-role',
+    DATABASE_MIGRATION_EXECUTION_MODE: definition.initialize?.applyBusiness ? 'node-registration' : definition.executionMode ?? 'migration-role',
     ...(definition.ownerDatabaseHost === undefined ? {} : { MIGRATION_OWNER_DATABASE_HOST: definition.ownerDatabaseHost }),
     ...(definition.ownerDatabasePort === undefined ? {} : { MIGRATION_OWNER_DATABASE_PORT: String(definition.ownerDatabasePort) }),
   };
