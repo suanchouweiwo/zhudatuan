@@ -650,7 +650,8 @@ async function activate(context, options) {
       throw failure('DATABASE_MIGRATION_FAILED', { cause: errorEvidence(migrationError), databaseMigration: receipt.databaseMigration, receipt });
     }
   }
-  if (previousCurrent === candidate && targetProcessBefore !== '0') {
+  const serviceBefore = await processState(context.deployment.restart);
+  if (previousCurrent === candidate && (serviceBefore.kind === 'none' || serviceBefore.activeState === 'active')) {
     const readiness = await waitForReadiness(context, { candidateDir: candidate, currentDir: candidate, ...contextSummary(context) });
     timings.health = readiness.durationMs;
     const isolationStarted = Date.now();
