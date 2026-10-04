@@ -102,7 +102,7 @@ export class RegistrationMigrationRunner {
         if (file === BACKFILL) await this.stageSecrets(client);
         if (execution.sql !== null) await client.query(execution.sql);
         await client.query(
-          'insert into supabase_migrations.schema_migrations(version,statements,name) values($1,$2,$3)',
+          'insert into supabase_migrations.schema_migrations(version,statements,name) values($1,$2,$3) on conflict(version) do nothing',
           [version, [...execution.ledgerStatements], execution.ledgerName],
         );
       }
