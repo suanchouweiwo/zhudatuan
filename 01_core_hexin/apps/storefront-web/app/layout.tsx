@@ -127,32 +127,37 @@ const publicCatalogBootstrapScript = `
 `;
 
 export async function generateMetadata(): Promise<Metadata> {
-  const storefrontHost = (await headers()).get('host');
+  const storefrontHost = (await headers()).get('host') ?? 'www.zhudatuan.com';
+  const hostname = storefrontHost.split(':')[0].toLowerCase();
+  const storefrontOrigin = hostname === 'zhudatuan.com' || hostname === 'www.zhudatuan.com'
+    ? 'https://www.zhudatuan.com'
+    : `https://${storefrontHost}`;
 
   return {
-    metadataBase: new URL(`https://${storefrontHost}`),
-    title: 'MORVIA 主打团商城｜企业员工福利平台',
+    metadataBase: new URL(storefrontOrigin),
+    alternates: { canonical: '/' },
+    title: '主打团商城｜企业员工福利平台',
     description: '面向企业员工的福利商品、卡券、生活服务和订单管理平台，由雍彻科技提供技术服务。',
-    applicationName: 'MORVIA 主打团商城',
+    applicationName: '主打团商城',
     manifest: '/manifest.webmanifest',
     icons: {
-      icon: [{ url: '/icon.svg?v=morvia-l0', type: 'image/svg+xml' }],
-      apple: [{ url: '/apple-icon.png?v=morvia-l0', sizes: '180x180', type: 'image/png' }],
+      icon: [{ url: '/icon.svg?v=zhudatuan-l0', type: 'image/svg+xml' }],
+      apple: [{ url: '/apple-icon.png?v=zhudatuan-l0', sizes: '180x180', type: 'image/png' }],
     },
     openGraph: {
       type: 'website',
       locale: 'zh_CN',
       url: '/',
-      siteName: 'MORVIA · zhudatuan 主打团',
-      title: 'MORVIA 主打团商城｜企业员工福利平台',
+      siteName: '主打团',
+      title: '主打团商城｜企业员工福利平台',
       description: '面向企业员工的福利商品、卡券、生活服务和订单管理平台。',
-      images: [{ url: '/opengraph-image.png?v=morvia-l0', width: 1600, height: 400, alt: 'MORVIA 主打团商城' }],
+      images: [{ url: '/opengraph-image.png?v=zhudatuan-l0', width: 1600, height: 400, alt: '主打团商城' }],
     },
     twitter: {
       card: 'summary_large_image',
-      title: 'MORVIA 主打团商城｜企业员工福利平台',
+      title: '主打团商城｜企业员工福利平台',
       description: '面向企业员工的福利商品、卡券、生活服务和订单管理平台。',
-      images: ['/opengraph-image.png?v=morvia-l0'],
+      images: ['/opengraph-image.png?v=zhudatuan-l0'],
     },
     formatDetection: { email: false, address: false, telephone: false },
   };
@@ -187,7 +192,7 @@ export default function RootLayout({
           <div id="sw-first-paint-card">
             <span id="sw-first-paint-mark" aria-hidden="true"><img src="/brand/morvia-mark-white.svg" alt="" width="32" height="32" /></span>
             <span id="sw-first-paint-copy">
-              <strong id="sw-first-paint-title">MORVIA 主打团商城</strong>
+              <strong id="sw-first-paint-title">主打团商城</strong>
               <span id="sw-first-paint-note">网络较慢，正在准备商城…</span>
             </span>
           </div>

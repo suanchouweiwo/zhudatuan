@@ -23,7 +23,7 @@ const HOME_CAMPAIGNS = [
   },
   {
     id: 'golden-autumn-hongtai',
-    eyebrow: 'MORVIA 主打团 · 秋日焕新',
+    eyebrow: '主打团 · 秋日焕新',
     title: '金秋主打团',
     desc: '品质粮油与暖心家电 · 金秋好礼直达',
     cta: '逛金秋好礼',

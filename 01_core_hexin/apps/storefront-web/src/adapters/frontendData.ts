@@ -64,7 +64,7 @@ export function toFrontendProduct(product: Product): FrontendProduct {
     originalPrice: product.priceMarket,
     enterpriseSubsidyAmount: Math.max(0, Number((product.priceMarket - product.priceWelfare).toFixed(2))),
     stockCount: product.stock,
-    description: canonicalizeProductBrand(product.descriptionDetailText?.join(' ') ?? product.subtitle ?? 'MORVIA 主打团商城严选商品。'),
+    description: canonicalizeProductBrand(product.descriptionDetailText?.join(' ') ?? product.subtitle ?? '主打团商城严选商品。'),
     parameters: toParameters(product),
     specOptions: toSpecOptions(product),
     allowMealCard: product.allowedAccounts.includes('meal'),

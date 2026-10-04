@@ -21,21 +21,21 @@
       index: 'DIRECTION 01',
       title: '暖色店鋪工作室',
       description: '像懂生意的設計工作室：可靠、溫暖、帶一點創作感。',
-      product: '築店 Studio',
+      product: '主打团 Studio',
       dna: ['築橙焦點', '暖米工作臺', '12px 圓角', '創作感']
     },
     editorial: {
       index: 'DIRECTION 02',
       title: 'Editorial Commerce Studio',
       description: '像精品品牌的數位工作室：國際、精準、克制，讓商品內容成為主角。',
-      product: 'ZHUDIAN / EDIT',
+      product: '主打团 / EDIT',
       dna: ['電光紫', '石墨畫布', '8px 圓角', '畫廊感']
     },
     classic: {
       index: 'DIRECTION 03',
       title: '實用型商家工作臺',
       description: '接近有贊的企業後臺：藍白、緊湊、直接，功能辨識永遠優先。',
-      product: '築店商家後臺',
+      product: '主打团商家後臺',
       dna: ['標準藍', '冷灰底色', '4px 圓角', '高密度']
     }
   };

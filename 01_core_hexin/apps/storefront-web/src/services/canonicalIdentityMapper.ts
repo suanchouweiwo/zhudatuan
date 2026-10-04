@@ -43,7 +43,7 @@ export function mapCanonicalSession(value: unknown): CanonicalSessionProjection 
 export function mapCanonicalBootstrap(
   session: CanonicalSessionProjection,
   profileValue: unknown,
-  presentation: StorefrontPresentationIdentity = { mallName: 'MORVIA 主打团商城', brandName: 'MORVIA' },
+  presentation: StorefrontPresentationIdentity = { mallName: '主打团商城', brandName: '主打团' },
 ): ApiBootstrap {
   const profile = record(profileValue, 'member.profile');
   const mall = session.scopes.find((scope) => scope.kind === 'mall') ?? (session.scope.kind === 'mall' ? session.scope : session.scope);

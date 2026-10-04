@@ -25,7 +25,7 @@ export function Component() {
   const data = query.data; const error = safeQueryError(query.error);
   const state = queryCondition({ pending: query.isPending, fetching: query.isFetching, error: query.error,
     hasData: data !== undefined, empty: data?.items.length === 0, stale: query.isStale });
-  return <PagedResource title="资格管理" eyebrow="MORVIA QUALIFICATION" description="资格策略、版本和规则摘要来自 qualification.center.read；结算仍会服务端重算。"
+  return <PagedResource title="资格管理" eyebrow="主打团 QUALIFICATION" description="资格策略、版本和规则摘要来自 qualification.center.read；结算仍会服务端重算。"
     condition={state} {...(error === undefined ? {} : { error })} rows={data?.items ?? []} columns={columns} rowKey={(row) => row.id}
     count={data?.count ?? 0} {...(data?.nextCursor === undefined ? {} : { nextCursor: data.nextCursor })}
     boundary={{ title: '策略发布保持关闭', message: '资格策略写入缺版本预览、影响解释、Step-up 与回滚证据时不执行。' }}

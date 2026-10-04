@@ -14,36 +14,36 @@ interface CommerceSolution {
 export const commerceSolutions: readonly CommerceSolution[] = Object.freeze([
   {
     id: 'jingxu',
-    name: '築店 · 静序',
-    english: 'ZHUDIAN STILLFORM',
+    name: '主打团 · 静序',
+    english: '主打团 STILLFORM',
     badge: '核心方案 · 推荐',
     description: '为品牌型商城打造的克制、精准、现代零售工作室。',
     fit: '通用品牌、企业商城、长期经营',
     dna: Object.freeze(['暮色紫', '奶白画布', '完整经营闭环']),
     path: '/design-references/admin/first-design/index.html?screen=editor',
-    previewLabel: '築店静序原版方案',
+    previewLabel: '主打团静序原版方案',
   },
   {
     id: 'oriental',
-    name: '築店 · 东方策展',
-    english: 'ZHUDIAN ORIENTAL EDIT',
+    name: '主打团 · 东方策展',
+    english: '主打团 ORIENTAL EDIT',
     badge: '精品方案',
     description: '以主理人视角组织内容、商品与会员关系的东方美学商城。',
     fit: '生活方式、精品零售、内容型品牌',
     dna: Object.freeze(['东方叙事', '画廊编排', '私域经营']),
     path: '/design-references/admin/kaidian/dist/index.html',
-    previewLabel: '築店东方策展原版方案',
+    previewLabel: '主打团东方策展原版方案',
   },
   {
     id: 'warm-workshop',
-    name: '築店 · 暖筑工坊',
-    english: 'ZHUDIAN WARM WORKSHOP',
+    name: '主打团 · 暖筑工坊',
+    english: '主打团 WARM WORKSHOP',
     badge: '经典方案',
     description: '温暖、可靠、容易上手，让商户像搭积木一样完成店铺。',
     fit: '中小商户、快速建店、亲和型品牌',
     dna: Object.freeze(['暖米画布', '築橙焦点', '创作工坊']),
     path: '/demo/index.html',
-    previewLabel: '築店暖筑工坊原版方案',
+    previewLabel: '主打团暖筑工坊原版方案',
   },
 ]);
 const legacySolutionAliases: Readonly<Record<string, CommerceSolutionId>> = Object.freeze({
@@ -57,7 +57,7 @@ export function readCommerceSolution(value: string | null): CommerceSolutionId {
   return 'jingxu';
 }
 export function commerceSolutionName(id: CommerceSolutionId): string {
-  return commerceSolutions.find((solution) => solution.id === id)?.name ?? '築店 · 静序';
+  return commerceSolutions.find((solution) => solution.id === id)?.name ?? '主打团 · 静序';
 }
 export function CommerceSolutionCenter({ open, selected, onSelect, onClose }: Readonly<{
   open: boolean;
@@ -108,7 +108,7 @@ export function CommerceSolutionCenter({ open, selected, onSelect, onClose }: Re
 
   return <div className="commerceoverlay commerce-solution-overlay">
     <button className="commercedialogbackdrop" type="button" onClick={dismiss}
-      aria-label={previewing === null ? '取消并关闭築店方案中心' : '返回築店方案中心'} />
+      aria-label={previewing === null ? '取消并关闭主打团方案中心' : '返回主打团方案中心'} />
     <section ref={dialogRef} className={`commercesolutiondialog${activeSolution === undefined ? '' : ' is-studio'}`}
       role="dialog" aria-modal="true" aria-labelledby="commercesolutiontitle">
       {activeSolution === undefined
@@ -132,9 +132,9 @@ export function CommerceSolutionCenter({ open, selected, onSelect, onClose }: Re
 }
 
 function SolutionGalleryHeader({ closeRef, onClose }: Readonly<{ closeRef: RefObject<HTMLButtonElement | null>; onClose: () => void }>) {
-  return <header className="commercesolutionhead"><div><p>築店 · SOLUTION CENTER</p><h2 id="commercesolutiontitle">建店方案中心</h2>
+  return <header className="commercesolutionhead"><div><p>主打团 · SOLUTION CENTER</p><h2 id="commercesolutiontitle">建店方案中心</h2>
     <span>标准 VI 承载业务流程，三套原版工作室按需载入、彼此隔离。</span></div>
-    <button ref={closeRef} type="button" onClick={onClose} aria-label="取消并关闭築店方案中心">×</button></header>;
+    <button ref={closeRef} type="button" onClick={onClose} aria-label="取消并关闭主打团方案中心">×</button></header>;
 }
 
 function SolutionStudioHeader({ solution, backRef, onBack, onClose }: Readonly<{
@@ -160,10 +160,10 @@ function SolutionGallery({ selected, candidate, onCandidate, onPreview, radioRef
   radioRefs: RefObject<Map<CommerceSolutionId, HTMLInputElement>>;
   previewButtons: RefObject<Map<CommerceSolutionId, HTMLButtonElement>>;
 }>) {
-  return <div className="commercesolutionbody"><section className="commercesolutionintro" role="note"><span aria-hidden="true">築</span><div>
+  return <div className="commercesolutionbody"><section className="commercesolutionintro" role="note"><span aria-hidden="true">M</span><div>
     <strong>同一套业务底座，三种成熟建店方式</strong><p>卡片采用轻量识别封面；只有点击“查看完整方案”才载入该套原版代码。预览选择不会修改商城草稿或线上版本。</p>
   </div></section>
-    <div className="commercesolutiongrid" role="radiogroup" aria-label="三套築店方案">
+    <div className="commercesolutiongrid" role="radiogroup" aria-label="三套主打团方案">
       {commerceSolutions.map((solution, index) => <article key={solution.id}
         className={`commercesolutioncard is-${solution.id}${candidate === solution.id ? ' is-selected' : ''}${selected === solution.id ? ' is-current' : ''}`}>
         <label className="commercesolutionpreview"><input ref={(node) => updateRefMap(radioRefs.current, solution.id, node)}
@@ -188,8 +188,8 @@ function SolutionGallery({ selected, candidate, onCandidate, onPreview, radioRef
 }
 
 function SolutionCover({ solution }: Readonly<{ solution: CommerceSolution }>) {
-  return <span className="commercesolutioncover" aria-hidden="true"><span className="commercesolutioncoverbrand">築</span>
-    <small>{solution.english}</small><strong>{solution.name.replace('築店 · ', '')}</strong><i />
+  return <span className="commercesolutioncover" aria-hidden="true"><span className="commercesolutioncoverbrand">M</span>
+    <small>{solution.english}</small><strong>{solution.name.replace('主打团 · ', '')}</strong><i />
     <span className="commercesolutioncovermeta"><b>{solution.dna[0]}</b><b>{solution.dna[1]}</b></span></span>;
 }
 

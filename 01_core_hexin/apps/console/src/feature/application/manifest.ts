@@ -10,10 +10,10 @@ export const applicationsModule = {
     label: '商城与应用',
     icon: 'building',
     labelByScopeKind: {
-      platform: '築店 · 商城管理',
+      platform: '主打团 · 商城管理',
       distributor: '应用治理',
       tenant: '应用治理',
-      enterprise: '築店 · 商城管理',
+      enterprise: '主打团 · 商城管理',
       mall: '店铺装修',
     },
   },

@@ -38,7 +38,7 @@ export function EngineeringFrame({ eyebrow, title, description, activeView, chil
       </div>
       <img className="engineeringbrand" src="/brand/morvia-compact-lockup.svg" width="460" height="120"
         decoding="async" fetchPriority="high"
-        alt="MORVIA · zhudatuan 主打团" />
+        alt="主打团" />
     </header>
     <StableWorkspaceTabs className="engineeringtabs" label="工程与架构中心页面" activeIndex={activeIndex}>
       {engineeringTabs.map((tab) => <NavLink key={tab.suffix} to={scopePath(scope, tab.suffix)}

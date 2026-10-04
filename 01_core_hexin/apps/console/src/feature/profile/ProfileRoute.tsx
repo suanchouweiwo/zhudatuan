@@ -138,7 +138,7 @@ export function Component() {
     <section className="profileworkspace" aria-label="个人信息工作台">
       <header className="profilehero">
         <div className="profileherotopline">
-          <img src="/brand/morvia-compact-lockup.svg" alt="MORVIA" />
+          <img src="/brand/morvia-compact-lockup.svg" alt="主打团" />
           <span>账户与工作身份</span>
         </div>
         <div className="profileherobody">

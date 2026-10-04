@@ -28,7 +28,7 @@ const management: CommerceScopePresentation = Object.freeze({
   mode: 'management',
   navigationLabel: '商城管理',
   title: '商城管理',
-  eyebrow: 'zhudatuan 主打团',
+  eyebrow: '主打团',
   description: '创建、查找和管理独立商城，并跟踪开店草稿与发布状态。',
   primaryAction: '创建商城',
   ownership: '商城控制面',

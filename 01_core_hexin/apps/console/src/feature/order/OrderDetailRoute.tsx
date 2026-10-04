@@ -29,7 +29,7 @@ export function Component() {
   return (
     <ResourcePanel
       title="订单详情"
-      eyebrow="MORVIA ORDER DETAIL"
+      eyebrow="主打团 ORDER DETAIL"
       description={`内部订单 ID ${orderId} 的权威快照；当前合同不支持使用展示订单号反查。`}
       condition={state}
       {...(error === undefined ? {} : { error })}

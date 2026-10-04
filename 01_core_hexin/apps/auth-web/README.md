@@ -2,7 +2,7 @@
 
 This app owns the approved three-stage sign-in experience at
 `accounts.zhudatuan.com`, with optional same-origin mounting at
-`zhudatuan.com/login/`.
+`www.zhudatuan.com/login/`.
 
 The browser never issues sessions or cross-domain tickets. An independent
 accounts page uses an allowlisted top-level POST to the storefront or console

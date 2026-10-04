@@ -85,7 +85,7 @@ export const LaptopHomePage1366: React.FC<LaptopHomePage1366Props> = ({ onSelect
                   <span>国家电网员工专享 · 二季度劳保关怀礼包</span>
                 </div>
 
-                <h1 className="text-xl sm:text-2xl font-black tracking-tight leading-tight text-white drop-shadow-xs">MORVIA 主打团专场 · 积分无门槛抵扣</h1>
+                <h1 className="text-xl sm:text-2xl font-black tracking-tight leading-tight text-white drop-shadow-xs">主打团专场 · 积分无门槛抵扣</h1>
                 <p className="text-xs text-blue-100 mt-1 max-w-[480px]">包含办公设备、粮油生鲜、防暑降温与商超卡券，支持福利卡/餐卡联合结算，专票直开！</p>
               </div>
 

@@ -22,7 +22,7 @@ export const CONSOLE_RELEASES = Object.freeze([
     version: 'v1.1.0',
     title: '工程与架构中心正式上线',
     releasedAt: '2026 年 9 月 14 日',
-    surface: '福福网 Console',
+    surface: '主打团 Console',
     status: 'current',
     changes: [
       { kind: '新增', items: ['工程与架构总览', '运行状态与发布版本页面', '故障与技术支持入口', '中文版本更新账本'] },

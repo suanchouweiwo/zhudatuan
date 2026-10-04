@@ -34,9 +34,7 @@ export function scopeIdentifierLabel(kind: string, id: string): string {
 
 export function normalizeConsoleCopy(value: string): string {
   return value
-    .replace(/Smart[\s_-]*Wing/gi, 'MORVIA')
-    .replace(/智慧翼|築店/g, 'MORVIA')
-    .replace(/zhudatuan/gi, '主打团')
+    .replace(/(?:MORVIA[\s·_-]*)?(?:zhudatuan[\s·_-]*)?主打团|MORVIA|Smart[\s_-]*Wing|智慧翼|築店|福福网|zhudatuan/gi, '主打团')
     .replace(/租户/g, '商户');
 }
 

@@ -1,4 +1,5 @@
 import { canonicalizeProductBrand } from '../domain/brand/productBrand';
+import { resolveStorefrontPresentationIdentity } from '../config/storefrontIdentity';
 import { useEffect, useRef } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { AccountLog, CartItem, DeliveryAddress, EnterpriseMall, Order, Product, UserProfile } from '../types';
@@ -197,7 +198,8 @@ export function useProductionSync(setters: ProductionSyncSetters, enabled = true
       }
       try {
         const storefront = await (await productionApiRequest).getPublicStorefront();
-        const resolvedMall = { ...UNRESOLVED_MALL, id: storefront.id, mallName: canonicalizeProductBrand(storefront.name), logoText: canonicalizeProductBrand(storefront.name) };
+        const presentation = resolveStorefrontPresentationIdentity();
+        const resolvedMall = { ...UNRESOLVED_MALL, id: storefront.id, enterpriseName: presentation.brandName, mallName: presentation.mallName, logoText: presentation.brandName };
         if (syncVersion === syncVersionRef.current) {
           setters.setCurrentMall(resolvedMall);
           setters.setMalls([resolvedMall]);

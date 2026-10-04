@@ -48,7 +48,7 @@ export const ConsumerIdentityPage: React.FC<{
     void resolveCanonicalStorefrontRegistration(application, controller.signal)
       .then((resolved) => {
         setContext(resolved);
-        document.title = `${resolved.organizationName}会员登录｜${brand === 'hongtai' ? '宏泰甄选' : 'MORVIA'}`;
+        document.title = `${application === 'zhudatuan-storefront' ? '主打团' : resolved.organizationName}会员登录｜${brand === 'hongtai' ? '宏泰甄选' : '主打团'}`;
       })
       .catch((error: unknown) => {
         if (!controller.signal.aborted) setContextError(messageOf(error));
@@ -167,7 +167,7 @@ export const ConsumerIdentityPage: React.FC<{
     );
   };
 
-  const organizationName = context?.organizationName ?? (brand === 'hongtai' ? '宏泰甄选' : 'MORVIA 主打团');
+  const organizationName = application === 'zhudatuan-storefront' ? '主打团' : context?.organizationName ?? (brand === 'hongtai' ? '宏泰甄选' : '主打团');
   const submitting = identityActions.isBusy(mode === 'login' ? 'consumer-login' : mode === 'register' ? 'consumer-register' : 'consumer-reset');
   const resetCodeBusy = identityActions.isBusy('consumer-reset-code');
   const maskedMobile = maskMobile(mobile);

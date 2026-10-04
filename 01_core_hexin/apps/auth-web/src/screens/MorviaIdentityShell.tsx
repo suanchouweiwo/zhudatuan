@@ -15,7 +15,7 @@ export const MorviaIdentityShell: React.FC<Readonly<{
         {brand === 'morvia' ? (
           <img
             src={morviaMasterLockupWhite}
-            alt="MORVIA · zhudatuan 主打团"
+            alt="主打团"
             className="w-[250px] max-w-[74%]"
           />
         ) : (

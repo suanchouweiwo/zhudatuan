@@ -30,7 +30,7 @@ export const IdentityFlowHeader: React.FC<Readonly<{
         ? <img src={morviaMark} alt="" className="h-9 w-9 shrink-0" />
         : <span className="hongtai-header-mark" aria-hidden="true">H</span>}
       <div className="min-w-0">
-        <p className="identity-brand-eyebrow text-[10px] font-bold uppercase tracking-[0.18em]">{brand === 'morvia' ? 'MORVIA IDENTITY' : 'HONGTAI IDENTITY'}</p>
+        <p className="identity-brand-eyebrow text-[10px] font-bold uppercase tracking-[0.18em]">{brand === 'morvia' ? '主打团统一身份' : 'HONGTAI IDENTITY'}</p>
         <p className="mt-0.5 truncate text-sm font-bold text-[#111111]">统一账号认证</p>
       </div>
     </div>

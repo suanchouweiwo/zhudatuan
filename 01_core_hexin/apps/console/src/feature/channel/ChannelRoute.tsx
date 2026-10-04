@@ -28,7 +28,7 @@ export function Component() {
   const state = queryCondition({ pending: query.isPending, fetching: query.isFetching, error: query.error,
     hasData: data !== undefined, empty: data?.items.length === 0, stale: query.isStale });
   const select = (next: ChannelView) => { const params = new URLSearchParams(); params.set('view', next); setSearch(params); };
-  return <PagedResource title="渠道管理" eyebrow="MORVIA CHANNEL" description="连接、同步和外部操作一次读取一个服务端读模型；只展示凭据状态，不暴露 Secret。"
+  return <PagedResource title="渠道管理" eyebrow="主打团 CHANNEL" description="连接、同步和外部操作一次读取一个服务端读模型；只展示凭据状态，不暴露 Secret。"
     condition={state} {...(error === undefined ? {} : { error })} rows={data?.items ?? []} columns={columns} rowKey={(row) => row.id}
     count={data?.count ?? 0} {...(data?.nextCursor === undefined ? {} : { nextCursor: data.nextCursor })}
     actions={<label className="inlinefield">查看<select value={view} onChange={(event) => select(event.target.value as ChannelView)}>

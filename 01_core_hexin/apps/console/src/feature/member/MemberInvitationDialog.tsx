@@ -14,7 +14,7 @@ import {
 import { MemberInvitationDraftSchema, type MemberInvitationDraft } from './MemberInvitationSchema';
 import './MemberInvitation.css';
 
-const DEFAULT_LABEL = '宏泰甄选管理员邀请';
+const DEFAULT_LABEL = '主打团管理员邀请';
 
 type InvitationField = 'destination' | 'label' | 'tenantId';
 type FieldErrors = Partial<Record<InvitationField, string>>;
@@ -168,7 +168,7 @@ export function MemberInvitationDialog({
     <Dialog
       open={open}
       title={receipt === undefined ? '邀请管理员' : '管理员邀请已生成'}
-      eyebrow="HONGTAI ADMIN ACCESS"
+      eyebrow="主打团管理员邀请"
       dismissable={!pending}
       onClose={requestClose}
     >

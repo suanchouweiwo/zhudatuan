@@ -1,5 +1,5 @@
 /**
- * MORVIA · zhudatuan 主打团 - 统一身份应用入口
+ * 主打团 - 统一身份应用入口
  * 技术服务方：SGSYEN TECH
  */
 
@@ -16,7 +16,7 @@ export default function App() {
 
   React.useEffect(() => {
     if (entry === null) return;
-    document.title = `${entry.kind === 'operator' ? '管理员登录' : '会员登录'}｜MORVIA`;
+    document.title = `${entry.kind === 'operator' ? '管理员登录' : '会员登录'}｜${entry.nodeId === 'node:hbbtzn:l1' ? '宏泰甄选' : '主打团'}`;
   }, [entry]);
 
   const switchAudience = () => {
@@ -37,7 +37,7 @@ export default function App() {
           ? <OperatorIdentityPage
               target={entry.target}
               expectedOrigin={entry.adminOrigin}
-              displayName={entry.displayName}
+              displayName={entry.nodeId === 'node:zhudatuan:l0' ? '主打团' : entry.displayName}
               brand={entry.nodeId === 'node:hbbtzn:l1' ? 'hongtai' : 'morvia'}
               onAudienceSwitch={switchAudience}
             />

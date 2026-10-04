@@ -15,13 +15,13 @@ export const MobileTopBarSwitcher: React.FC = () => {
       <div className="max-w-[1366px] mx-auto flex flex-col md:flex-row items-center justify-between gap-2.5 text-xs">
         {/* Left Branding */}
         <div className="flex items-center gap-2.5">
-          <img src="/brand/morvia-master-lockup-white.svg" alt="MORVIA · zhudatuan 主打团" className="h-9 w-36 flex-shrink-0 object-contain" />
+          <img src="/brand/morvia-master-lockup-white.svg" alt="主打团" className="h-9 w-36 flex-shrink-0 object-contain" />
           <div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] bg-yellow-400 text-gray-900 font-bold px-1.5 py-0.2 rounded">全平台4端协同</span>
             </div>
             <div className="text-[10px] text-blue-200 flex items-center gap-1">
-              <span>MORVIA B2B2C</span>
+              <span>主打团 B2B2C</span>
               <span>·</span>
               <span className="text-yellow-200">技术服务：雍彻科技（SGSYEN TECH）</span>
             </div>

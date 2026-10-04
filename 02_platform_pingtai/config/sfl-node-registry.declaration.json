@@ -213,17 +213,19 @@
     {
       "node_id": "node:zhudatuan:l0",
       "runtime_manifest_file": "zhudatuan-l0.json",
-      "display_name": "MORVIA 主打团",
-      "mall_name": "MORVIA 主打团商城",
-      "brand_name": "MORVIA",
-      "primary_storefront_binding_ref": "domain:zhudatuan:l0:storefront",
+      "display_name": "主打团",
+      "mall_name": "主打团商城",
+      "brand_name": "主打团",
+      "primary_storefront_binding_ref": "domain:zhudatuan:l0:storefront:www",
       "consumer_api_binding_ref": "domain:zhudatuan:l0:api",
       "purchase_origin_binding_refs": [
+        "domain:zhudatuan:l0:storefront:www",
         "domain:zhudatuan:l0:storefront"
       ],
       "identity_entry_binding_refs": [
         "domain:zhudatuan:l0:identity",
         "domain:zhudatuan:l0:api",
+        "domain:zhudatuan:l0:storefront:www",
         "domain:zhudatuan:l0:storefront"
       ],
       "targets": [
@@ -260,7 +262,7 @@
           "membership_client": "storefront",
           "membership_organization_id": "mall-zhudatuan",
           "application": "zhudatuan-storefront",
-          "return_binding_ref": "domain:zhudatuan:l0:storefront",
+          "return_binding_ref": "domain:zhudatuan:l0:storefront:www",
           "return_path": ""
         }
       ],

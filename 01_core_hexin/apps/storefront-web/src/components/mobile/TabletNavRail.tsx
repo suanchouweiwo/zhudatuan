@@ -46,7 +46,7 @@ export const TabletNavRail: React.FC = () => {
       {/* Top Header & Enterprise Info */}
       <div className="space-y-4">
         <div className="flex flex-col items-start gap-1 px-2 py-1 border-b border-blue-800/60 pb-3">
-          <img src="/brand/morvia-master-lockup-white.svg" alt="MORVIA · zhudatuan 主打团" className="h-10 w-40 object-contain" />
+          <img src="/brand/morvia-master-lockup-white.svg" alt="主打团" className="h-10 w-40 object-contain" />
           <div className="overflow-hidden">
             <div className="text-[10px] text-blue-200 truncate">Tablet App 专属版</div>
           </div>

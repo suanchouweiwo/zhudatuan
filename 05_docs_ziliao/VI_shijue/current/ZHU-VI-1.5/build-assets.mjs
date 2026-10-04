@@ -90,7 +90,7 @@ save(
   documentSvg({
     width: 512,
     height: 512,
-    title: "MORVIA M mark",
+    title: "主打团 M mark",
     description: "The approved blue M mark, reproduced without geometric changes.",
     content: place(mark, 0, 0, 512, 512),
   }),
@@ -101,7 +101,7 @@ save(
   documentSvg({
     width: 512,
     height: 512,
-    title: "MORVIA M mark monochrome",
+    title: "主打团 M mark monochrome",
     description: "One-color reproduction of the approved M mark.",
     content: place(markMono, 0, 0, 512, 512),
   }),
@@ -112,7 +112,7 @@ save(
   documentSvg({
     width: 512,
     height: 512,
-    title: "MORVIA M mark reverse",
+    title: "主打团 M mark reverse",
     description: "White technical reproduction of the approved M mark.",
     content: place(markWhite, 0, 0, 512, 512),
   }),
@@ -123,16 +123,15 @@ save(
   documentSvg({
     width: 550,
     height: 116,
-    title: "MORVIA wordmark",
-    description: "Uppercase MORVIA wordmark set in the approved heavy sans-serif skeleton.",
+    title: "主打团 wordmark",
+    description: "沿用已批准的主打团中文矢量字形。",
     content: place(morvia, 0, 0, 550, 116),
   }),
 );
 
 const masterContent = [
   place(mark, 0, 0, 160, 160),
-  place(morvia, 174, 13, 330, 70),
-  place(approved, 174, 96, 440, 50),
+  place(approved, 184, 16, 410, 128),
 ].join("\n  ");
 
 save(
@@ -140,8 +139,8 @@ save(
   documentSvg({
     width: 640,
     height: 160,
-    title: "MORVIA zhudatuan 主打团 master lockup",
-    description: "Primary bilingual signature with MORVIA above the approved zhudatuan 主打团 wordmark.",
+    title: "主打团 master lockup",
+    description: "主打团中文品牌签名，沿用已批准的 M 标识与中文矢量字形。",
     content: masterContent,
   }),
 );
@@ -151,24 +150,22 @@ save(
   documentSvg({
     width: 460,
     height: 120,
-    title: "MORVIA compact lockup",
-    description: "Compact navigation signature pairing the approved M mark with MORVIA.",
-    content: [place(mark, 0, 0, 120, 120), place(morvia, 138, 27, 300, 64)].join("\n  "),
+    title: "主打团 compact lockup",
+    description: "Compact navigation signature pairing the approved M mark with 主打团.",
+    content: [place(mark, 0, 0, 120, 120), place(approved, 138, 9, 300, 102)].join("\n  "),
   }),
 );
 
 save(
   "morvia-established-lockup.svg",
   documentSvg({
-    width: 840,
+    width: 430,
     height: 112,
-    title: "MORVIA extended established-name lockup",
-    description: "Extended one-line signature showing MORVIA with the approved zhudatuan 主打团 name.",
+    title: "主打团 extended established-name lockup",
+    description: "Extended one-line signature showing 主打团 with the approved 主打团 name.",
     content: [
       place(mark, 0, 0, 112, 112),
-      place(morvia, 130, 30, 245, 52),
-      '<rect x="401" y="29" width="2" height="54" fill="#D7DBE5"/>',
-      place(approved, 430, 34, 400, 46),
+      place(approved, 130, 12, 290, 88),
     ].join("\n  "),
   }),
 );
@@ -178,12 +175,11 @@ save(
   documentSvg({
     width: 560,
     height: 330,
-    title: "MORVIA stacked lockup",
+    title: "主打团 stacked lockup",
     description: "Centered vertical signature for square and formal layouts.",
     content: [
       place(mark, 170, 0, 220, 220),
-      place(morvia, 120, 190, 320, 68),
-      place(approved, 100, 277, 360, 41),
+      place(approved, 130, 226, 300, 102),
     ].join("\n  "),
   }),
 );
@@ -193,12 +189,11 @@ save(
   documentSvg({
     width: 640,
     height: 160,
-    title: "MORVIA master lockup monochrome",
+    title: "主打团 master lockup monochrome",
     description: "One-color fallback for restricted production.",
     content: [
       place(markMono, 0, 0, 160, 160),
-      place(morvia, 174, 13, 330, 70),
-      place(approved, 174, 96, 440, 50),
+      place(approved, 184, 16, 410, 128),
     ].join("\n  "),
   }),
 );
@@ -208,12 +203,11 @@ save(
   documentSvg({
     width: 640,
     height: 160,
-    title: "MORVIA master lockup reverse",
+    title: "主打团 master lockup reverse",
     description: "White fallback for dark backgrounds.",
     content: [
       place(markWhite, 0, 0, 160, 160),
-      place(morviaWhite, 174, 13, 330, 70),
-      place(approvedWhite, 174, 96, 440, 50),
+      place(approvedWhite, 184, 16, 410, 128),
     ].join("\n  "),
   }),
 );
@@ -223,7 +217,7 @@ save(
   documentSvg({
     width: 512,
     height: 512,
-    title: "MORVIA avatar light",
+    title: "主打团 avatar light",
     description: "Approved blue M mark on a white square field.",
     content: '<rect width="512" height="512" rx="112" fill="#FFFFFF"/>\n  ' + place(mark, 46, 46, 420, 420),
   }),
@@ -234,8 +228,8 @@ save(
   documentSvg({
     width: 512,
     height: 512,
-    title: "MORVIA avatar blue",
-    description: "White technical M mark on MORVIA blue.",
+    title: "主打团 avatar blue",
+    description: "White technical M mark on 主打团 blue.",
     content: '<rect width="512" height="512" rx="112" fill="#143A8F"/>\n  ' + place(markWhite, 46, 46, 420, 420),
   }),
 );

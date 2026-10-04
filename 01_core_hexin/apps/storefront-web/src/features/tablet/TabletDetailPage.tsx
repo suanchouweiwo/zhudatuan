@@ -60,7 +60,7 @@ export const TabletDetailPage: React.FC = () => {
             <span className="text-[10px] text-gray-400 font-normal">编号: {product.id}</span>
           </h3>
 
-          <p className="text-gray-600 leading-relaxed">{product.description || 'MORVIA 主打团商城为企业员工提供一站式福利兑换与全额扣减服务。'}</p>
+          <p className="text-gray-600 leading-relaxed">{product.description || '主打团商城为企业员工提供一站式福利兑换与全额扣减服务。'}</p>
 
           {product.parameters && (
             <div className="divide-y divide-gray-200 border-t border-gray-200 pt-2 space-y-1.5">
@@ -102,7 +102,7 @@ export const TabletDetailPage: React.FC = () => {
 
             <div className="flex items-center gap-2 pt-2 text-xs">
               <span className="bg-blue-50 text-[var(--sw-brand)] font-bold px-2.5 py-1 rounded-lg">{product.itemType === 'virtual_coupon' ? '虚拟兑换券' : '实物直邮仓'}</span>
-              <span className="text-gray-400">品牌: {product.brand || 'MORVIA 精选'}</span>
+              <span className="text-gray-400">品牌: {product.brand || '主打团 精选'}</span>
               <span className="text-gray-400">库存: {product.stockCount} 件</span>
             </div>
           </div>

@@ -1,6 +1,6 @@
 const partners = [
   { id: 'huadong', name: '华东优选商贸', logo: '华', type: '渠道商', status: '合作中', tone: 'success', products: 62, contact: '周经理', since: '2025-03-18', mode: '经销供货', upstream: '源味食品工厂', downstream: '宏泰供应链' },
-  { id: 'hongtai', name: '宏泰供应链', logo: '宏', type: '供应商', status: '合作中', tone: 'success', products: 186, contact: '陈经理', since: '2024-09-06', mode: '直接供货', upstream: '多家合作伙伴', downstream: '宏泰甄选商城' },
+  { id: 'hongtai', name: '宏泰供应链', logo: '宏', type: '供应商', status: '合作中', tone: 'success', products: 186, contact: '陈经理', since: '2024-09-06', mode: '直接供货', upstream: '多家合作伙伴', downstream: '主打团商城' },
   { id: 'yuanwei', name: '源味食品工厂', logo: '源', type: '生产商', status: '合作中', tone: 'success', products: 34, contact: '林经理', since: '2025-04-22', mode: '生产供货', upstream: '原料合作基地', downstream: '华东优选商贸' },
   { id: 'yunling', name: '云岭农产基地', logo: '岭', type: '产地供应商', status: '资料待完善', tone: 'warning', products: 18, contact: '杨经理', since: '2026-08-26', mode: '产地直供', upstream: '云岭合作农户', downstream: '宏泰供应链' },
   { id: 'xinghai', name: '星海品牌管理', logo: '星', type: '品牌方', status: '待确认', tone: 'info', products: 27, contact: '沈经理', since: '2026-09-08', mode: '品牌授权', upstream: '品牌生产体系', downstream: '华东优选商贸' },
@@ -81,7 +81,7 @@ function partnerRows(rows) {
 function partnerDetail(partner) {
   return `
     <header class="detail-head"><span class="detail-logo">${partner.logo}</span><div class="detail-title"><h2>${partner.name}<span class="role-tag">${partner.type}</span><span class="status-pill ${partner.tone}">${partner.status}</span></h2><p>联系人：${partner.contact}　·　供货商品 ${partner.products}　·　合作自 ${partner.since}</p></div><div class="detail-actions"><button class="button secondary" data-action="talk">发起沟通</button><button class="button primary" data-action="edit-partner">编辑资料</button><button class="icon-button">…</button></div></header>
-    <section class="relationship-card"><h3 class="section-title">供应链路径<button data-action="manage-relation">⌘ 管理关系</button></h3><div class="chain"><div class="chain-node"><strong>${partner.upstream}</strong><small>供货来源</small></div><div class="chain-link"><span>供货</span></div><div class="chain-node"><strong>${partner.name}</strong><small>${partner.type}</small></div><div class="chain-link"><span>${partner.mode}</span></div><div class="chain-node"><strong>${partner.downstream}</strong><small>合作去向</small></div><div class="chain-link"><span>供货</span></div><div class="chain-node"><strong>宏泰甄选商城</strong><small>销售商城</small></div></div></section>
+    <section class="relationship-card"><h3 class="section-title">供应链路径<button data-action="manage-relation">⌘ 管理关系</button></h3><div class="chain"><div class="chain-node"><strong>${partner.upstream}</strong><small>供货来源</small></div><div class="chain-link"><span>供货</span></div><div class="chain-node"><strong>${partner.name}</strong><small>${partner.type}</small></div><div class="chain-link"><span>${partner.mode}</span></div><div class="chain-node"><strong>${partner.downstream}</strong><small>合作去向</small></div><div class="chain-link"><span>供货</span></div><div class="chain-node"><strong>主打团商城</strong><small>销售商城</small></div></div></section>
     <nav class="detail-tabs" aria-label="供应商详情"><button class="detail-tab active">概览</button><button class="detail-tab">供应商品 <span class="count-badge">${partner.products}</span></button><button class="detail-tab">合同与结算</button><button class="detail-tab">联系人 3</button><button class="detail-tab">记录</button></nav>
     <div class="detail-content"><div class="info-grid"><section class="info-section"><h3>企业资料</h3><div class="info-row"><span>统一社会信用代码</span><b>9131**********26</b></div><div class="info-row"><span>所在地区</span><b>上海市</b></div><div class="info-row"><span>合作模式</span><b>${partner.mode}</b></div><div class="info-row"><span>结算方式</span><b>月结</b></div></section><section class="info-section"><h3>当前关系</h3><div class="info-row"><span>供货来源</span><b>${partner.upstream}</b></div><div class="info-row"><span>合作去向</span><b>${partner.downstream}</b></div><div class="info-row"><span>生效合同</span><b>2 份</b></div><div class="info-row"><span>最近结算</span><b>2026-09-05</b></div></section></div><section class="activity"><h3 class="section-title">近期动态<button>查看全部 ›</button></h3><ul><li><time>今天 10:24</time><span>新增 8 个供应商品</span></li><li><time>09-08 16:17</time><span>月度对账已确认</span></li><li><time>09-05 14:03</time><span>更新食品经营许可</span></li></ul></section></div>`;
 }
@@ -111,8 +111,8 @@ function switchScope(scope) {
   partnerView.hidden = !isPartner;
   mainNav.innerHTML = navMarkup(isPartner ? partnerNav : internalNav);
   document.querySelector('#profileName').textContent = isPartner ? '甜觅运营' : 'Ethan';
-  document.querySelector('#profileMeta').textContent = isPartner ? '甜觅蛋糕供应链' : '个人中心 · 宏泰甄选';
-  document.querySelector('#accountScope').textContent = isPartner ? '渠道商 · 甜觅蛋糕' : '商城 · 宏泰甄选';
+  document.querySelector('#profileMeta').textContent = isPartner ? '甜觅蛋糕供应链' : '个人中心 · 主打团';
+  document.querySelector('#accountScope').textContent = isPartner ? '渠道商 · 甜觅蛋糕' : '商城 · 主打团';
   if (isPartner) renderPartner(); else renderInternal();
 }
 

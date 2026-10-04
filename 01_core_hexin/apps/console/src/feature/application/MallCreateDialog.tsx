@@ -50,7 +50,7 @@ export function MallCreateDialog({
     setDraft((current) => ({ ...current, [field]: value }));
   };
 
-  return <Dialog open={open} title={dialogTitle(phase)} eyebrow="zhudatuan 主打团 · 商城管理"
+  return <Dialog open={open} title={dialogTitle(phase)} eyebrow="主打团 · 商城管理"
     dismissable={!busy} onClose={onClose}>
     {mobileEnrollment
       ? <MallMobileEnrollment context={context} onRelogin={onRelogin} />

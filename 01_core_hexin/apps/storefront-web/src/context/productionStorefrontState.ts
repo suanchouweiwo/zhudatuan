@@ -3,9 +3,9 @@ import type { EnterpriseMall, UserProfile } from '../types';
 export const UNRESOLVED_MALL: EnterpriseMall = {
   id: 'unresolved',
   enterpriseId: '',
-  enterpriseName: '尚未连接企业',
-  mallName: 'MORVIA 主打团',
-  logoText: 'MORVIA',
+  enterpriseName: '主打团',
+  mallName: '主打团',
+  logoText: '主打团',
   badge: '数据库连接未建立',
   welcomeBanner: '登录后从生产数据库加载企业商品与权益。',
 };
@@ -19,7 +19,7 @@ export const EMPTY_GUEST_PROFILE: UserProfile = {
   jobTitle: '访客',
   department: '未登录',
   enterpriseId: '',
-  enterpriseName: '尚未连接企业',
+  enterpriseName: '主打团',
   currentMallId: UNRESOLVED_MALL.id,
   welfareBalance: 0,
   mealBalance: 0,

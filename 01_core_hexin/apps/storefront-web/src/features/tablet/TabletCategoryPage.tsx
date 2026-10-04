@@ -83,7 +83,7 @@ export const TabletCategoryPage: React.FC = () => {
                 <span>{selectedCat?.name || '全部精选商品'}</span>
                 <span className="text-xs text-gray-400 font-normal">({categoryProducts.length} 款可兑换商品)</span>
               </h1>
-              <p className="text-[11px] text-gray-500 mt-0.5">{selectedCat?.description || 'MORVIA enterprise welfare marketplace products.'}</p>
+              <p className="text-[11px] text-gray-500 mt-0.5">{selectedCat?.description || '主打团企业福利商城商品。'}</p>
             </div>
 
             <button

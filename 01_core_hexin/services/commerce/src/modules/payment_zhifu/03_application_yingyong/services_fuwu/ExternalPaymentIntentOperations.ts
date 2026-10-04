@@ -121,7 +121,7 @@ export class ExternalPaymentIntentOperations implements OperationUsecase {
       providerStarted = true;
       const parameters = await this.gateway.prepay({
         scope: state.mall_id,
-        description: `MORVIA 主打团商城-${state.order_number}`,
+        description: `主打团商城-${state.order_number}`,
         orderNumber: PaymentReference.payment(state.order_number).text,
         amountMinor: state.amount_minor,
         payer,

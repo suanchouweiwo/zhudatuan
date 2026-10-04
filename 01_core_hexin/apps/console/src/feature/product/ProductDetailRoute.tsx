@@ -3,7 +3,7 @@ import { useParams } from 'react-router';
 
 export function Component() {
   const productId = useParams().productId ?? '';
-  return <ResourcePanel title="商品详情" eyebrow="MORVIA PRODUCT DETAIL"
+  return <ResourcePanel title="商品详情" eyebrow="主打团 PRODUCT DETAIL"
     description={`商品 ${productId} 暂不读取列表结果冒充详情。`} condition="failure" error="PRODUCT_DETAIL_OPERATION_REQUIRED"
     >
     <section className="capabilitynote" aria-labelledby="productdetailblocker"><h2 id="productdetailblocker">合同阻塞</h2>

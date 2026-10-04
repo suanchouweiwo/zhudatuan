@@ -32,6 +32,7 @@ async function renderIcon(name, size, occupiedRatio = 0.78) {
     .toFile(path.join(outputDir, name));
 }
 
+if (!process.argv.includes("--social-only")) {
 await Promise.all([
   renderIcon("favicon-32.png", 32, 0.82),
   renderIcon("apple-touch-icon.png", 180),
@@ -40,6 +41,7 @@ await Promise.all([
   renderIcon("icon-1024.png", 1024),
   renderIcon("icon-maskable-512.png", 512, 0.64),
 ]);
+}
 
 const socialLockup = await sharp(lockupPath).resize({ width: 780 }).png().toBuffer();
 await sharp({
@@ -53,5 +55,25 @@ await sharp({
   .composite([{ input: socialLockup, gravity: "center" }])
   .png()
   .toFile(path.join(outputDir, "opengraph-image.png"));
+
+const pngDir = path.join(here, "assets", "png");
+fs.mkdirSync(pngDir, { recursive: true });
+const wordmarkExports = [
+  ["morvia-master-lockup.svg", "morvia-master-lockup-800.png", 800],
+  ["morvia-master-lockup.svg", "morvia-master-lockup-1600.png", 1600],
+  ["morvia-master-lockup.svg", "morvia-master-lockup-on-white-1600.png", 1600, "#FFFFFF"],
+  ["morvia-master-lockup-white.svg", "morvia-master-lockup-on-deep-blue-1600.png", 1600, "#143A8F"],
+  ["morvia-master-lockup-white.svg", "morvia-master-lockup-white-1600.png", 1600],
+  ["morvia-master-lockup-mono.svg", "morvia-master-lockup-mono-1600.png", 1600],
+  ["morvia-compact-lockup.svg", "morvia-compact-lockup-1200.png", 1200],
+  ["morvia-established-lockup.svg", "morvia-established-lockup-1800.png", 1800],
+  ["morvia-wordmark.svg", "morvia-wordmark-1100.png", 1100],
+  ["morvia-stacked-lockup.svg", "morvia-stacked-lockup-1200.png", 1200],
+];
+await Promise.all(wordmarkExports.map(async ([source, output, width, background]) => {
+  const rendered = sharp(path.join(svgDir, source)).resize({ width });
+  if (background) rendered.flatten({ background });
+  await rendered.png().toFile(path.join(pngDir, output));
+}));
 
 console.log(`Generated product assets in ${outputDir}`);

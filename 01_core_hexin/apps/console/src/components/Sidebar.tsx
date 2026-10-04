@@ -19,7 +19,7 @@ export interface SidebarProps {
   readonly onToggle: () => void;
 }
 
-export function Sidebar({ active, collapsed, displayName, brandName = 'MORVIA', brandSubtitle = 'zhudatuan 主打团',
+export function Sidebar({ active, collapsed, displayName, brandName = '主打团', brandSubtitle = '运营管理后台',
   mainItems, bottomItems, onNavigate, onNavigateIntent, onOpenProfile, onToggle }: SidebarProps) {
 
   return (
@@ -74,9 +74,9 @@ export function Sidebar({ active, collapsed, displayName, brandName = 'MORVIA', 
           })}
         </nav>
         <button className="sidebarversion" type="button" onClick={() => onNavigate('system/releases')}
-          aria-label={`福福网 Console 当前生产版本 ${CURRENT_CONSOLE_RELEASE.version}`}
-          title={collapsed ? `福福网 Console ${CURRENT_CONSOLE_RELEASE.version}` : undefined}>
-          <span className="sidebarversioncopy"><small>福福网 CONSOLE</small><strong>{CURRENT_CONSOLE_RELEASE.version}</strong></span>
+          aria-label={`主打团 Console 当前生产版本 ${CURRENT_CONSOLE_RELEASE.version}`}
+          title={collapsed ? `主打团 Console ${CURRENT_CONSOLE_RELEASE.version}` : undefined}>
+          <span className="sidebarversioncopy"><small>主打团 CONSOLE</small><strong>{CURRENT_CONSOLE_RELEASE.version}</strong></span>
           <span className="sidebarversionstate"><i aria-hidden="true" />生产版</span>
         </button>
       </footer>
@@ -85,7 +85,7 @@ export function Sidebar({ active, collapsed, displayName, brandName = 'MORVIA', 
 }
 
 function navigationLabel(item: NavigationItem): string {
-  const label = item.moduleId === 'applications' ? item.label.replace(/^築店 · /, '') : item.label;
+  const label = item.moduleId === 'applications' ? item.label.replace(/^主打团 · /, '') : item.label;
   return item.status === 'disabled' ? `${label}（已停用）` : label;
 }
 

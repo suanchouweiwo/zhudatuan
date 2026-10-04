@@ -9,8 +9,8 @@ export function ControlHero({ plane, refreshing, onRefresh }: Readonly<{
   return (
     <section className="controlhero" aria-labelledby="controltitle">
       <div>
-        <p>MORVIA OPERATIONS CONTROL PLANE</p>
-        <h1 id="controltitle">MORVIA 中控台</h1>
+        <p>主打团 OPERATIONS CONTROL PLANE</p>
+        <h1 id="controltitle">主打团 中控台</h1>
         <strong>{plane?.conclusion ?? '平台态势等待读模型返回，未知状态不会显示为正常。'}</strong>
         <span>{plane?.summary ?? '当前没有可验证的能力覆盖信息。'}</span>
       </div>

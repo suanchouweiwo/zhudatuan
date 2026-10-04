@@ -123,7 +123,7 @@ export function MPAuthStatusCard({ authHref, onRetry, sessionError, sessionStatu
         <a
           href={authHref}
           onClick={enterLogin}
-          aria-label={isEnteringLogin ? '正在进入MORVIA 账户' : '进入MORVIA 账户'}
+          aria-label={isEnteringLogin ? '正在进入主打团 账户' : '进入主打团 账户'}
           aria-busy={isEnteringLogin || undefined}
           data-auth-action="login"
           data-auth-state={isEnteringLogin ? 'entering' : 'idle'}

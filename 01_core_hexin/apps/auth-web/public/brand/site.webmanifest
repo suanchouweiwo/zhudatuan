@@ -1,7 +1,7 @@
 {
-  "name": "MORVIA 统一账号认证",
-  "short_name": "MORVIA",
-  "description": "MORVIA · zhudatuan 主打团统一身份认证",
+  "name": "主打团 统一账号认证",
+  "short_name": "主打团",
+  "description": "主打团统一身份认证",
   "lang": "zh-CN",
   "start_url": "../",
   "scope": "../",

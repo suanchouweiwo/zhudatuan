@@ -97,6 +97,7 @@ export function gatewayConfiguration(manifest, nodeRoot, ports, options = {}) {
 `{\n\tadmin off\n\tauto_https off\n}\n\n` +
 `https://:${ports.gateway} {\n` +
 `\ttls ${nodeRoot}/runtime/tls/origin.crt ${nodeRoot}/runtime/tls/origin.key\n\tencode gzip\n\n` +
+`${manifest.node_id === 'node:zhudatuan:l0' && storefrontHosts.includes('zhudatuan.com') && storefrontHosts.includes('www.zhudatuan.com') ? '\t@storefrontCanonical host zhudatuan.com\n\thandle @storefrontCanonical {\n\t\tredir https://www.zhudatuan.com{uri} 308\n\t}\n\n' : ''}` +
 `\t@ordersReadPreflight {\n\t\thost ${apiHost}\n\t\tmethod OPTIONS\n\t\tpath /api/v1/orders /api/v1/orders/*\n\t\theader Access-Control-Request-Method GET\n\t}\n` +
 `\thandle @ordersReadPreflight {\n${proxy(ports.web)}\n\t}\n\n` +
 `\t@purchaseWrite {\n\t\thost ${apiHost}\n\t\tmethod POST OPTIONS\n\t\tpath /api/v1/checkouts/quotes /api/v1/orders /api/v1/payments/intents\n\t}\n` +

@@ -49,7 +49,7 @@ export function Component() {
 
   return (
     <section className="controlpage">
-      <ResourceState condition={condition} resourceLabel="MORVIA 中控台"
+      <ResourceState condition={condition} resourceLabel="主打团 中控台"
         {...(error === undefined ? {} : { error })} retry={() => { void query.refetch(); }}>
         <div>
           <ControlHero plane={plane} refreshing={query.isFetching} onRefresh={() => { void query.refetch(); }} />

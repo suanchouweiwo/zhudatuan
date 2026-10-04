@@ -101,7 +101,7 @@ export const MPDetailPage: React.FC = () => {
           <span className="bg-blue-50 text-[var(--sw-brand)] font-bold px-2 py-0.5 rounded border border-blue-100">
             {product.itemType === 'virtual_coupon' ? '虚拟电子码' : product.itemType === 'nearby_store' ? '到店扫码核销' : '实物包邮配送'}
           </span>
-          <span className="text-gray-400">品牌: {product.brand || 'MORVIA 精选'}</span>
+          <span className="text-gray-400">品牌: {product.brand || '主打团 精选'}</span>
           <span className="text-gray-400">库存: {product.stockCount} 件</span>
         </div>
       </div>
@@ -165,7 +165,7 @@ export const MPDetailPage: React.FC = () => {
       {/* Product Description */}
       <div className="bg-white p-3.5 mt-2 border-y border-gray-200/80 space-y-2">
         <h3 className="text-xs font-bold text-gray-900 border-l-2 border-[var(--sw-brand)] pl-2">商品企采说明与参数</h3>
-        <p className="text-xs text-gray-600 leading-relaxed">{product.description || '本商品属于MORVIA 主打团商城企采直供商品，支持员工使用企业发放的福利卡或餐卡进行全额扣减兑换，支持在线开具企业普通发票或增值税发票。'}</p>
+        <p className="text-xs text-gray-600 leading-relaxed">{product.description || '本商品属于主打团商城企采直供商品，支持员工使用企业发放的福利卡或餐卡进行全额扣减兑换，支持在线开具企业普通发票或增值税发票。'}</p>
 
         {product.parameters && (
           <div className="mt-3 bg-gray-50 rounded-xl p-3 divide-y divide-gray-200/60 text-xs text-gray-700">
