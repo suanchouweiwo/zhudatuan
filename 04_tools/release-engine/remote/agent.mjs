@@ -646,7 +646,7 @@ async function activate(context, options) {
       throw failure('DATABASE_MIGRATION_FAILED', { cause: errorEvidence(migrationError), databaseMigration: receipt.databaseMigration, receipt });
     }
   }
-  if (previousCurrent === candidate) {
+  if (previousCurrent === candidate && targetProcessBefore !== '0') {
     const readiness = await waitForReadiness(context, { candidateDir: candidate, currentDir: candidate, ...contextSummary(context) });
     timings.health = readiness.durationMs;
     const isolationStarted = Date.now();
@@ -662,6 +662,7 @@ async function activate(context, options) {
       runtime: await pointer(root, 'runtime'),
       previous: await pointer(root, 'previous'),
       service: context.deployment.restart,
+      serviceStatus: await processState(context.deployment.restart),
       restart: activationRestart,
       readiness,
       targetProcess: { before: targetProcessBefore, after: await processId(context.deployment.restart) },
@@ -688,7 +689,7 @@ async function activate(context, options) {
   let protectedAfter = null;
   try {
     const cutoverStarted = Date.now();
-    if (previousCurrent) await atomicPointer(join(root, 'previous'), previousCurrent);
+    if (previousCurrent && previousCurrent !== candidate) await atomicPointer(join(root, 'previous'), previousCurrent);
     if (previousRuntime) await atomicPointer(join(root, 'previous-runtime'), previousRuntime);
     if (candidateRuntime) await atomicPointer(join(root, 'runtime'), candidateRuntime);
     await atomicPointer(join(root, 'current'), candidate);
@@ -843,8 +844,9 @@ async function activate(context, options) {
     alreadyCurrent: false,
     current: candidate,
     runtime: await pointer(root, 'runtime'),
-    previous: previousCurrent,
+    previous: await pointer(root, 'previous'),
     service: context.deployment.restart,
+    serviceStatus: await processState(context.deployment.restart),
     restart: activationRestart,
     readiness,
     cutoverMs: timings.cutover + timings.restart + timings.health + timings.isolation,
@@ -1045,11 +1047,11 @@ alter role zhudatuanwebapi login password '${credentials.ZHUDATUAN_WEB_API_PASSW
     });
     if (target !== 'storefront') {
       env.API_PORT = String(setup.servicePorts[target]);
-      env.API_ALLOWED_ORIGINS = Object.values(origins).join(',');
+      env.API_ALLOWED_ORIGINS = [origins.identity, origins.console, origins.storefront].filter(Boolean).join(',');
       env.DATABASE_API_CONNECTION_REF = `${prefix}/database/${target}`;
       env.DATABASE_API_ROLE = target === 'identity-api' ? 'zhudatuanidentityapi' : 'zhudatuanwebapi';
       env.SECRET_STORE_ENDPOINT = `https://127.0.0.1:${setup.secretPort}`;
-      env.OBJECT_STORE_ENDPOINT = `https://127.0.0.1:${setup.objectPort}`;
+      if (target === 'identity-api') env.OBJECT_STORE_ENDPOINT = `https://127.0.0.1:${setup.objectPort}`;
     } else {
       env.STOREFRONT_PORT = String(setup.servicePorts.storefront);
       env.STOREFRONT_HOST = '127.0.0.1';
@@ -1594,10 +1596,10 @@ async function restart(definition = { kind: 'none', name: 'none' }) {
     await command(evidence.commands[0], { timeoutMs: 45_000 });
   } catch (error) {
     let serviceError = null;
-    if (normalized.kind === 'systemd') {
+    if (evidence.kind === 'systemd') {
       try {
-        const journal = await command(['journalctl','-u',normalized.name,'-n','18','--no-pager','-o','cat']);
-        serviceError = journal.stdout.split('\n').filter((line) => /Error:|\"error\":|failed/.test(line)).slice(-3).join('\n');
+        const journal = await command(['journalctl','-u',evidence.target,'-n','80','--no-pager','-o','cat']);
+        serviceError = journal.stdout.split('\n').filter((line) => /Error:|"error":|^error:|_TIMEOUT|_MISMATCH|_MISSING|_INVALID|_REQUIRED/i.test(line)).slice(-3).join('\n');
       } catch {}
     }
     throw failure('RESTART_COMMAND_FAILED', { restart: evidence, cause: errorEvidence(error), serviceError });

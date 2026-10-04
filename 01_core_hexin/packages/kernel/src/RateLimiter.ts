@@ -48,6 +48,5 @@ function wait(milliseconds: number, signal: AbortSignal): Promise<void> {
       reject(errorCause(signal.reason, 'OPERATION_ABORTED'));
     };
     signal.addEventListener('abort', abort, { once: true });
-    timer.unref?.();
   });
 }
