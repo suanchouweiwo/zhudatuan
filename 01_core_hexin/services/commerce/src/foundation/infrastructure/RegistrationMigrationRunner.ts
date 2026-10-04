@@ -6,6 +6,7 @@ import type { PoolClient } from 'pg';
 import { Semaphore } from '../performance/Semaphore';
 import type { DatabasePool } from '../persistence/Pool';
 import type { KmsClient } from './KmsClient';
+import type { MigrationExecutionRole } from './MigrationRunner';
 import {
   registrationMigrationExecution,
   registrationMigrationLedgerMatches,
@@ -67,6 +68,7 @@ export class RegistrationMigrationRunner {
     private readonly kms: KmsClient,
     private readonly directory: string,
     private readonly secrets: RegistrationMigrationSecrets,
+    private readonly executionRole: MigrationExecutionRole = { kind: 'migration-role' },
   ) {}
 
   async run(): Promise<void> {
@@ -122,8 +124,10 @@ export class RegistrationMigrationRunner {
         and (rolsuper or rolbypassrls or rolcreaterole or rolcreatedb or rolreplication)) role_safe,
       coalesce(deployment.is_independent_registration_database(),false) sentinel`);
     const row = result.rows[0];
-    if (!row || row.database_name !== REGISTRATION_DATABASE || row.database_role !== REGISTRATION_MIGRATION_ROLE
-      || row.role_safe !== true || row.sentinel !== true) throw new Error('REGISTRATION_MIGRATION_DATABASE_BOUNDARY_INVALID');
+    const roleMatches = this.executionRole.kind === 'database-owner'
+      ? row?.database_role === this.executionRole.role
+      : row?.database_role === REGISTRATION_MIGRATION_ROLE && row.role_safe === true;
+    if (!row || row.database_name !== REGISTRATION_DATABASE || !roleMatches || row.sentinel !== true) throw new Error('REGISTRATION_MIGRATION_DATABASE_BOUNDARY_INVALID');
   }
 
   private async assertFreshOrManagedState(client: PoolClient): Promise<void> {

@@ -21,7 +21,7 @@ if (!/^[a-z0-9][a-z0-9/._:-]{7,511}$/i.test(environment.snapshotRef)) throw new 
 const secrets = new WorkloadSecretStore(environment.secretStoreEndpoint, environment.secretStoreBearerToken);
 const nodeRegistration = process.env.DATABASE_MIGRATION_EXECUTION_MODE === 'node-registration';
 const ownerExecution = process.env.DATABASE_MIGRATION_EXECUTION_MODE === 'database-owner';
-const connection = ownerExecution || nodeRegistration ? ownerConnection(process.env, nodeRegistration) : await secrets.read(environment.databaseConnectionRef);
+const connection = ownerExecution || nodeRegistration ? ownerConnection(process.env) : await secrets.read(environment.databaseConnectionRef);
 const pool = createPool(connection, 'migration');
 const files = await migrationFiles(environment.directory);
 const ledgerBefore = await ledgerEvidence(pool);
@@ -33,7 +33,7 @@ const runner = new Runner(pool, new KmsClient(environment.kmsEndpoint, environme
   identityKeyRef: environment.identityKeyRef,
   partnerKeyRef: environment.partnerKeyRef,
   voucherKeyRef: environment.voucherKeyRef,
-}, ownerExecution ? { kind: 'database-owner', role: required(process.env.POSTGRES_USER, 'MIGRATION_OWNER_ROLE_MISSING') } : undefined);
+}, ownerExecution || nodeRegistration ? { kind: 'database-owner', role: required(process.env.POSTGRES_USER, 'MIGRATION_OWNER_ROLE_MISSING') } : undefined);
 
 let result;
 try {
