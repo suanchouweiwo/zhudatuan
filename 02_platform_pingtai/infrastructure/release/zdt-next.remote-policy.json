@@ -69,6 +69,64 @@
         "mall-provisioning-api": {"pointerRoot":"/opt/sfl/nodes/hbbtzn-l1/targets/mall-provisioning-api","restart":{"kind":"none","name":"none"},"candidateChecks":[{"argv":["node","--check","{{candidateDir}}/service/MallProvisioningApiMain.js"]},{"argv":["node","--check","{{candidateDir}}/service/MallProvisioningApiReadyMain.js"]}],"healthChecks":[]},
         "web-api": {"pointerRoot":"/opt/sfl/nodes/hbbtzn-l1/targets/web-api","seedInputs":[{"source":"01_core_hexin/services/commerce/dist/WebBusinessApiMain.js","destination":"service/WebBusinessApiMain.js"},{"source":"01_core_hexin/services/commerce/dist/WebBusinessApiReadyMain.js","destination":"service/WebBusinessApiReadyMain.js"}],"restart":{"kind":"systemd","name":"sfl-web-api@hbbtzn-l1.service","jobMode":"ignore-dependencies"},"candidateChecks":[{"argv":["node","--check","{{candidateDir}}/service/WebBusinessApiMain.js"]},{"argv":["node","--check","{{candidateDir}}/service/WebBusinessApiReadyMain.js"]}],"healthChecks":[{"argv":["systemctl","is-active","--quiet","sfl-web-api@hbbtzn-l1.service"]}]}
       }
+    },
+    "l0-2-l0": {
+      "deployments": {
+        "database-migration": {"healthChecks":[],"allowFirstActivation":true,"databaseMigration":{"runtimeGroup":"zhudatuan","ownerDatabaseHost":"127.0.0.1","runner":"executor/DatabaseMigrationExecutor.js","runtimeUser":"zhudatuan","recovery":{"mode":"forward-only","snapshot":"not-captured-by-delivery-engine"},"migrationDirectory":"database/supabase/migrations","timeoutMs":300000,"executionMode":"database-owner","credentialFile":"/opt/sfl/nodes/l0-2-l0/database/postgres.env","environmentFile":"/opt/sfl/nodes/l0-2-l0/runtime/migration.env","executionRoot":"/opt/sfl/nodes/l0-2-l0/database/releases","ownerDatabasePort":55433,"initialize":{"servicePorts":{"web-api":4522,"identity-api":4521,"storefront":4510},"origins":{"console":"https://console-l0-2.zhudatuan.com","identity":"https://accounts-l0-2.zhudatuan.com","storefront":"https://l0-2.zhudatuan.com"},"environmentSource":"zhudatuan-l0","secretPort":4553,"application":"l0-2-storefront","objectPort":4555,"secretPrefix":"l0-2/nodes/l0","port":55433}},"restart":{"name":"none","kind":"none"},"pointerRoot":"/opt/sfl/nodes/l0-2-l0/targets/database-migration","candidateChecks":[]},
+        "identity-api": {
+          "candidateChecks": [],
+          "healthChecks": [],
+          "pointerRoot": "/opt/sfl/nodes/l0-2-l0/targets/identity-api",
+          "allowFirstActivation": true,
+          "restart": {
+            "name": "sfl-identity-api@l0-2-l0.service",
+            "jobMode": "ignore-dependencies",
+            "kind": "systemd"
+          }
+        },
+        "console": {
+          "candidateChecks": [],
+          "healthChecks": [],
+          "pointerRoot": "/opt/sfl/nodes/l0-2-l0/targets/console",
+          "allowFirstActivation": true,
+          "restart": {
+            "kind": "none",
+            "name": "none"
+          }
+        },
+        "web-api": {
+          "candidateChecks": [],
+          "healthChecks": [],
+          "pointerRoot": "/opt/sfl/nodes/l0-2-l0/targets/web-api",
+          "allowFirstActivation": true,
+          "restart": {
+            "name": "sfl-web-api@l0-2-l0.service",
+            "jobMode": "ignore-dependencies",
+            "kind": "systemd"
+          }
+        },
+        "storefront": {
+          "candidateChecks": [],
+          "healthChecks": [],
+          "pointerRoot": "/opt/sfl/nodes/l0-2-l0/targets/storefront",
+          "allowFirstActivation": true,
+          "restart": {
+            "name": "sfl-storefront@l0-2-l0.service",
+            "jobMode": "ignore-dependencies",
+            "kind": "systemd"
+          }
+        },
+        "auth-web": {
+          "candidateChecks": [],
+          "healthChecks": [],
+          "pointerRoot": "/opt/sfl/nodes/l0-2-l0/targets/auth-web",
+          "allowFirstActivation": true,
+          "restart": {
+            "kind": "none",
+            "name": "none"
+          }
+        }
+      }
     }
   }
 }

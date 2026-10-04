@@ -1,0 +1,226 @@
+{
+  "schema_version": "sfl.node-registry-declaration.v1",
+  "registry_version": "1.6.1",
+  "generated_at": "2026-09-09T20:30:00+08:00",
+  "manifests": [
+    {
+      "manifest_id": "manifest:l0-2:l0:v1",
+      "manifest_revision": 2,
+      "generated_at": "2026-09-09T20:30:00+08:00",
+      "lifecycle_status": "active",
+      "line_id": "line:l0-2:commerce:v1",
+      "node_id": "node:l0-2:l0",
+      "parent_node_id": null,
+      "signed_level": "L0",
+      "node_profile": "operating_mall",
+      "mall_id": "mall-l0-2",
+      "host_node_id": null,
+      "domain_bindings": [
+        {
+          "host": "accounts-l0-2.zhudatuan.com",
+          "binding_ref": {
+            "ref": "domain:l0-2:l0:identity",
+            "version": "1"
+          },
+          "application_ref": "application:identity",
+          "surface_ref": "surface:identity"
+        },
+        {
+          "host": "api-l0-2.zhudatuan.com",
+          "binding_ref": {
+            "ref": "domain:l0-2:l0:api",
+            "version": "1"
+          },
+          "application_ref": "application:commerce-api",
+          "surface_ref": "surface:api"
+        },
+        {
+          "host": "console-l0-2.zhudatuan.com",
+          "binding_ref": {
+            "ref": "domain:l0-2:l0:console",
+            "version": "1"
+          },
+          "application_ref": "application:console",
+          "surface_ref": "surface:console"
+        },
+        {
+          "host": "l0-2.zhudatuan.com",
+          "binding_ref": {
+            "ref": "domain:l0-2:l0:storefront:www",
+            "version": "1"
+          },
+          "application_ref": "application:mall-l0-2",
+          "surface_ref": "surface:storefront"
+        }
+      ],
+      "brand_ref": {
+        "ref": "brand:l0-2",
+        "version": "1"
+      },
+      "applications": [
+        {
+          "ref": "application:commerce-api",
+          "version": "1"
+        },
+        {
+          "ref": "application:console",
+          "version": "1"
+        },
+        {
+          "ref": "application:identity",
+          "version": "1"
+        },
+        {
+          "ref": "application:mall-l0-2",
+          "version": "1"
+        }
+      ],
+      "surfaces": [
+        {
+          "ref": "surface:api",
+          "version": "1"
+        },
+        {
+          "ref": "surface:console",
+          "version": "1"
+        },
+        {
+          "ref": "surface:identity",
+          "version": "1"
+        },
+        {
+          "ref": "surface:storefront",
+          "version": "1"
+        }
+      ],
+      "enabled_features": [
+        {
+          "ref": "feature:catalog",
+          "version": "1"
+        },
+        {
+          "ref": "feature:checkout",
+          "version": "1"
+        },
+        {
+          "ref": "feature:console",
+          "version": "1"
+        },
+        {
+          "ref": "feature:identity",
+          "version": "1"
+        },
+        {
+          "ref": "feature:orders",
+          "version": "1"
+        }
+      ],
+      "api_contract_refs": [
+        {
+          "ref": "contract:commerce-api",
+          "version": "1.0.0"
+        }
+      ],
+      "realm_ref": {
+        "ref": "realm:l0-2",
+        "version": "1"
+      },
+      "data_scope_ref": {
+        "ref": "organization-l0-2-platform-root",
+        "version": "1"
+      },
+      "resource_binding_set_ref": {
+        "ref": "resource-binding:l0-2:l0",
+        "version": "1"
+      },
+      "secret_binding_set_ref": {
+        "ref": "l0-2/nodes/l0/secrets",
+        "version": "1"
+      },
+      "payment_binding_refs": [
+        {
+          "ref": "l0-2/nodes/l0/payment",
+          "version": "1"
+        }
+      ],
+      "callback_binding_refs": [
+        {
+          "ref": "l0-2/nodes/l0/callbacks",
+          "version": "1"
+        }
+      ],
+      "runtime_instance_id": "runtime:l0-2:l0:commerce",
+      "runtime_config_ref": {
+        "ref": "sfl/nodes/l0-2-l0/runtime/v1",
+        "version": "1"
+      },
+      "release_pointer_ref": {
+        "ref": "/opt/sfl/nodes/l0-2-l0/current",
+        "version": "1"
+      }
+    }
+  ],
+  "node_bindings": [
+    {
+      "node_id": "node:l0-2:l0",
+      "runtime_manifest_file": "l0-2-l0.json",
+      "display_name": "L0-2",
+      "mall_name": "L0-2 商城",
+      "brand_name": "L0-2",
+      "primary_storefront_binding_ref": "domain:l0-2:l0:storefront:www",
+      "consumer_api_binding_ref": "domain:l0-2:l0:api",
+      "purchase_origin_binding_refs": [
+        "domain:l0-2:l0:storefront:www"
+      ],
+      "identity_entry_binding_refs": [
+        "domain:l0-2:l0:identity",
+        "domain:l0-2:l0:api",
+        "domain:l0-2:l0:storefront:www"
+      ],
+      "targets": [
+        {
+          "surface": "admin",
+          "target": "console",
+          "membership_client": "operator",
+          "membership_organization_id": "tenant-l0-2",
+          "application": null,
+          "return_binding_ref": "domain:l0-2:l0:console",
+          "return_path": ""
+        },
+        {
+          "surface": "admin",
+          "target": "store",
+          "membership_client": "store",
+          "membership_organization_id": "tenant-l0-2",
+          "application": null,
+          "return_binding_ref": "domain:l0-2:l0:console",
+          "return_path": "/entrances/store"
+        },
+        {
+          "surface": "admin",
+          "target": "supplier",
+          "membership_client": "supplier",
+          "membership_organization_id": "tenant-l0-2",
+          "application": null,
+          "return_binding_ref": "domain:l0-2:l0:console",
+          "return_path": "/entrances/supplier"
+        },
+        {
+          "surface": "consumer",
+          "target": "storefront",
+          "membership_client": "storefront",
+          "membership_organization_id": "mall-l0-2",
+          "application": "l0-2-storefront",
+          "return_binding_ref": "domain:l0-2:l0:storefront:www",
+          "return_path": ""
+        }
+      ],
+      "console": {
+        "api_binding_ref": "domain:l0-2:l0:api",
+        "identity_binding_ref": "domain:l0-2:l0:identity",
+        "identity_target": "console",
+        "scope_kind": "platform"
+      }
+    }
+  ]
+}

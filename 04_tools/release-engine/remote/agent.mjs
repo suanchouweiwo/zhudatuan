@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { appendFile, chmod, copyFile, cp, link, lstat, mkdir, readFile, readlink, readdir, realpath, rename, rm, statfs, symlink, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, relative, resolve } from 'node:path';
@@ -884,7 +884,167 @@ async function preflight(context) {
   };
 }
 
+async function initializeNodeDatabase(context, candidate, manifest) {
+  const setup = context.deployment.databaseMigration.initialize;
+  const root = join('/opt/sfl/nodes', context.node);
+  const runtime = join(root, 'runtime');
+  const database = join(root, 'database');
+  await mkdir(runtime, { recursive: true, mode: 0o750 });
+  await mkdir(database, { recursive: true, mode: 0o750 });
+  await chmod(root, 0o755);
+  const credentialFile = join(database, 'postgres.env');
+  let credentials;
+  if (await exists(credentialFile)) credentials = parseEnvironmentFile(await readFile(credentialFile, 'utf8'));
+  else {
+    credentials = { POSTGRES_DB: 'zhudatuan_registration', POSTGRES_USER: 'zhudatuanroot' };
+    for (const key of ['POSTGRES_PASSWORD','SHOPAPP_PASSWORD','SHOPJOB_PASSWORD','SHOPMIGRATION_PASSWORD','SHOPREAD_PASSWORD',
+      'ZHUDATUANBOOTSTRAP_PASSWORD','DATABASE_SENTINEL','ZHUDATUAN_IDENTITY_API_PASSWORD','ZHUDATUAN_WEB_API_PASSWORD']) {
+      credentials[key] = randomBytes(36).toString('base64url');
+    }
+    await writeFile(credentialFile, environmentText(credentials), { mode: 0o600 });
+  }
+  const bootstrap = join(candidate, 'database/bootstrap');
+  const initFile = join(database, 'postgres-init.sh');
+  await copyFile(join(bootstrap, 'postgres-init.sh'), initFile);
+  await chmod(initFile, 0o644);
+  const container = `${context.node}-postgres`;
+  const composeFile = join(database, 'compose.yml');
+  const compose = (await readFile(join(bootstrap, 'registration-compose.yml'), 'utf8'))
+    .replace('name: zhudatuan-registration', `name: ${context.node}`)
+    .replace('container_name: zhudatuan-registration-postgres', `container_name: ${container}`)
+    .replace('/opt/zhudatuan/shared/postgres.env', credentialFile)
+    .replace('127.0.0.1:55432:5432', `127.0.0.1:${setup.port}:5432`)
+    .replace('/var/lib/zhudatuan/postgres', join(database, 'data'))
+    .replace('/opt/zhudatuan/current/02_platform_pingtai/infrastructure/zhudatuan/aliyun/postgres-init-registration.sh', initFile);
+  await writeFile(composeFile, compose);
+  await command(['docker', 'compose', '-f', composeFile, 'up', '-d'], { timeoutMs: 120_000 });
+  const deadline = Date.now() + 60_000;
+  while (true) {
+    try {
+      await command(['docker','exec',container,'pg_isready','-h','127.0.0.1','-U',credentials.POSTGRES_USER,'-d',credentials.POSTGRES_DB], { timeoutMs: 5000 });
+      break;
+    } catch (error) {
+      if (Date.now() >= deadline) throw error;
+      await delay(1000);
+    }
+  }
+  // The existing initializer creates these runtime roles without passwords for local use.
+  // This instance consumes them over its own loopback database connection.
+  const sqlFile = join(database, 'runtime-roles.sql');
+  await writeFile(sqlFile, `alter role zhudatuanidentityapi login password '${credentials.ZHUDATUAN_IDENTITY_API_PASSWORD}';
+alter role zhudatuanwebapi login password '${credentials.ZHUDATUAN_WEB_API_PASSWORD}';
+`, { mode: 0o600 });
+  await command(['docker','cp',sqlFile,`${container}:/tmp/lk-runtime-roles.sql`]);
+  try {
+    await command(['docker','exec',container,'psql','-X','-v','ON_ERROR_STOP=1','-U',credentials.POSTGRES_USER,'-d',credentials.POSTGRES_DB,'-f','/tmp/lk-runtime-roles.sql']);
+  } finally {
+    await command(['docker','exec',container,'rm','-f','/tmp/lk-runtime-roles.sql']);
+    await rm(sqlFile);
+  }
+  const sourceRoot = join('/opt/sfl/nodes', setup.environmentSource, 'runtime');
+  const inputs = {};
+  for (const target of ['identity-api','web-api','storefront']) {
+    inputs[target] = parseEnvironmentFile(await readFile(join(sourceRoot, `${target}.env`), 'utf8'));
+  }
+  const prefix = setup.secretPrefix;
+  const secretsFile = join(runtime, 'secrets.json');
+  let secrets = await readJson(secretsFile) ?? {};
+  for (const [target, role, password] of [
+    ['identity-api','zhudatuanidentityapi',credentials.ZHUDATUAN_IDENTITY_API_PASSWORD],
+    ['web-api','zhudatuanwebapi',credentials.ZHUDATUAN_WEB_API_PASSWORD]]) {
+    secrets[`${prefix}/database/${target}`] = `postgresql://${role}:${password}@127.0.0.1:${setup.port}/${credentials.POSTGRES_DB}`;
+  }
+  for (const key of ['identity/session','identity/index']) secrets[`${prefix}/${key}`] ??= randomBytes(36).toString('base64url');
+  await writeFile(secretsFile, JSON.stringify(secrets, null, 2) + '\n', { mode: 0o640 });
+  const origins = setup.origins;
+  const nodeManifest = await readJson(join(candidate, 'node-runtime/manifest.json'));
+  if (nodeManifest) {
+    await copyFile(join(candidate, 'node-runtime/manifest.json'), join(root, 'manifest.json'));
+  }
+  for (const [target, env] of Object.entries(inputs)) {
+    if (nodeManifest) Object.assign(env, {
+      NODE_MANIFEST_PATH: join(root, 'manifest.json'), NODE_MANIFEST_ID: nodeManifest.manifest_id,
+      NODE_MANIFEST_DIGEST: nodeManifest.manifest_digest, NODE_RUNTIME_INSTANCE_ID: nodeManifest.runtime_instance_id,
+      NODE_RUNTIME_CONFIG_REF: nodeManifest.runtime_config_ref.ref,
+      NODE_RESOURCE_BINDING_VERSION: nodeManifest.resource_binding_set_ref.version,
+      NODE_RELEASE_POINTER_REF: nodeManifest.release_pointer_ref.ref,
+    });
+    if (target !== 'storefront') {
+      env.API_PORT = String(setup.servicePorts[target]);
+      env.API_ALLOWED_ORIGINS = Object.values(origins).join(',');
+      env.DATABASE_API_CONNECTION_REF = `${prefix}/database/${target}`;
+      env.DATABASE_API_ROLE = target === 'identity-api' ? 'zhudatuanidentityapi' : 'zhudatuanwebapi';
+      env.SECRET_STORE_ENDPOINT = `https://127.0.0.1:${setup.secretPort}`;
+      env.OBJECT_STORE_ENDPOINT = `https://127.0.0.1:${setup.objectPort}`;
+    } else {
+      env.STOREFRONT_PORT = String(setup.servicePorts.storefront);
+      env.STOREFRONT_HOST = '127.0.0.1';
+    }
+    if (target === 'identity-api') {
+      env.SESSION_KEY_REF = `${prefix}/identity/session`;
+      env.IDENTITY_KEY_REF = `${prefix}/identity/index`;
+      // WeChat configuration remains unset until this instance has its own application.
+      delete env.WECHAT_APPLICATION_CONFIG_REF;
+      delete env.WECHAT_IDENTITY_CONFIG_REF;
+    }
+    if (target === 'web-api') {
+      env.PUBLIC_MALL_SLUG = setup.application;
+      env.PUBLIC_MALL_HOST_MAPPINGS = `${new URL(origins.storefront).hostname}=${setup.application}`;
+    }
+    await writeFile(join(runtime, `${target}.env`), environmentText(env), { mode: 0o640 });
+  }
+  const objectEnvironment = parseEnvironmentFile(await readFile(join(sourceRoot, 'object-store.env'), 'utf8'));
+  objectEnvironment.LOCAL_OBJECTS_PORT = String(setup.objectPort);
+  objectEnvironment.LOCAL_OBJECTS_DIRECTORY = join(root, 'objects');
+  await mkdir(objectEnvironment.LOCAL_OBJECTS_DIRECTORY, { recursive: true, mode: 0o750 });
+  await writeFile(join(runtime, 'object-store.env'), environmentText(objectEnvironment), { mode: 0o640 });
+  const shared = parseEnvironmentFile(await readFile('/opt/zhudatuan/shared/runtime.env', 'utf8'));
+  const secretEnvironment = {
+    LOCAL_TLS_KEY_FILE: shared.LOCAL_TLS_KEY_FILE,
+    LOCAL_TLS_CERT_FILE: shared.LOCAL_TLS_CERT_FILE,
+    LOCAL_SECRETS_FILE: secretsFile,
+    LOCAL_SECRETS_PORT: String(setup.secretPort),
+    LOCAL_SECRET_STORE_BEARER_TOKEN: inputs['identity-api'].SECRET_STORE_BEARER_TOKEN,
+  };
+  await writeFile(join(runtime, 'secret-store.env'), environmentText(secretEnvironment), { mode: 0o640 });
+  await copyFile('/opt/zhudatuan/shared/migration.env', join(runtime, 'migration.env'));
+  await command(['chown','-R','zhudatuan:zhudatuan',runtime,objectEnvironment.LOCAL_OBJECTS_DIRECTORY]);
+  // Install the existing unit definitions; application activation is a later release.
+  const units = join(bootstrap, 'systemd');
+  for (const name of ['sfl-storefront@.service','sfl-identity-api@.service','sfl-web-api@.service','sfl-catalog-object-store@.service','sfl-secret-store@.service']) {
+    await copyFile(join(units, name), join('/etc/systemd/system', name));
+  }
+  if (!(await exists(join(root, 'current')))) await symlink('/opt/zhudatuan/current', join(root, 'current'));
+  const dropIn = join('/etc/systemd/system', `sfl-secret-store@${context.node}.service.d`);
+  await mkdir(dropIn, { recursive: true });
+  await writeFile(join(dropIn, 'instance.conf'), `[Service]
+WorkingDirectory=/opt/zhudatuan/current
+EnvironmentFile=${runtime}/secret-store.env
+ExecStart=
+ExecStart=/usr/bin/node /opt/zhudatuan/current/01_core_hexin/services/commerce/dist/LocalSecretsMain.js
+ExecStartPost=
+ExecStartPost=/usr/bin/curl --fail --silent --show-error --max-time 10 --cacert /opt/zhudatuan/shared/tls/internal-ca.crt https://127.0.0.1:${setup.secretPort}/health/ready
+`);
+  await command(['systemctl','daemon-reload']);
+  return {
+    schema: 'ai.delivery.database-migration-result.v1', sourceSha: manifest.sourceSha,
+    status: 'initialized', node: context.node,
+    database: { container, name: credentials.POSTGRES_DB, port: setup.port, dataDirectory: join(database,'data') },
+    environmentFiles: Object.keys(inputs).map((target) => join(runtime, `${target}.env`)),
+    migrationsApplied: false, credentialsReported: false,
+  };
+}
+
+function environmentText(values) {
+  return Object.entries(values).filter(([,value]) => value !== undefined)
+    .map(([key,value]) => `${key}=${JSON.stringify(String(value))}`).join('\n') + '\n';
+}
+
 async function executeDatabaseMigration(context, candidate, manifest) {
+  if (context.deployment.databaseMigration.initialize) {
+    const result = await initializeNodeDatabase(context, candidate, manifest);
+    return { ...result, restart: restartEvidence(context.deployment.restart, false) };
+  }
   const definition = context.deployment.databaseMigration;
   const executionRoot = resolve(required(definition.executionRoot, 'DATABASE_MIGRATION_EXECUTION_ROOT_REQUIRED'));
   const environmentFile = resolve(required(definition.environmentFile, 'DATABASE_MIGRATION_ENVIRONMENT_FILE_REQUIRED'));
