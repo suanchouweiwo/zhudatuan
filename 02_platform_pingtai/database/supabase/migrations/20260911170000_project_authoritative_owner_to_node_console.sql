@@ -5,8 +5,7 @@ select pg_advisory_xact_lock(hashtext('zhudatuan:authoritative-owner-node-consol
 do $precondition$
 begin
   if to_regprocedure('access.resolve_governance(text,text,text,text)') is null
-    or to_regprocedure('access.zhudatuan_operator_invitation_allowed(text,boolean)') is null
-    or not exists(select 1 from access.platformowner where singleton=true and state='active') then
+    or to_regprocedure('access.zhudatuan_operator_invitation_allowed(text,boolean)') is null then
     raise exception 'AUTHORITATIVE_OWNER_NODE_CONSOLE_PRECONDITION_INVALID';
   end if;
 end

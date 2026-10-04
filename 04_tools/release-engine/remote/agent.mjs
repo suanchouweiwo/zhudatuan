@@ -1593,7 +1593,14 @@ async function restart(definition = { kind: 'none', name: 'none' }) {
   try {
     await command(evidence.commands[0], { timeoutMs: 45_000 });
   } catch (error) {
-    throw failure('RESTART_COMMAND_FAILED', { restart: evidence, cause: errorEvidence(error) });
+    let serviceError = null;
+    if (normalized.kind === 'systemd') {
+      try {
+        const journal = await command(['journalctl','-u',normalized.name,'-n','18','--no-pager','-o','cat']);
+        serviceError = journal.stdout.split('\n').filter((line) => /Error:|\"error\":|failed/.test(line)).slice(-3).join('\n');
+      } catch {}
+    }
+    throw failure('RESTART_COMMAND_FAILED', { restart: evidence, cause: errorEvidence(error), serviceError });
   }
   return evidence;
 }
