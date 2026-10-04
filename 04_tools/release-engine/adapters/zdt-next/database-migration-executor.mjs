@@ -176,7 +176,8 @@ async function initializeNodeBusiness() {
     const fact = {schema_version:'sfl.autonode-identity-realm-fact.v1',activation_request_id:`activation:${manifest.node_id}:initial`,
       provisioning_request_id:`provisioning:${manifest.node_id}:initial`,manifest_id:manifest.manifest_id,
       manifest_digest:manifest.manifest_digest,realm:expected.realms[0],entries:expected.entries,targets:expected.targets};
-    await client.query('select identity.provision_node_realm($1::jsonb)',[JSON.stringify(fact)]);
+    const provisioned = await client.query('select 1 from identity.nodeprovisioning where activation_request_id=$1',[fact.activation_request_id]);
+    if (provisioned.rowCount === 0) await client.query('select identity.provision_node_realm($1::jsonb)',[JSON.stringify(fact)]);
     await client.query('commit');
   } catch(error) { await client.query('rollback'); throw error; }
   finally { client.release(); await owner.end(); }

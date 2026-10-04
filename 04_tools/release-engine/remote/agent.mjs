@@ -1205,11 +1205,13 @@ async function executeDatabaseMigration(context, candidate, manifest) {
     let secretOverride = await readFile(dropIn, 'utf8');
     secretOverride = secretOverride.replaceAll('/opt/zhudatuan/current/01_core_hexin/services/commerce/dist/LocalSecretsMain.js', join(internal, 'LocalSecretsMain.js'))
       .replaceAll('/opt/zhudatuan/current', internal);
+    if (!secretOverride.includes('--retry-connrefused')) secretOverride = secretOverride.replace('--max-time 10', '--retry 20 --retry-connrefused --retry-delay 1 --max-time 10');
     await writeFile(dropIn, secretOverride);
     const objectFile = join(runtime, 'object-store.env');
     const objectStats = await lstat(objectFile);
     const objectEnv = parseEnvironmentFile(await readFile(objectFile, 'utf8'));
     const nodeManifest = await readJson(join(executionDirectory, 'node-runtime/manifest.json'));
+    objectEnv.LOCAL_OBJECTS_DIRECTORY = '/var/lib/sfl-' + context.node + '-objects';
     Object.assign(objectEnv, {
       NODE_MANIFEST_PATH: join(executionDirectory, 'node-runtime/manifest.json'), NODE_MANIFEST_ID: nodeManifest.manifest_id,
       NODE_MANIFEST_DIGEST: nodeManifest.manifest_digest, NODE_RUNTIME_INSTANCE_ID: nodeManifest.runtime_instance_id,
