@@ -949,17 +949,10 @@ async function initializeNodeDatabase(context, candidate, manifest) {
   }
   // The existing initializer creates these runtime roles without passwords for local use.
   // This instance consumes them over its own loopback database connection.
-  const sqlFile = join(database, 'runtime-roles.sql');
-  await writeFile(sqlFile, `alter role zhudatuanidentityapi login password '${credentials.ZHUDATUAN_IDENTITY_API_PASSWORD}';
+  const roleSql = `alter role zhudatuanidentityapi login password '${credentials.ZHUDATUAN_IDENTITY_API_PASSWORD}';
 alter role zhudatuanwebapi login password '${credentials.ZHUDATUAN_WEB_API_PASSWORD}';
-`, { mode: 0o600 });
-  await command(['docker','cp',sqlFile,`${container}:/tmp/lk-runtime-roles.sql`]);
-  try {
-    await command(['docker','exec',container,'psql','-X','-v','ON_ERROR_STOP=1','-U',credentials.POSTGRES_USER,'-d',credentials.POSTGRES_DB,'-f','/tmp/lk-runtime-roles.sql']);
-  } finally {
-    await command(['docker','exec',container,'rm','-f','/tmp/lk-runtime-roles.sql']);
-    await rm(sqlFile);
-  }
+`;
+  await command(['docker','exec','-i',container,'psql','-X','-v','ON_ERROR_STOP=1','-U',credentials.POSTGRES_USER,'-d',credentials.POSTGRES_DB], { input: roleSql });
   const sourceRoot = join('/opt/sfl/nodes', setup.environmentSource, 'runtime');
   const inputs = {};
   for (const target of ['identity-api','web-api','storefront']) {
@@ -1797,7 +1790,7 @@ async function command(argv, options = {}) {
     const child = spawn(argv[0], argv.slice(1), {
       shell: false,
       detached: useProcessGroup,
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: [options.input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'],
       ...(options.cwd ? { cwd: options.cwd } : {}),
       ...(options.env ? { env: options.env } : {}),
       ...(options.uid === undefined ? {} : { uid: options.uid }),
@@ -1829,6 +1822,10 @@ async function command(argv, options = {}) {
     const removeSignalHandlers = () => {
       for (const [signal, handler] of signalHandlers) process.off(signal, handler);
     };
+    if (options.input !== undefined) {
+      child.stdin.on('error', reject);
+      child.stdin.end(options.input);
+    }
     child.stdout.on('data', (chunk) => chunks.push(chunk));
     child.stderr.on('data', (chunk) => chunks.push(chunk));
     child.on('error', (error) => {
