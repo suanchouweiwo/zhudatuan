@@ -1773,7 +1773,7 @@ async function restart(definition = { kind: 'none', name: 'none' }) {
     if (evidence.kind === 'systemd') {
       try {
         const journal = await command(['journalctl','-u',evidence.target,'--since',restartAt,'-n','80','--no-pager','-o','cat']);
-        serviceError = journal.stdout.split('\n').filter((line) => /Error:|"error":|^error:|Warning:|unsettled|_TIMEOUT|_MISMATCH|_MISSING|_INVALID|_REQUIRED/i.test(line)).slice(-3).join('\n');
+        serviceError = journal.stdout.split('\n').filter((line) => /Error|Warning|curl:|unsettled|_TIMEOUT|_MISMATCH|_MISSING|_INVALID|_REQUIRED/i.test(line)).slice(-3).join('\n');
       } catch {}
       const instance = /^sfl-identity-api@(.+)\.service$/.exec(evidence.target)?.[1];
       if (instance) {
