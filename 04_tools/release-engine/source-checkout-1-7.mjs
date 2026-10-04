@@ -22,6 +22,8 @@ const commercePaths = [
   '/02_platform_pingtai/',
   '/03_quality_ceshi/',
   '/04_tools/release-engine/',
+  '/04_tools/scripts/provisioning/autonode-cloudflare.mjs',
+  '/04_tools/scripts/release/generate-sfl-node-gateway.mjs',
   '/04_tools/tools/*/package.json',
 ];
 
