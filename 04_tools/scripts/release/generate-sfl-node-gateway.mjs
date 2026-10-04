@@ -92,11 +92,12 @@ export function gatewayConfiguration(manifest, nodeRoot, ports, options = {}) {
   const apiHost = apiHosts[0];
   const allHosts = [...apiHosts, ...identityHosts, ...consoleHosts, ...storefrontHosts];
   if (new Set(allHosts).size !== allHosts.length) throw new Error('SFL_GATEWAY_DOMAIN_BINDINGS_AMBIGUOUS');
-  const proxy = (port) => `\t\treverse_proxy 127.0.0.1:${port} {\n\t\t\theader_up Host {http.request.host}\n\t\t\theader_up X-Real-IP {http.request.header.CF-Connecting-IP}\n\t\t\theader_up -X-Sfl-Node-Id\n\t\t\theader_up -X-Sfl-Node-Manifest-Id\n\t\t\theader_up -X-Sfl-Node-Surface\n\t\t\theader_up -X-Zdt-Identity-Entry-Host\n\t\t}`;
+  const loopback = options.httpLoopback === true;
+  const proxy = (port) => `\t\treverse_proxy 127.0.0.1:${port} {\n\t\t\theader_up Host {http.request.host}\n${loopback ? '\t\t\theader_up X-Forwarded-Proto https\n' : ''}\t\t\theader_up X-Real-IP {http.request.header.CF-Connecting-IP}\n\t\t\theader_up -X-Sfl-Node-Id\n\t\t\theader_up -X-Sfl-Node-Manifest-Id\n\t\t\theader_up -X-Sfl-Node-Surface\n\t\t\theader_up -X-Zdt-Identity-Entry-Host\n\t\t}`;
   return `# Generated from ${manifest.manifest_id} (${manifest.manifest_digest}). Do not hand edit.\n` +
 `{\n\tadmin off\n\tauto_https off\n}\n\n` +
-`https://:${ports.gateway} {\n` +
-`\ttls ${nodeRoot}/runtime/tls/origin.crt ${nodeRoot}/runtime/tls/origin.key\n\tencode gzip\n\n` +
+`${loopback ? 'http://:' : 'https://:'}${ports.gateway} {\n${loopback ? '\tbind 127.0.0.1\n' : ''}` +
+`${loopback ? '' : `\ttls ${nodeRoot}/runtime/tls/origin.crt ${nodeRoot}/runtime/tls/origin.key\n`}\tencode gzip\n\n` +
 `${manifest.node_id === 'node:zhudatuan:l0' && storefrontHosts.includes('zhudatuan.com') && storefrontHosts.includes('www.zhudatuan.com') ? '\t@storefrontCanonical host zhudatuan.com\n\thandle @storefrontCanonical {\n\t\tredir https://www.zhudatuan.com{uri} 308\n\t}\n\n' : ''}` +
 `\t@ordersReadPreflight {\n\t\thost ${apiHost}\n\t\tmethod OPTIONS\n\t\tpath /api/v1/orders /api/v1/orders/*\n\t\theader Access-Control-Request-Method GET\n\t}\n` +
 `\thandle @ordersReadPreflight {\n${proxy(ports.web)}\n\t}\n\n` +

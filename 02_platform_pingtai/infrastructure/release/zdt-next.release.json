@@ -384,7 +384,9 @@
         {"source":"02_platform_pingtai/database/contracts/history.json","destination":"database/contracts/history.json"},
         {"source":"02_platform_pingtai/infrastructure/local/postgres-init.sh","destination":"database/bootstrap/postgres-init.sh"},
         {"source":"02_platform_pingtai/infrastructure/zhudatuan/aliyun/registration-compose.yml","destination":"database/bootstrap/registration-compose.yml"},
-        {"source":"02_platform_pingtai/infrastructure/zhudatuan/aliyun/systemd","destination":"database/bootstrap/systemd"}
+        {"source":"02_platform_pingtai/infrastructure/zhudatuan/aliyun/systemd","destination":"database/bootstrap/systemd"},
+        {"source":"04_tools/scripts/provisioning/autonode-cloudflare.mjs","destination":"database/bootstrap/autonode-cloudflare.mjs"},
+        {"source":"04_tools/scripts/release/generate-sfl-node-gateway.mjs","destination":"database/bootstrap/generate-sfl-node-gateway.mjs"}
       ],
       "criticalFiles": ["executor/DatabaseMigrationExecutor.js","database/contracts/history.json"]
     }
@@ -711,6 +713,7 @@
     },
     "l0-2-l0": {
       "key": "l0-2-l0",
+      "ingress": true,
       "nodeId": "node:l0-2:l0",
       "realmId": "realm:l0-2",
       "manifest": "02_platform_pingtai/config/release-inputs/l0-2-l0/dist/config/node-manifests/l0-2-l0.json",

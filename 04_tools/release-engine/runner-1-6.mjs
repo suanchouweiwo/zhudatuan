@@ -217,7 +217,7 @@ async function deployTarget(adapter, controlRoot, publicClient, { target, node, 
         '--expected-remote-policy-sha256',
         `sha256:${policyHash}`,
       ]),
-      input: `${JSON.stringify({ artifactUrl: downloadClient.signGet(artifact.object), manifestUrl: downloadClient.signGet(runtimeManifest.object) })}\n`,
+      input: `${JSON.stringify({ artifactUrl: downloadClient.signGet(artifact.object), manifestUrl: downloadClient.signGet(runtimeManifest.object), ...(deployment.node.ingress && target === 'database-migration' ? { cloudflare: { apiToken: process.env.CLOUDFLARE_API_TOKEN, zoneId: process.env.CLOUDFLARE_ZONE_ID } } : {}) })}\n`,
       timeoutMs: transport.deployTimeoutMs ?? 10 * 60_000,
     },
     commandContext(adapter)
@@ -231,6 +231,7 @@ async function deployTarget(adapter, controlRoot, publicClient, { target, node, 
     previous: remote.result?.activation?.previous ?? null,
     health: remote.result?.activation?.readiness ?? null,
     recovery: remote.result?.activation?.rollback ?? null,
+    nodeIngress: remote.result?.activation?.receipt?.databaseMigration?.ingress ?? null,
     durationMs: result.durationMs,
   };
 }
