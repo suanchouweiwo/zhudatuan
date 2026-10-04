@@ -343,7 +343,7 @@ async function deployTarget(adapter, publicClient, { target, node, sourceSha, ru
     previous: remote.result?.activation?.previous ?? null,
     health: normalizeReadiness(remote.result?.activation?.readiness),
     recovery: remote.result?.activation?.rollback ?? null,
-    serviceStatus: remote.result?.activation?.targetProcess?.after ?? null,
+    serviceStatus: remote.result?.activation?.serviceStatus ?? null,
     nodeIngress: remote.result?.activation?.receipt?.databaseMigration?.ingress ?? null,
     databaseMigration: remote.result?.activation?.receipt?.databaseMigration ?? null,
     targetTimings: remote.result?.activation?.timings ?? null,

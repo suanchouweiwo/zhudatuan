@@ -650,7 +650,7 @@ async function activate(context, options) {
       throw failure('DATABASE_MIGRATION_FAILED', { cause: errorEvidence(migrationError), databaseMigration: receipt.databaseMigration, receipt });
     }
   }
-  if (previousCurrent === candidate) {
+  if (previousCurrent === candidate && targetProcessBefore !== '0') {
     const readiness = await waitForReadiness(context, { candidateDir: candidate, currentDir: candidate, ...contextSummary(context) });
     timings.health = readiness.durationMs;
     const isolationStarted = Date.now();
@@ -665,6 +665,7 @@ async function activate(context, options) {
       runtime: await pointer(root, 'runtime'),
       previous: await pointer(root, 'previous'),
       service: context.deployment.restart,
+      serviceStatus: await processState(context.deployment.restart),
       restart: activationRestart,
       readiness,
       targetProcess: { before: targetProcessBefore, after: await processId(context.deployment.restart) },
@@ -693,7 +694,7 @@ async function activate(context, options) {
   try {
     const cutoverStarted = Date.now();
     nodeRuntimeRecovery = await captureNodeRuntime(context, candidate);
-    if (previousCurrent) await atomicPointer(join(root, 'previous'), previousCurrent);
+    if (previousCurrent && previousCurrent !== candidate) await atomicPointer(join(root, 'previous'), previousCurrent);
     if (previousRuntime) await atomicPointer(join(root, 'previous-runtime'), previousRuntime);
     if (candidateRuntime) await atomicPointer(join(root, 'runtime'), candidateRuntime);
     await atomicPointer(join(root, 'current'), candidate);
@@ -849,8 +850,9 @@ async function activate(context, options) {
     alreadyCurrent: false,
     current: candidate,
     runtime: await pointer(root, 'runtime'),
-    previous: previousCurrent,
+    previous: await pointer(root, 'previous'),
     service: context.deployment.restart,
+    serviceStatus: await processState(context.deployment.restart),
     restart: activationRestart,
     readiness,
     cutoverMs: timings.cutover + timings.restart + timings.health + timings.isolation,
@@ -1724,9 +1726,9 @@ async function restart(definition = { kind: 'none', name: 'none' }) {
     await command(evidence.commands[0], { timeoutMs: 45_000 });
   } catch (error) {
     let serviceError = null;
-    if (normalized.kind === 'systemd') {
+    if (evidence.kind === 'systemd') {
       try {
-        const journal = await command(['journalctl','-u',normalized.name,'-n','18','--no-pager','-o','cat']);
+        const journal = await command(['journalctl','-u',evidence.target,'-n','18','--no-pager','-o','cat']);
         serviceError = journal.stdout.split('\n').filter((line) => /Error:|\"error\":|failed/.test(line)).slice(-3).join('\n');
       } catch {}
     }
