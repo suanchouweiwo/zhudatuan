@@ -167,7 +167,7 @@ export const ConsumerIdentityPage: React.FC<{
     );
   };
 
-  const organizationName = context?.organizationName ?? '宏泰甄选';
+  const organizationName = context?.organizationName ?? (brand === 'hongtai' ? '宏泰甄选' : 'MORVIA 主打团');
   const submitting = identityActions.isBusy(mode === 'login' ? 'consumer-login' : mode === 'register' ? 'consumer-register' : 'consumer-reset');
   const resetCodeBusy = identityActions.isBusy('consumer-reset-code');
   const maskedMobile = maskMobile(mobile);
@@ -192,7 +192,7 @@ export const ConsumerIdentityPage: React.FC<{
           ? `验证码已发送至 ${maskedMobile}，请完成身份验证`
           : recoveryStep === 'password'
             ? '手机号验证成功，请为会员账号设置一个新密码'
-            : '现在可以使用新密码登录宏泰甄选';
+            : `现在可以使用新密码登录${organizationName}`;
   const busyLabel = mode === 'login' ? '正在登录…' : mode === 'register' ? '正在创建账号…' : '正在重置密码…';
 
   return (

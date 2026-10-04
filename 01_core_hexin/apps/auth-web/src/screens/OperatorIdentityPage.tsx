@@ -249,7 +249,7 @@ export const OperatorIdentityPage: React.FC<Readonly<{
   const resetBusy = identityActions.isBusy('operator-reset');
   const modeTitle = mode === 'login' ? '欢迎回来' : mode === 'register' ? '加入运营团队' : '找回账号访问';
   const modeDescription = mode === 'login'
-    ? '使用宏泰甄选运营账号进入工作台'
+    ? `使用${productName}运营账号进入工作台`
     : mode === 'register'
       ? '通过企业邀请码开通独立管理员身份'
       : '验证绑定手机号后重新设置密码';
