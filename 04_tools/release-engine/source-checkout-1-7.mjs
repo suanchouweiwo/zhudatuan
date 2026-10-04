@@ -26,6 +26,9 @@ const commercePaths = [
   '/04_tools/scripts/release/generate-sfl-node-gateway.mjs',
   '/04_tools/scripts/release/generate-node-manifests.mjs',
   '/04_tools/tools/*/package.json',
+  '/04_tools/tools/localsecrets/',
+  '/04_tools/tools/localobjects/',
+  '/04_tools/tools/localinfra/',
 ];
 
 export function sourceCheckoutPaths(target, targets, instancePath = '') {

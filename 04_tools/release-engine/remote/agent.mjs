@@ -1172,7 +1172,6 @@ async function executeDatabaseMigration(context, candidate, manifest) {
     alter database "${credentials.POSTGRES_DB}" owner to shopmigration;
     `;
     await command(['docker','exec','-i',`${context.node}-postgres`,'psql','-U',credentials.POSTGRES_USER,'-d',credentials.POSTGRES_DB,'-v','ON_ERROR_STOP=1'],{input:sql});
-    await command(['systemctl','start',`sfl-secret-store@${context.node}.service`,`sfl-catalog-object-store@${context.node}.service`]);
   }
   const executionRoot = resolve(required(definition.executionRoot, 'DATABASE_MIGRATION_EXECUTION_ROOT_REQUIRED'));
   const environmentFile = resolve(required(definition.environmentFile, 'DATABASE_MIGRATION_ENVIRONMENT_FILE_REQUIRED'));
@@ -1197,6 +1196,44 @@ async function executeDatabaseMigration(context, candidate, manifest) {
   }
   await chmod(executionDirectory, 0o755);
   if (definition.initialize?.applyBusiness) await command(['chown','-R',`${definition.runtimeUser}:${definition.runtimeGroup}`,executionDirectory]);
+  if (definition.initialize?.applyBusiness) {
+    const setup = definition.initialize;
+    const nodeRoot = join('/opt/sfl/nodes', context.node);
+    const runtime = join(nodeRoot, 'runtime');
+    const internal = join(runtime, 'internal');
+    await atomicPointer(internal, join(executionDirectory, 'executor'));
+    for (const name of ['sfl-secret-store', 'sfl-catalog-object-store']) {
+      let unit = await readFile(join(candidate, 'database/bootstrap/systemd', `${name}@.service`), 'utf8');
+      unit = unit.replaceAll('/opt/sfl/nodes/%i/current', '/opt/sfl/nodes/%i/runtime/internal')
+        .replaceAll('01_core_hexin/services/commerce/dist/', '');
+      await writeFile(join('/etc/systemd/system', `${name}@${context.node}.service`), unit);
+    }
+    const dropIn = join('/etc/systemd/system', `sfl-secret-store@${context.node}.service.d/instance.conf`);
+    let secretOverride = await readFile(dropIn, 'utf8');
+    secretOverride = secretOverride.replaceAll('/opt/zhudatuan/current/01_core_hexin/services/commerce/dist/LocalSecretsMain.js', join(internal, 'LocalSecretsMain.js'))
+      .replaceAll('/opt/zhudatuan/current', internal);
+    await writeFile(dropIn, secretOverride);
+    const objectFile = join(runtime, 'object-store.env');
+    const objectStats = await lstat(objectFile);
+    const objectEnv = parseEnvironmentFile(await readFile(objectFile, 'utf8'));
+    const nodeManifest = await readJson(join(executionDirectory, 'node-runtime/manifest.json'));
+    Object.assign(objectEnv, {
+      NODE_MANIFEST_PATH: join(executionDirectory, 'node-runtime/manifest.json'), NODE_MANIFEST_ID: nodeManifest.manifest_id,
+      NODE_MANIFEST_DIGEST: nodeManifest.manifest_digest, NODE_RUNTIME_INSTANCE_ID: nodeManifest.runtime_instance_id,
+      NODE_RUNTIME_CONFIG_REF: nodeManifest.runtime_config_ref.ref,
+      NODE_RESOURCE_BINDING_VERSION: nodeManifest.resource_binding_set_ref.version,
+      NODE_RELEASE_POINTER_REF: nodeManifest.release_pointer_ref.ref,
+    });
+    await writeFile(objectFile, environmentText(objectEnv));
+    await chmod(objectFile, objectStats.mode & 0o777);
+    await command(['chown', `${objectStats.uid}:${objectStats.gid}`, objectFile]);
+    await command(['systemctl', 'daemon-reload']);
+    for (const name of ['sfl-secret-store', 'sfl-catalog-object-store']) {
+      const service = `${name}@${context.node}.service`;
+      await command(['systemctl', 'enable', service]);
+      await restart({kind:'systemd',name:service});
+    }
+  }
   const runner = resolve(executionDirectory, definition.runner);
   const migrationDirectory = resolve(executionDirectory, definition.migrationDirectory);
   assert(runner.startsWith(`${executionDirectory}/`) && migrationDirectory.startsWith(`${executionDirectory}/`), 'DATABASE_MIGRATION_EXECUTION_PATH_UNSAFE', { runner, migrationDirectory });

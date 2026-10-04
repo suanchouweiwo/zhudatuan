@@ -381,6 +381,9 @@
       "artifactInputs": [
         {"source":"01_core_hexin/services/commerce/dist/DatabaseMigrationExecutor.js","destination":"executor/DatabaseMigrationExecutor.js"},
         {"source":"01_core_hexin/services/commerce/dist/DatabaseMigrationExecutor.js.map","destination":"executor/DatabaseMigrationExecutor.js.map"},
+        {"source":"01_core_hexin/services/commerce/dist/LocalSecretsMain.js","destination":"executor/LocalSecretsMain.js"},
+        {"source":"01_core_hexin/services/commerce/dist/LocalObjectsMain.js","destination":"executor/LocalObjectsMain.js"},
+        {"source":"01_core_hexin/services/commerce/dist/CatalogObjectStoreReadyMain.js","destination":"executor/CatalogObjectStoreReadyMain.js"},
         {"source":"02_platform_pingtai/database/supabase/migrations","destination":"database/supabase/migrations"},
         {"source":"02_platform_pingtai/database/contracts/history.json","destination":"database/contracts/history.json"},
         {"source":"02_platform_pingtai/infrastructure/local/postgres-init.sh","destination":"database/bootstrap/postgres-init.sh"},
