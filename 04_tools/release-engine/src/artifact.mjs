@@ -341,7 +341,7 @@ function artifactInputSource(adapter, targetId, path) {
 }
 
 async function materializeInstanceRuntime(adapter, targetId, destination) {
-  if (!adapter.instanceRoot || !['console', 'auth-web', 'storefront', 'identity-api', 'web-api'].includes(targetId)) return;
+  if (!adapter.instanceRoot || !['console', 'auth-web', 'storefront', 'identity-api', 'web-api', 'database-migration'].includes(targetId)) return;
   const configDirectory = resolve(adapter.instanceRoot, 'dist/config/targets', targetId);
   const declaration = JSON.parse(await readFile(resolve(adapter.instanceRoot, 'sfl-node-registry.declaration.json'), 'utf8'));
   const binding = declaration.node_bindings.find((entry) =>
