@@ -77,7 +77,7 @@ set search_path=pg_catalog,pg_temp as $function$
     and session.access_version=membership.access_version and session.client=membership.client
 $function$;
 
-alter function identity.resolve_session(text,text) owner to shopmigration;
+alter function identity.resolve_session(text,text) owner to zhudatuanroot;
 revoke all on function identity.resolve_session(text,text) from public;
 grant execute on function identity.resolve_session(text,text)
   to shopapp,zhudatuanidentityapi,shopconsole,zhudatuanwebapi,zhudatuanpurchaseapi,zhudatuanprovisioningapi;

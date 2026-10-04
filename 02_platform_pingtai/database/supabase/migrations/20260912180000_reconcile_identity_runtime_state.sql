@@ -40,7 +40,7 @@ on conflict(realm_id,target) do nothing;
 alter function identity.realm_contains_account_realm(text,text) owner to shopmigration;
 alter function identity.project_member_realm_targets() owner to shopmigration;
 alter function identity.resolve_active_membership_context(text,text,text) owner to shopmigration;
-alter function identity.resolve_session(text,text) owner to shopmigration;
+alter function identity.resolve_session(text,text) owner to zhudatuanroot;
 
 revoke all on function identity.realm_contains_account_realm(text,text) from public;
 revoke all on function identity.project_member_realm_targets() from public;
