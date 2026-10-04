@@ -2,7 +2,7 @@ import type { AuthTarget } from '@shop/config/server';
 import { reject, type OperationDatabase } from '../../../../foundation/application/ModuleOperations';
 import { csrfCookieName, sessionCookieName } from '../../../../foundation/security/AuthSessionCookies';
 
-export const SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
+export { authMembershipTarget, authTarget, SESSION_MAX_AGE_SECONDS } from '@shop/l-kernel/login';
 
 export function sessionCookies(token: string, csrf: string, maxAge: number, target?: AuthTarget): Readonly<Record<string, string>> {
   const expiry = maxAge === 0 ? '; Expires=Thu, 01 Jan 1970 00:00:00 GMT' : '';
@@ -12,16 +12,6 @@ export function sessionCookies(token: string, csrf: string, maxAge: number, targ
     'set-cookie': `${sessionName}=${encodeURIComponent(token)}; Path=/; Max-Age=${maxAge}; Secure; HttpOnly; SameSite=Lax${expiry}`,
     'x-set-cookie': `${csrfName}=${encodeURIComponent(csrf)}; Path=/; Max-Age=${maxAge}; Secure; SameSite=Strict${expiry}`,
   });
-}
-
-export function authTarget(value: string): AuthTarget {
-  const target = value === 'operator' ? 'console' : value;
-  if (!['console', 'storefront', 'store', 'supplier'].includes(target)) throw new Error('AUTH_RETURN_TARGET_INVALID');
-  return target as AuthTarget;
-}
-
-export function authMembershipTarget(target: AuthTarget): AuthTarget {
-  return target;
 }
 
 export async function consumeChallenge(database: OperationDatabase, challenge: string, code: string,

@@ -6,6 +6,7 @@
   "sideEffects": false,
   "exports": {
     "./arch": "./src/arch/ArchBoard.ts",
+    "./login": "./src/login/index.ts",
     "./hosted-mall-opening": "./src/member/HostedMallOpening.ts",
     "./hosted-node-provisioning": "./src/node/HostedNodeProvisioning.ts",
     "./member-node-registration": "./src/member/MemberNodeRegistration.ts",
@@ -15,6 +16,9 @@
     "./node-parsing": "./src/node/NodeParsing.ts",
     "./node-topology": "./src/node/NodeTopology.ts",
     "./signed-level": "./src/node/SignedLevel.ts"
+  },
+  "dependencies": {
+    "@shop/contract": "1.0.0"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

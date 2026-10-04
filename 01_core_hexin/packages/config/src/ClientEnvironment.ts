@@ -2,7 +2,7 @@ import { browserEnvironment, pickEnvironment, requiredValue, type EnvironmentSou
 import { IDENTITY_NODE_MANIFEST } from './IdentityNodeManifest';
 
 export const CLIENT_ENVIRONMENT_KEYS = ['VITE_API_BASE_URL', 'VITE_AUTH_BASE_URL', 'VITE_CLIENT_VERSION'] as const;
-export type AuthTarget = 'console' | 'storefront' | 'store' | 'supplier';
+export type { AuthTarget } from '@shop/l-kernel/login';
 
 export interface ClientEnvironment {
   readonly apiBaseUrl: string;
