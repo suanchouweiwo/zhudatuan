@@ -1736,6 +1736,12 @@ async function restart(definition = { kind: 'none', name: 'none' }) {
         const journal = await command(['journalctl','-u',evidence.target,'-n','80','--no-pager','-o','cat']);
         serviceError = journal.stdout.split('\n').filter((line) => /Error:|"error":|^error:|_TIMEOUT|_MISMATCH|_MISSING|_INVALID|_REQUIRED/i.test(line)).slice(-3).join('\n');
       } catch {}
+      const instance = /^sfl-identity-api@(.+)\.service$/.exec(evidence.target)?.[1];
+      if (instance) {
+        const env = parseEnvironmentFile(await readFile(join('/opt/sfl/nodes', instance, 'runtime/identity-api.env'), 'utf8'));
+        const runtimeManifest = await readJson(env.NODE_MANIFEST_PATH);
+        serviceError += '\n' + JSON.stringify({actualOrigins: env.API_ALLOWED_ORIGINS, expectedOrigins: runtimeManifest?.domain_bindings?.filter((binding) => binding.surface_ref !== 'surface:api').map((binding) => 'https://' + binding.host), manifestPath: env.NODE_MANIFEST_PATH});
+      }
     }
     throw failure('RESTART_COMMAND_FAILED', { restart: evidence, cause: errorEvidence(error), serviceError });
   }
