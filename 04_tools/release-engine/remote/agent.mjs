@@ -1057,7 +1057,7 @@ alter role zhudatuanwebapi login password '${credentials.ZHUDATUAN_WEB_API_PASSW
       env.DATABASE_API_CONNECTION_REF = `${prefix}/database/${target}`;
       env.DATABASE_API_ROLE = target === 'identity-api' ? 'zhudatuanidentityapi' : 'zhudatuanwebapi';
       env.SECRET_STORE_ENDPOINT = `https://127.0.0.1:${setup.secretPort}`;
-      env.OBJECT_STORE_ENDPOINT = `https://127.0.0.1:${setup.objectPort}`;
+      if (target === 'identity-api') env.OBJECT_STORE_ENDPOINT = `https://127.0.0.1:${setup.objectPort}`;
     } else {
       env.STOREFRONT_PORT = String(setup.servicePorts.storefront);
       env.STOREFRONT_HOST = '127.0.0.1';
@@ -1474,10 +1474,11 @@ async function installNodeRuntime(context, release) {
     const pending = new Set(Object.keys(updates));
     const lines = before.split(/\r?\n/).map((line) => {
       const key = /^\s*(?:export\s+)?([A-Z0-9_]+)\s*=/.exec(line)?.[1];
+      if (context.target === 'web-api' && ['OBJECT_STORE_ENDPOINT','OBJECT_STORE_BEARER_TOKEN'].includes(key)) return null;
       if (!Object.hasOwn(updates, key ?? '')) return line;
       pending.delete(key);
       return environmentAssignment(key, updates[key]);
-    });
+    }).filter((line) => line !== null);
     while (lines.at(-1) === '') lines.pop();
     for (const key of pending) lines.push(environmentAssignment(key, updates[key]));
     await writeNodeRuntimeFile(path, `${lines.join('\n')}\n`, stats);
