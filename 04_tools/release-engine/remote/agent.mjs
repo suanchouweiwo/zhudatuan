@@ -1053,7 +1053,7 @@ alter role zhudatuanwebapi login password '${credentials.ZHUDATUAN_WEB_API_PASSW
     });
     if (target !== 'storefront') {
       env.API_PORT = String(setup.servicePorts[target]);
-      env.API_ALLOWED_ORIGINS = [origins.accounts, origins.console, origins.storefront].filter(Boolean).join(',');
+      env.API_ALLOWED_ORIGINS = [origins.identity, origins.console, origins.storefront].filter(Boolean).join(',');
       env.DATABASE_API_CONNECTION_REF = `${prefix}/database/${target}`;
       env.DATABASE_API_ROLE = target === 'identity-api' ? 'zhudatuanidentityapi' : 'zhudatuanwebapi';
       env.SECRET_STORE_ENDPOINT = `https://127.0.0.1:${setup.secretPort}`;
@@ -1731,8 +1731,8 @@ async function restart(definition = { kind: 'none', name: 'none' }) {
     let serviceError = null;
     if (evidence.kind === 'systemd') {
       try {
-        const journal = await command(['journalctl','-u',evidence.target,'-n','18','--no-pager','-o','cat']);
-        serviceError = journal.stdout.split('\n').filter((line) => /Error:|\"error\":|failed/.test(line)).slice(-3).join('\n');
+        const journal = await command(['journalctl','-u',evidence.target,'-n','80','--no-pager','-o','cat']);
+        serviceError = journal.stdout.split('\n').filter((line) => /error|failed|exception|_TIMEOUT|_MISMATCH|_MISSING|_INVALID/i.test(line)).slice(-3).join('\n');
       } catch {}
     }
     throw failure('RESTART_COMMAND_FAILED', { restart: evidence, cause: errorEvidence(error), serviceError });
