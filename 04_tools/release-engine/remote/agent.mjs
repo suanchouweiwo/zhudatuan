@@ -905,7 +905,7 @@ async function initializeNodeIngress(context, candidate, artifact) {
   const runtime = join(root, 'runtime');
   const bootstrap = join(candidate, 'database/bootstrap');
   const credentials = parseEnvironmentFile(await readFile(join(root, 'database/postgres.env'), 'utf8'));
-  const nodeManifest = await readJson(join(root, 'manifest.json'));
+  const nodeManifest = await readJson(join(candidate, 'node-runtime/manifest.json'));
   const apiToken = context.cloudflare?.apiToken?.trim();
   if (!apiToken) throw new Error('CLOUDFLARE_INGRESS_CREDENTIALS_MISSING');
   const zoneResponse = await fetch(`https://api.cloudflare.com/client/v4/zones?name=${encodeURIComponent(setup.zoneName)}`, {
