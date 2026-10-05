@@ -449,9 +449,37 @@ async function status(adapter, sourceSha) {
   }));
   const targets = placements.map(({ target, node }) => observedTarget(sourceSha, target, node, observations.get(`${node}:${target}`)));
   const currentTargets = targets.filter((target) => ['HEALTHY', 'CURRENT'].includes(target.state));
+  const cloudflare = process.env.ZDT_CLOUDFLARE_DOMAIN?.trim() ? await observeCloudflareDomain() : undefined;
   const durationMs = Math.round(performance.now() - startedAt);
   progress('complete', { sourceSha, operation: 'status', state: 'OBSERVED', durationMs });
-  return { state: 'OBSERVED', scope: 'all-configured-placements', releaseId: sourceSha ? `r16-${sourceSha}` : null, sourceSha, controlSha: process.env.CONTROL_SHA, executor: executor(), durationMs, currentTargetCount: currentTargets.length, targets };
+  return { state: 'OBSERVED', scope: 'all-configured-placements', releaseId: sourceSha ? `r16-${sourceSha}` : null, sourceSha, controlSha: process.env.CONTROL_SHA, executor: executor(), durationMs, currentTargetCount: currentTargets.length, targets, cloudflare };
+}
+
+async function observeCloudflareDomain() {
+  const domain = process.env.ZDT_CLOUDFLARE_DOMAIN.trim();
+  const actualZone = process.env.ZDT_CLOUDFLARE_ZONE?.trim();
+  const configuredZone = process.env.CLOUDFLARE_ZONE_ID?.trim();
+  const token = process.env.CLOUDFLARE_API_TOKEN?.trim();
+  if (!token) return { domain, credentialPresent: false };
+  const request = async (path, summarize) => {
+    try {
+      const response = await fetch(`https://api.cloudflare.com/client/v4/${path}`, {
+        headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(20000),
+      });
+      const body = await response.json();
+      return { httpStatus: response.status, success: body.success, errors: body.errors,
+        result: body.success ? summarize(body.result) : null };
+    } catch (error) { return { networkError: error.cause?.code ?? error.code ?? error.name }; }
+  };
+  const zoneSummary = (zone) => ({ name: zone.name, status: zone.status });
+  const [verification, lookup, configured, actual] = await Promise.all([
+    request('user/tokens/verify', (value) => ({ status: value.status })),
+    request(`zones?name=${encodeURIComponent(domain)}`, (zones) => zones.map(zoneSummary)),
+    configuredZone ? request(`zones/${encodeURIComponent(configuredZone)}`, zoneSummary) : null,
+    actualZone ? request(`zones/${encodeURIComponent(actualZone)}`, zoneSummary) : null,
+  ]);
+  return { domain, credentialPresent: true, configuredZoneMatchesActual: actualZone ? configuredZone === actualZone : null,
+    verification, lookup, configured, actual };
 }
 
 export function observedTarget(sourceSha, target, node, observation) {
