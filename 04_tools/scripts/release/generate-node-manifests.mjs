@@ -16,6 +16,8 @@
 import { copyFile, cp, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { execFile, spawn } from 'node:child_process';
+import { promisify } from 'node:util';
 
 import {
   materializeNodeManifestRegistryDeclaration,
@@ -32,7 +34,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const options = parseArguments(process.argv.slice(2));
 const instanceRegistry = options.instanceRoot === null ? SFL_NODE_REGISTRY
   : JSON.parse(await readFile(resolve(options.instanceRoot, 'sfl-node-registry.declaration.json'), 'utf8'));
-if (options.domainFile !== null || options.domain !== null) await updateInstanceDomains();
+if (options.domainFile !== null || options.domain !== null || options.restoreDomain) await updateInstanceDomains();
 const declaration = options.instanceRoot === null ? SFL_NODE_MANIFEST_REGISTRY_DECLARATION : {
   registry_version: instanceRegistry.registry_version,
   generated_at: instanceRegistry.generated_at,
@@ -107,6 +109,7 @@ if (options.instanceRoot !== null && !checking) {
 }
 
 console.log(`SFL NodeManifest ${options.releaseEvidence === null ? 'declaration projection' : 'release evidence'} verified: ${registry.manifests.length} nodes, registry ${registry.registry_version}.`);
+if (options.publish) await publishInstanceDomains();
 
 function parseArguments(values) {
   const optionalArguments = new Map([
@@ -119,11 +122,15 @@ function parseArguments(values) {
     ['--node-id', 'nodeId'],
   ]);
   const options = { instanceRoot: null, releaseInputOutput: null, assembleOutput: null, controlRoot: root,
-    domainFile: null, domain: null, nodeId: null };
+    domainFile: null, domain: null, nodeId: null, restoreDomain: false, publish: false };
   const manifestArguments = [];
   const seen = new Set();
   for (let index = 0; index < values.length; index += 1) {
     const key = values[index];
+    if (key === '--restore-domain' || key === '--publish') {
+      options[key === '--publish' ? 'publish' : 'restoreDomain'] = true;
+      continue;
+    }
     const option = optionalArguments.get(key);
     if (option === undefined) {
       manifestArguments.push(key);
@@ -158,7 +165,15 @@ async function updateInstanceDomains() {
   if (options.instanceRoot === null || options.checking || options.releaseEvidence !== null) {
     throw new Error('Domain editing requires an instance declaration generation.');
   }
-  const text = options.domain ?? (await readFile(options.domainFile, 'utf8')).replace(/^\uFEFF/, '').trim();
+  let text;
+  if (options.restoreDomain) {
+    const previous = await optionalJson(resolve(options.instanceRoot, 'dist/config/previous-domain-inputs/sfl-node-registry.declaration.json'));
+    if (!previous) throw new Error('没有可恢复的原域名配置。');
+    const oldBinding = previous.node_bindings.find((item) => item.node_id === options.nodeId) ?? previous.node_bindings[0];
+    const oldManifest = previous.manifests.find((item) => item.node_id === oldBinding.node_id);
+    text = oldManifest.domain_bindings.filter((item) => ['surface:storefront','surface:console','surface:identity','surface:api'].includes(item.surface_ref))
+      .map((item) => `${item.surface_ref.slice('surface:'.length)}=${item.host}`).join('\n');
+  } else text = options.domain ?? (await readFile(options.domainFile, 'utf8')).replace(/^\uFEFF/, '').trim();
   const lines = text.split(/\r?\n/).map((line) => line.trim()).filter((line) => line && !line.startsWith('#'));
   const custom = Object.fromEntries(lines.filter((line) => line.includes('=')).map((line) => {
     const index = line.indexOf('='); return [line.slice(0, index).trim(), line.slice(index + 1).trim()];
@@ -221,11 +236,76 @@ async function updateInstanceDomains() {
   manifest.manifest_revision += 1;
   manifest.generated_at = instanceRegistry.generated_at = new Date().toISOString();
   await writeJson(files[0], instanceRegistry);
+  if (options.restoreDomain && options.domainFile) await writeFile(options.domainFile, `${text}\n`);
   // Old build metadata cannot describe the newly edited declaration.
   for (const name of ['console-runtime.json', 'identity-runtime.json']) {
     await rm(resolve(options.instanceRoot, 'dist/config', name), { force: true });
   }
   console.log(`实例域名已修改：${domain}；原配置保存在 dist/config/previous-domain-inputs。`);
+}
+
+async function publishInstanceDomains() {
+  if (!options.instanceRoot || !options.releaseInputOutput) throw new Error('发布域名需要实例目录与发布输入目录。');
+  const execute = promisify(execFile);
+  const git = async (...args) => (await execute('git', args, { cwd: root, maxBuffer: 20_000_000 })).stdout.trim();
+  const gh = async (...args) => (await execute('gh', args, { cwd: root, maxBuffer: 20_000_000 })).stdout.trim();
+  const input = options.releaseInputOutput;
+  const paths = ['sfl-node-registry.declaration.json', '.env.local'].map((name) => resolve(input, name));
+  if (await git('diff', 'HEAD', '--', ...paths)) {
+    await git('add', '-f', '--', ...paths);
+    await git('commit', '--only', '-m', `Update instance domains: ${instanceRegistry.manifests[0].node_id}`, '--', ...paths);
+  }
+  const sourceSha = await git('rev-parse', 'HEAD');
+  const branch = await git('branch', '--show-current');
+  const repository = JSON.parse(await gh('repo', 'view', '--json', 'nameWithOwner')).nameWithOwner;
+  const token = await gh('auth', 'token');
+  const api = async (method, path, body) => {
+    const response = await fetch(`https://api.github.com/repos/${repository}/git/${path}`, {
+      method, headers: { authorization: `Bearer ${token}`, accept: 'application/vnd.github+json', 'content-type': 'application/json' },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(60000),
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(`GitHub 源码发布失败：${response.status} ${payload.message}`);
+    return payload;
+  };
+  const remote = await api('GET', `ref/heads/${branch}`);
+  const commits = (await git('rev-list', '--reverse', `${remote.object.sha}..${sourceSha}`)).split('\n').filter(Boolean);
+  for (const sha of commits) {
+    const parent = await git('rev-parse', `${sha}^`);
+    const names = (await git('-c', 'core.quotepath=false', 'diff-tree', '--no-commit-id', '--name-only', '-r', sha)).split('\n').filter(Boolean);
+    const entries = [];
+    for (const name of names) {
+      const line = await git('ls-tree', sha, '--', name);
+      if (!line) { entries.push({ path: name, mode: '100644', type: 'blob', sha: null }); continue; }
+      const [, mode, type, object] = /^(\d+) (\w+) ([a-f0-9]+)\t/.exec(line);
+      if (type === 'blob') {
+        const content = (await execute('git', ['cat-file', 'blob', object], { cwd: root, encoding: 'buffer', maxBuffer: 20_000_000 })).stdout;
+        await api('POST', 'blobs', { content: content.toString('base64'), encoding: 'base64' });
+      }
+      entries.push({ path: name, mode, type, sha: object });
+    }
+    const tree = await api('POST', 'trees', { base_tree: parent, tree: entries });
+    const metadata = (await execute('git', ['show', '-s', '--format=%an%x00%ae%x00%aI%x00%cn%x00%ce%x00%cI%x00%B', sha], { cwd: root })).stdout.split('\0');
+    const commit = await api('POST', 'commits', { tree: tree.sha, parents: [parent],
+      author: { name: metadata[0], email: metadata[1], date: metadata[2] },
+      committer: { name: metadata[3], email: metadata[4], date: metadata[5] }, message: metadata[6].replace(/\n$/, '') });
+    if (commit.sha !== sha) throw new Error(`GitHub 提交与本地提交不一致：${sha}`);
+  }
+  await api('PATCH', `refs/heads/${branch}`, { sha: sourceSha, force: false });
+  console.log(`实例公开配置已发布，Source ${sourceSha}。现在交给现有 Runner。`);
+  const manifest = instanceRegistry.manifests.find((item) => item.node_id === options.nodeId) ?? instanceRegistry.manifests[0];
+  const node = manifest.runtime_config_ref.ref.split('/')[2];
+  const targets = ['database-migration', 'identity-api', 'web-api', 'auth-web', 'console', 'storefront'];
+  const args = ['scripts/delivery-dispatch.sh', 'release', sourceSha, ...targets.flatMap((target) => [target, node])];
+  const bash = process.platform === 'win32' ? join(process.env.ProgramFiles ?? 'C:/Program Files', 'Git/bin/bash.exe') : 'bash';
+  const { relative } = await import('node:path');
+  const code = await new Promise((resolveCode, reject) => {
+    const child = spawn(bash, args, { cwd: options.controlRoot, stdio: 'inherit', env: { ...process.env,
+      ZDT_INSTANCE_PATH: relative(root, input).replaceAll('\\', '/'), ZDT_DOMAIN_SWITCH: 'true',
+      ZDT_DELIVERY_STARTED_MS: String(Date.now()), MSYS2_ARG_CONV_EXCL: '/scripts/' } });
+    child.on('error', reject); child.on('close', resolveCode);
+  });
+  if (code !== 0) throw new Error(`Runner 未完成（${code}）；保留本次 Source，可沿现有 Runner 重试。`);
 }
 
 async function writeInstanceRuntime(configDirectory, identityProjection) {
