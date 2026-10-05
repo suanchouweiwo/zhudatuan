@@ -1160,17 +1160,12 @@ async function executeDatabaseMigration(context, candidate, manifest) {
     const nodeManifest = await readJson(join(candidate, 'node-runtime/manifest.json'));
     const projection = await readJson(join(candidate, 'node-runtime/identity-node-projection.json'));
     const node = projection.nodes.find((item) => item.nodeId === nodeManifest.node_id);
-    const current = await pointer(context.deployment.pointerRoot, 'current');
-    const oldProjection = current ? await readJson(join(current, 'node-runtime/identity-node-projection.json')) : null;
-    const oldNode = oldProjection?.nodes.find((item) => item.nodeId === node.nodeId);
     const credentials = parseEnvironmentFile(await readFile(context.deployment.databaseMigration.credentialFile, 'utf8'));
     const literal = (value) => `'${String(value).replaceAll("'", "''")}'`;
     const realm = literal(node.realmId);
     const hosts = new Set(node.entries.map((entry) => entry.host));
-    const statements = ['begin;'];
-    for (const entry of oldNode?.entries ?? []) {
-      if (!hosts.has(entry.host)) statements.push(`delete from identity.realmentry where realm_id=${realm} and host=${literal(entry.host)};`);
-    }
+    const statements = ['begin;', `delete from identity.realmentry where realm_id=${realm}
+      and host not in (${[...hosts].map(literal).join(',')});`];
     for (const entry of node.entries) statements.push(`insert into identity.realmentry(host,realm_id,kind,status,created_at)
       values(${literal(entry.host)},${realm},${literal(entry.kind)},${literal(entry.status)},now())
       on conflict(host) do update set kind=excluded.kind,status=excluded.status where identity.realmentry.realm_id=excluded.realm_id;`);
