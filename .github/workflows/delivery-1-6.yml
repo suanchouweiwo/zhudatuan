@@ -29,6 +29,11 @@ on:
         description: Optional read-only Cloudflare domain lookup during status
         required: false
         type: string
+      domain_switch:
+        description: Update this instance's existing domain bindings with the normal release
+        required: false
+        default: false
+        type: boolean
       cloudflare_zone:
         description: Optional actual Zone ID to compare with the saved release configuration
         required: false
@@ -144,6 +149,7 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
       ZDT_CLOUDFLARE_DOMAIN: ${{ inputs.cloudflare_domain }}
+      ZDT_DOMAIN_SWITCH: ${{ inputs.domain_switch }}
       ZDT_CLOUDFLARE_ZONE: ${{ inputs.cloudflare_zone }}
       ZDT_RELEASE_SSH_KEY: ${{ secrets.ZDT_RELEASE_SSH_KEY }}
       CONTROL_SHA: ${{ github.sha }}
@@ -235,6 +241,7 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
       ZDT_CLOUDFLARE_DOMAIN: ${{ inputs.cloudflare_domain }}
+      ZDT_DOMAIN_SWITCH: ${{ inputs.domain_switch }}
       ZDT_CLOUDFLARE_ZONE: ${{ inputs.cloudflare_zone }}
       ZDT_RELEASE_SSH_KEY: ${{ secrets.ZDT_RELEASE_SSH_KEY }}
       CONTROL_SHA: ${{ github.sha }}

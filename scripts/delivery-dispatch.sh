@@ -57,6 +57,7 @@ dispatch_run() {
     -f operation="$operation" -f identifier="$identifier" -f release_target="$target" -f physical_node="$physical_node"
     -f execution_location="$execution_location" -f request_id="$request_id")
   if [ -n "$instance_path" ]; then dispatch_args+=(-f instance_path="$instance_path"); fi
+  if [ "${ZDT_DOMAIN_SWITCH:-}" = true ]; then dispatch_args+=(-f domain_switch=true); fi
   dispatch_output="$(gh "${dispatch_args[@]}")"
   [ -z "$dispatch_output" ] || printf '%s\n' "$dispatch_output"
   echo '状态：QUEUED'

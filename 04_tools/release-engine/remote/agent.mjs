@@ -372,8 +372,11 @@ async function prepareOssCandidate(context, options, direct) {
   const started = Date.now();
   const identity = artifactIdentity(context, options);
   const found = await lookup(context, options);
-  const ingressPayload = context.deployment.databaseMigration?.initialize?.ingress && !context.deployment.databaseMigration.initialize.applyBusiness ? await readStdinJson() : null;
-  if (ingressPayload) context.cloudflare = ingressPayload.cloudflare;
+  const ingressPayload = context.deployment.databaseMigration?.initialize?.ingress ? await readStdinJson() : null;
+  if (ingressPayload) {
+    context.cloudflare = ingressPayload.cloudflare;
+    context.domainSwitch = ingressPayload.domainSwitch === true;
+  }
   let staged;
   let downloadedBytes = 0;
   let downloadMs = 0;
@@ -908,13 +911,25 @@ async function initializeNodeIngress(context, candidate, artifact) {
   const nodeManifest = await readJson(join(candidate, 'node-runtime/manifest.json'));
   const apiToken = context.cloudflare?.apiToken?.trim();
   if (!apiToken) throw new Error('CLOUDFLARE_INGRESS_CREDENTIALS_MISSING');
-  const zoneResponse = await fetch(`https://api.cloudflare.com/client/v4/zones?name=${encodeURIComponent(setup.zoneName)}`, {
+  const zoneResponse = await fetch(`https://api.cloudflare.com/client/v4/zones?per_page=50`, {
     headers: { authorization: `Bearer ${apiToken}` }, signal: AbortSignal.timeout(30000),
   });
   const zone = await zoneResponse.json();
   if (!zoneResponse.ok || !zone.success) throw new Error(`CLOUDFLARE_ZONE_FAILED:${zoneResponse.status}:${JSON.stringify(zone.errors)}`);
-  const matchedZone = zone.result.find((item) => item.name === setup.zoneName);
-  if (!matchedZone) throw new Error(`CLOUDFLARE_ZONE_NOT_FOUND:${setup.zoneName}`);
+  const zones = [...zone.result];
+  for (let page = 2; page <= (zone.result_info?.total_pages ?? 1); page++) {
+    const response = await fetch(`https://api.cloudflare.com/client/v4/zones?per_page=50&page=${page}`, {
+      headers: { authorization: `Bearer ${apiToken}` }, signal: AbortSignal.timeout(30000),
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.success) throw new Error(`CLOUDFLARE_ZONE_FAILED:${response.status}`);
+    zones.push(...payload.result);
+  }
+  const zoneFor = (host) => zones.filter((item) => host === item.name || host.endsWith(`.${item.name}`))
+    .sort((a, b) => b.name.length - a.name.length)[0];
+  const primaryHost = nodeManifest.domain_bindings.find((item) => item.surface_ref === 'surface:storefront').host;
+  const matchedZone = zoneFor(primaryHost);
+  if (!matchedZone) throw new Error(`CLOUDFLARE_ZONE_NOT_FOUND:${primaryHost}`);
   const zoneId = matchedZone.id;
   const { AutoNodeCloudflareClient } = await import(pathToFileURL(join(bootstrap, 'autonode-cloudflare.mjs')).href);
   const { gatewayConfiguration } = await import(pathToFileURL(join(bootstrap, 'generate-sfl-node-gateway.mjs')).href);
@@ -955,7 +970,12 @@ async function initializeNodeIngress(context, candidate, artifact) {
     await command(['systemctl', 'restart', service]);
   }
   const records = [];
-  for (const host of hosts) records.push(await client.ensureCname(host, `${tunnel.id}.cfargotunnel.com`, `LK ${context.node}`));
+  for (const host of hosts) {
+    const hostZone = zoneFor(host);
+    if (!hostZone) throw new Error(`CLOUDFLARE_ZONE_NOT_FOUND:${host}`);
+    const dnsClient = new AutoNodeCloudflareClient({ accountId: hostZone.account.id, zoneId: hostZone.id, apiToken });
+    records.push(await dnsClient.ensureCname(host, `${tunnel.id}.cfargotunnel.com`, `LK ${context.node}`));
+  }
   const serviceState = (await command(['systemctl', 'is-active', ...services])).stdout.trim().split(/\s+/);
   const apiHost = nodeManifest.domain_bindings.find((binding) => binding.surface_ref === 'surface:api').host;
   const localResponse = await command(['curl', '--fail', '--silent', '--show-error', '--max-time', '10', '-H', `Host: ${apiHost}`, `http://127.0.0.1:${setup.ports.gateway}/health/gateway`]);
@@ -1136,6 +1156,33 @@ function environmentText(values) {
 }
 
 async function executeDatabaseMigration(context, candidate, manifest) {
+  if (context.domainSwitch) {
+    const nodeManifest = await readJson(join(candidate, 'node-runtime/manifest.json'));
+    const projection = await readJson(join(candidate, 'node-runtime/identity-node-projection.json'));
+    const node = projection.nodes.find((item) => item.nodeId === nodeManifest.node_id);
+    const current = await pointer(context.deployment.pointerRoot, 'current');
+    const oldProjection = current ? await readJson(join(current, 'node-runtime/identity-node-projection.json')) : null;
+    const oldNode = oldProjection?.nodes.find((item) => item.nodeId === node.nodeId);
+    const credentials = parseEnvironmentFile(await readFile(context.deployment.databaseMigration.credentialFile, 'utf8'));
+    const literal = (value) => `'${String(value).replaceAll("'", "''")}'`;
+    const realm = literal(node.realmId);
+    const hosts = new Set(node.entries.map((entry) => entry.host));
+    const statements = ['begin;'];
+    for (const entry of oldNode?.entries ?? []) {
+      if (!hosts.has(entry.host)) statements.push(`delete from identity.realmentry where realm_id=${realm} and host=${literal(entry.host)};`);
+    }
+    for (const entry of node.entries) statements.push(`insert into identity.realmentry(host,realm_id,kind,status,created_at)
+      values(${literal(entry.host)},${realm},${literal(entry.kind)},${literal(entry.status)},now())
+      on conflict(host) do update set kind=excluded.kind,status=excluded.status where identity.realmentry.realm_id=excluded.realm_id;`);
+    for (const target of node.targets) statements.push(`update identity.realmtarget set return_origin=${literal(target.returnOrigin)}
+      where realm_id=${realm} and target=${literal(target.target)};`);
+    statements.push('commit;');
+    await command(['docker','exec','-i',`${context.node}-postgres`,'psql','-X','-v','ON_ERROR_STOP=1',
+      '-U',credentials.POSTGRES_USER,'-d',credentials.POSTGRES_DB], { input: statements.join('\n') });
+    const ingress = await initializeNodeIngress(context, candidate, manifest);
+    return { ...ingress, status: 'domain-updated', realmId: node.realmId,
+      restart: restartEvidence(context.deployment.restart, false) };
+  }
   if (context.deployment.databaseMigration.initialize && !context.deployment.databaseMigration.initialize.applyBusiness) {
     const result = await initializeNodeDatabase(context, candidate, manifest);
     return { ...result, restart: restartEvidence(context.deployment.restart, false) };
@@ -1488,6 +1535,15 @@ async function installNodeRuntime(context, release) {
     };
     if (['identity-api', 'web-api'].includes(context.target)) {
       updates.API_ALLOWED_ORIGINS = manifest.domain_bindings.filter((binding) => binding.surface_ref !== 'surface:api').map((binding) => 'https://' + binding.host).join(',');
+    }
+    if (context.target === 'web-api') {
+      const projection = await readJson(join(release, 'node-runtime', 'identity-node-projection.json'));
+      const node = projection?.nodes?.find((entry) => entry.nodeId === manifest.node_id);
+      const storefrontTarget = node?.targets?.find((entry) => entry.surface === 'consumer');
+      if (storefrontTarget?.application) {
+        updates.PUBLIC_MALL_SLUG = storefrontTarget.application;
+        updates.PUBLIC_MALL_HOST_MAPPINGS = `${new URL(node.storefrontOrigin).hostname}=${storefrontTarget.application}`;
+      }
     }
     if (context.target === 'identity-api' && await exists(join(release, 'node-runtime', 'identity-runtime.json'))) {
       updates.NODE_IDENTITY_RUNTIME_PATH = join(activeRuntime, 'identity-runtime.json');
