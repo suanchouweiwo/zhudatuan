@@ -6,8 +6,8 @@ import { digest, prettyStableJson, sha256 } from './stable.mjs';
 
 export const SIMPLE_RELEASE_SCHEMA = 'ai.delivery.simple-release.v1';
 
-export function simpleReleaseObject(project, target, sourceSha) {
-  return `${project}/${target}/${sourceSha}/runner-1.6/release.json`;
+export function simpleReleaseObject(project, target, sourceSha, instanceCacheKey) {
+  return `${project}/${target}/${sourceSha}/runner-1.6/${instanceCacheKey ? `instances/${instanceCacheKey}/` : ''}release.json`;
 }
 
 export async function publishSimpleArtifacts(adapter, packagePath, client) {
@@ -20,7 +20,7 @@ export async function publishSimpleArtifacts(adapter, packagePath, client) {
     const archive = await readFile(artifact.archive.path);
     const manifestBody = await readFile(artifact.manifestPath);
     invariant(`sha256:${sha256(archive)}` === artifact.archive.sha256, 'SIMPLE_ARCHIVE_DIGEST_MISMATCH', 'Built archive digest differs');
-    const root = `${adapter.project}/${target}/${sourceSha}/runner-1.6`;
+    const root = `${adapter.project}/${target}/${sourceSha}/runner-1.6${adapter.instanceCacheKey ? `/instances/${adapter.instanceCacheKey}` : ''}`;
     const archiveObject = `${root}/artifacts/${artifact.archive.sha256.slice(7)}.tar.gz`;
     const manifestObject = `${root}/manifests/${sha256(manifestBody)}.json`;
     const objects = [await client.putContent(archiveObject, archive, 'application/gzip'), await client.putContent(manifestObject, manifestBody, 'application/json')];
@@ -34,7 +34,7 @@ export async function publishSimpleArtifacts(adapter, packagePath, client) {
       updatedAt: new Date().toISOString(),
     };
     const release = { ...value, releaseDigest: digest(value) };
-    await client.putObject(simpleReleaseObject(adapter.project, target, sourceSha), prettyStableJson(release), 'application/json');
+    await client.putObject(simpleReleaseObject(adapter.project, target, sourceSha, adapter.instanceCacheKey), prettyStableJson(release), 'application/json');
     published.push({ target, sourceSha, cacheStatus: objects.every((item) => item.status === 'reused') ? 'reused' : 'built', release });
   }
   return published;
@@ -43,7 +43,7 @@ export async function publishSimpleArtifacts(adapter, packagePath, client) {
 export async function resolveSimpleArtifact(adapter, { target, sourceSha }, client) {
   invariant(Boolean(adapter.targets[target]), 'SIMPLE_TARGET_UNKNOWN', `Unknown target ${target}`);
   invariant(/^[a-f0-9]{40}$/.test(sourceSha ?? ''), 'SIMPLE_SOURCE_SHA_INVALID', 'Source SHA must be a full lowercase Git SHA');
-  const object = simpleReleaseObject(adapter.project, target, sourceSha);
+  const object = simpleReleaseObject(adapter.project, target, sourceSha, adapter.instanceCacheKey);
   const body = await client.getObject(object, 'SIMPLE_ARTIFACT_NOT_FOUND');
   let release;
   try {

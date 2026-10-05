@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { dirname, isAbsolute, resolve } from 'node:path';
 
 import { invariant } from './errors.mjs';
+import { sha256 } from './stable.mjs';
 
 export const ADAPTER_SCHEMA = 'ai.delivery.project.v1';
 
@@ -84,6 +85,7 @@ async function bindInstance(adapter) {
   return {
     ...adapter,
     instanceRoot,
+    instanceCacheKey: sha256(JSON.stringify({ declaration, publicEnvironment })),
     targets,
     nodes,
     channels: Object.fromEntries(Object.entries(adapter.channels ?? {}).filter(([, channel]) => Boolean(nodes[channel.node]))),
