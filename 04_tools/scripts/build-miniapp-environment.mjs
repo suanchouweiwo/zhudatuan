@@ -17,7 +17,7 @@ if (instancePath) {
   const api = nodeDomainBinding(binding.node_id, binding.consumer_api_binding_ref, registry);
   const environment = { ...loadEnv('production', instanceRoot, ''), ...process.env };
   const runtime = miniappEnvironment({
-    apiBaseUrl: environment.VITE_API_BASE_URL ?? `https://${api.host}`,
+    apiBaseUrl: `https://${api.host}`,
     mallId: manifest.mall_id,
     clientVersion: environment.VITE_CLIENT_VERSION,
   });

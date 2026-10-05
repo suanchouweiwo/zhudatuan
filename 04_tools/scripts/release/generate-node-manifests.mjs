@@ -2,6 +2,9 @@
 //   node --import tsx 04_tools/scripts/release/generate-node-manifests.mjs [--check]
 // Instance declaration projection (outputs into the instance's dist/config/node-manifests):
 //   node --import tsx 04_tools/scripts/release/generate-node-manifests.mjs --instance-root <dir>
+// Edit instance domains and generate public inputs (does not deploy):
+//   node --import tsx 04_tools/scripts/release/generate-node-manifests.mjs \
+//     --instance-root <dir> --domain-file <file> --release-input-output <dir>
 // Public release input snapshot and reuse of existing local outputs:
 //   node --import tsx 04_tools/scripts/release/generate-node-manifests.mjs \
 //     --instance-root <dir> --release-input-output <dir> --assemble-output <dir>
@@ -29,6 +32,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const options = parseArguments(process.argv.slice(2));
 const instanceRegistry = options.instanceRoot === null ? SFL_NODE_REGISTRY
   : JSON.parse(await readFile(resolve(options.instanceRoot, 'sfl-node-registry.declaration.json'), 'utf8'));
+if (options.domainFile !== null || options.domain !== null) await updateInstanceDomains();
 const declaration = options.instanceRoot === null ? SFL_NODE_MANIFEST_REGISTRY_DECLARATION : {
   registry_version: instanceRegistry.registry_version,
   generated_at: instanceRegistry.generated_at,
@@ -41,7 +45,10 @@ const checking = options.checking;
 const consoleArtifact = options.instanceRoot === null ? null
   : await optionalJson(resolve(options.instanceRoot, 'dist/console/console-build.json'));
 const matchingConsoleArtifact = consoleArtifact !== null && (options.releaseEvidence === null
-  || consoleArtifact.source_sha === options.releaseEvidence.source_sha) ? consoleArtifact : null;
+  || consoleArtifact.source_sha === options.releaseEvidence.source_sha)
+  && instanceRegistry.manifests.every((manifest) => JSON.stringify(manifest.domain_bindings)
+    === JSON.stringify(consoleArtifact.node_manifest_registry?.manifests
+      ?.find((item) => item.node_id === manifest.node_id)?.domain_bindings)) ? consoleArtifact : null;
 const releaseEvidence = options.releaseEvidence === null || matchingConsoleArtifact === null
   ? options.releaseEvidence : {
     ...options.releaseEvidence,
@@ -83,6 +90,14 @@ if (options.instanceRoot !== null && !checking) {
   await mkdir(dirname(identityOutput), { recursive: true });
   await writeJson(identityOutput, identityProjection);
   await writeInstanceRuntime(configDirectory, identityProjection);
+  const { miniappEnvironment } = await import('../../../01_core_hexin/packages/config/src/MiniappEnvironment.ts');
+  const { loadEnv } = await import('vite');
+  const environment = loadEnv('production', options.instanceRoot, '');
+  await writeJson(resolve(configDirectory, 'miniapp-environment.json'), miniappEnvironment({
+    apiBaseUrl: publicDomainEnvironment().VITE_API_BASE_URL,
+    mallId: instanceRegistry.manifests[0].mall_id,
+    clientVersion: environment.VITE_CLIENT_VERSION ?? '0.0.0',
+  }));
   if (options.releaseInputOutput !== null) {
     await writeReleaseInputs(options.releaseInputOutput);
   }
@@ -99,8 +114,12 @@ function parseArguments(values) {
     ['--release-input-output', 'releaseInputOutput'],
     ['--assemble-output', 'assembleOutput'],
     ['--control-root', 'controlRoot'],
+    ['--domain-file', 'domainFile'],
+    ['--domain', 'domain'],
+    ['--node-id', 'nodeId'],
   ]);
-  const options = { instanceRoot: null, releaseInputOutput: null, assembleOutput: null, controlRoot: root };
+  const options = { instanceRoot: null, releaseInputOutput: null, assembleOutput: null, controlRoot: root,
+    domainFile: null, domain: null, nodeId: null };
   const manifestArguments = [];
   const seen = new Set();
   for (let index = 0; index < values.length; index += 1) {
@@ -115,9 +134,98 @@ function parseArguments(values) {
       throw new Error('NODE_MANIFEST_ARGUMENT_INVALID');
     }
     seen.add(key);
-    options[option] = resolve(value);
+    options[option] = ['domain', 'nodeId'].includes(option) ? value : resolve(value);
   }
   return Object.freeze({ ...parseManifestArguments(manifestArguments), ...options });
+}
+
+function publicDomainEnvironment() {
+  const binding = instanceRegistry.node_bindings.find((item) => item.node_id === options.nodeId)
+    ?? instanceRegistry.node_bindings[0];
+  const manifest = instanceRegistry.manifests.find((item) => item.node_id === binding.node_id);
+  const host = (ref) => manifest.domain_bindings.find((item) => item.binding_ref.ref === ref).host;
+  const storefront = host(binding.primary_storefront_binding_ref);
+  const api = `https://${host(binding.consumer_api_binding_ref)}`;
+  const identity = `https://${host(binding.console.identity_binding_ref)}`;
+  const application = binding.targets.find((item) => item.target === 'storefront')?.application;
+  return { VITE_API_BASE_URL: api, VITE_AUTH_BASE_URL: identity, COMMERCE_API_ORIGIN: api,
+    NEXT_PUBLIC_API_BASE_URL: api, NEXT_PUBLIC_AUTH_ORIGIN: identity,
+    NEXT_PUBLIC_STOREFRONT_HOSTNAME: storefront,
+    ...(application ? { NEXT_PUBLIC_STOREFRONT_APPLICATION: application } : {}) };
+}
+
+async function updateInstanceDomains() {
+  if (options.instanceRoot === null || options.checking || options.releaseEvidence !== null) {
+    throw new Error('Domain editing requires an instance declaration generation.');
+  }
+  const text = options.domain ?? (await readFile(options.domainFile, 'utf8')).replace(/^\uFEFF/, '').trim();
+  const lines = text.split(/\r?\n/).map((line) => line.trim()).filter((line) => line && !line.startsWith('#'));
+  const custom = Object.fromEntries(lines.filter((line) => line.includes('=')).map((line) => {
+    const index = line.indexOf('='); return [line.slice(0, index).trim(), line.slice(index + 1).trim()];
+  }));
+  const normalize = (value) => {
+    const url = new URL(value.includes('://') ? value : `https://${value}`);
+    if (!['http:', 'https:'].includes(url.protocol) || url.pathname !== '/' || url.search || url.hash || url.port || url.username || url.password) {
+      throw new Error('请填写域名，不要包含路径或端口。');
+    }
+    return url.hostname.toLowerCase().replace(/\.$/, '');
+  };
+  const requestedDomain = custom.storefront ?? lines.find((line) => !line.includes('='));
+  if (!requestedDomain) throw new Error('请在域名设置中填写商城域名。');
+  const domain = normalize(requestedDomain);
+  const binding = instanceRegistry.node_bindings.find((item) => item.node_id === options.nodeId)
+    ?? (instanceRegistry.node_bindings.length === 1 ? instanceRegistry.node_bindings[0] : null);
+  if (!binding) throw new Error('多节点实例请用 --node-id 指定要修改的节点。');
+  const manifest = instanceRegistry.manifests.find((item) => item.node_id === binding.node_id);
+  const storefront = manifest.domain_bindings.find((item) => item.binding_ref.ref === binding.primary_storefront_binding_ref);
+  const unchanged = storefront.host === domain;
+  const changes = new Map();
+  const replacement = { 'surface:identity': custom.identity ?? `accounts.${domain}`,
+    'surface:api': custom.api ?? `api.${domain}`, 'surface:console': custom.console ?? `console.${domain}` };
+  const updates = manifest.domain_bindings.map((item) => {
+    const surface = item.surface_ref.slice('surface:'.length);
+    const value = item === storefront ? domain : custom[surface]
+      ?? (unchanged ? item.host : replacement[item.surface_ref]);
+    const host = value ? normalize(value) : item.host;
+    if (host !== item.host) changes.set(item.host, host);
+    return { item, host };
+  });
+  if (changes.size === 0) { console.log(`实例域名保持：${domain}`); return; }
+  const files = [resolve(options.instanceRoot, 'sfl-node-registry.declaration.json')];
+  for (const directory of [options.instanceRoot, resolve(options.instanceRoot, 'env')]) {
+    for (const name of await readdir(directory).catch(() => [])) {
+      if (name.startsWith('.env') || /\.env(?:\.|$)/.test(name)) {
+        const file = resolve(directory, name);
+        if ((await stat(file)).isFile()) files.push(file);
+      }
+    }
+  }
+  const previous = resolve(options.instanceRoot, 'dist/config/previous-domain-inputs');
+  await mkdir(previous, { recursive: true });
+  for (const file of files) {
+    const relative = file.slice(resolve(options.instanceRoot).length + 1);
+    const backup = resolve(previous, relative);
+    await mkdir(dirname(backup), { recursive: true });
+    await copyFile(file, backup);
+    if (file === files[0]) continue;
+    const content = await readFile(file, 'utf8');
+    const updated = content.replace(/[a-z0-9][a-z0-9.-]*\.[a-z]{2,}/gi, (host) => changes.get(host.toLowerCase()) ?? host);
+    if (updated !== content) await writeFile(file, updated);
+  }
+  for (const { item, host } of updates) {
+    if (host !== item.host) {
+      item.host = host;
+      item.binding_ref.version = String(Number(item.binding_ref.version) + 1);
+    }
+  }
+  manifest.manifest_revision += 1;
+  manifest.generated_at = instanceRegistry.generated_at = new Date().toISOString();
+  await writeJson(files[0], instanceRegistry);
+  // Old build metadata cannot describe the newly edited declaration.
+  for (const name of ['console-runtime.json', 'identity-runtime.json']) {
+    await rm(resolve(options.instanceRoot, 'dist/config', name), { force: true });
+  }
+  console.log(`实例域名已修改：${domain}；原配置保存在 dist/config/previous-domain-inputs。`);
 }
 
 async function writeInstanceRuntime(configDirectory, identityProjection) {
@@ -161,7 +269,8 @@ async function writeInstanceRuntime(configDirectory, identityProjection) {
 
 async function writeReleaseInputs(outputDirectory) {
   const { loadEnv } = await import('vite');
-  const environment = { ...loadEnv('production', options.instanceRoot, ''), ...process.env };
+  const environment = { ...loadEnv('production', options.instanceRoot, ''), ...process.env,
+    ...publicDomainEnvironment() };
   const publicKeys = [
     'VITE_API_BASE_URL', 'VITE_AUTH_BASE_URL', 'VITE_CLIENT_VERSION', 'COMMERCE_API_ORIGIN',
     'NEXT_PUBLIC_API_BASE_URL', 'NEXT_PUBLIC_AUTH_ORIGIN', 'NEXT_PUBLIC_CLIENT_VERSION',
