@@ -19,11 +19,8 @@ export async function presentIdentityDisplays(
   sources: readonly IdentityDisplaySource[],
 ): Promise<ReadonlyMap<string, IdentityDisplayHint>> {
   if (sources.length === 0) return new Map();
-  try {
-    return await assignDisplays(database, contextId, kind, sources);
-  } catch {
-    return new Map();
-  }
+  return optionalProjection<ReadonlyMap<string, IdentityDisplayHint>>(
+    database, new Map(), () => assignDisplays(database, contextId, kind, sources));
 }
 
 export async function resolveIdentityDisplayMembership(
@@ -33,15 +30,36 @@ export async function resolveIdentityDisplayMembership(
   code: string,
 ): Promise<string | undefined> {
   if (!/^(?:OP-[2-9A-HJKMNP-Z]{4}|MB-[2-9A-HJKMNP-Z]{6})$/i.test(code)) return undefined;
-  try {
+  return optionalProjection(database, undefined, async () => {
     if (!await identityDisplayRepositoryAvailable(database)) return undefined;
     const result = await database.query<{ readonly membership_id: string }>(`select membership_id
       from identity_display.code_mapping where context_id=$1 and kind=$2 and code=$3`,
     [contextId, kind, code.toUpperCase()]);
     return result.rows[0]?.membership_id;
-  } catch {
-    return undefined;
+  });
+}
+
+async function optionalProjection<T>(database: OperationDatabase, fallback: T, action: () => Promise<T>): Promise<T> {
+  try {
+    await database.query('savepoint identity_display_projection');
+  } catch (error) {
+    if ((error as { readonly code?: unknown })?.code !== '25P01') throw error;
+    try {
+      return await action();
+    } catch {
+      return fallback;
+    }
   }
+  let result: T;
+  try {
+    result = await action();
+  } catch {
+    await database.query('rollback to savepoint identity_display_projection');
+    await database.query('release savepoint identity_display_projection');
+    return fallback;
+  }
+  await database.query('release savepoint identity_display_projection');
+  return result;
 }
 
 async function assignDisplays(
