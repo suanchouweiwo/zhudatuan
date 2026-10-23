@@ -36,6 +36,7 @@ if (releaseTarget === 'node-operations') {
     'autonode-control-server.mjs',
     'autonode-task-engine.mjs',
     'autonode-task-executor.mjs',
+    'autonode-administrator.mjs',
   ]) {
     await copy(
       `04_tools/scripts/provisioning/${file}`,

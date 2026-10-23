@@ -15,7 +15,7 @@ export function parseAutoNodeTaskRequest(value) {
   if (record.schema_version !== AUTONODE_TASK_REQUEST_SCHEMA_VERSION) {
     throw new Error('AUTONODE_TASK_REQUEST_SCHEMA_INVALID');
   }
-  if (!['ACTIVATE', 'DELETE', 'CREATE'].includes(record.action)) throw new Error('AUTONODE_TASK_ACTION_INVALID');
+  if (!['ACTIVATE', 'DELETE', 'CREATE', 'INITIALIZE'].includes(record.action)) throw new Error('AUTONODE_TASK_ACTION_INVALID');
   const requestedBy = requiredRecord(record.requested_by, 'requested_by');
   const activationRequest = record.action === 'ACTIVATE' ? requiredRecord(record.activation_request, 'activation_request') : {};
   return Object.freeze({
@@ -29,6 +29,7 @@ export function parseAutoNodeTaskRequest(value) {
       membership_id: requiredText(requestedBy.membership_id, 'requested_by.membership_id'),
     }),
     activation_request: Object.freeze(structuredClone(activationRequest)),
+    ...(record.administrator ? { administrator: Object.freeze(structuredClone(record.administrator)) } : {}),
   });
 }
 
@@ -210,7 +211,7 @@ export class AutoNodeTaskEngine {
           status: 'SUCCEEDED', phase: 'SUCCEEDED', progress: 100,
           activation_status: task.request.action === 'DELETE' ? 'DELETED' : 'ACTIVE',
           waiting_external: [], result, last_error: null,
-          message: task.request.action === 'DELETE' ? '实例资源已删除' : '空库商城已生成',
+          message: task.request.action === 'DELETE' ? '实例资源已删除' : task.request.action === 'INITIALIZE' ? '管理员已初始化' : '空库商城已生成',
         });
         return;
       }

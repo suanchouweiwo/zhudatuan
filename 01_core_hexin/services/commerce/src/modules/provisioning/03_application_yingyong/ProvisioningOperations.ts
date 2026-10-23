@@ -2,7 +2,8 @@ import type { OperationId } from '@shop/contract';
 import type { ModuleContext } from '../../../bootstrap/ModuleRegistry';
 import { AUDIT_SINK } from '../../../foundation/application/AuditSink';
 import { ModuleOperations, operationLifecycle, reject, requireAccess } from '../../../foundation/application/ModuleOperations';
-import { bodyRecord, optionalText, textField } from '../../../foundation/interface/Validation';
+import { bodyRecord, optionalText, secretField, textField } from '../../../foundation/interface/Validation';
+import { PasswordPolicy } from '../../identity';
 import { DATABASE_POOL } from '../../../foundation/persistence/Pool';
 import { CreateMall } from './CreateMall';
 import { AUTONODE_CONTROL_CLIENT } from '../04_adapters_shixian/AutoNodeControlClient';
@@ -28,8 +29,14 @@ export function provisioningOperations(context: ModuleContext): ModuleOperations
     'provisioning.instances.manage': async (request) => {
       const access = requireAccess(request);
       const action = textField(bodyRecord(request), 'action');
-      if (action !== 'CREATE' && action !== 'DELETE') reject(422, 'VALIDATION_FAILED');
-      return { status: 202, body: await nodeControl.lifecycle(request.input.path.instanceid!, action as 'CREATE' | 'DELETE', access, request.input.idempotency!) };
+      if (!['CREATE', 'DELETE', 'INITIALIZE'].includes(action)) reject(422, 'VALIDATION_FAILED');
+      const body = bodyRecord(request);
+      const administrator = action !== 'DELETE' && typeof body.username === 'string' ? {
+        username: textField(body, 'username', 128).trim(),
+        displayName: textField(body, 'displayName', 128),
+        passwordHash: await new PasswordPolicy().hash(secretField(body, 'password', 128)),
+      } : undefined;
+      return { status: 202, body: await nodeControl.lifecycle(request.input.path.instanceid!, action as 'CREATE' | 'DELETE' | 'INITIALIZE', access, request.input.idempotency!, administrator) };
     },
     'provisioning.malls.create': operationLifecycle({
       async execute(request, database) {

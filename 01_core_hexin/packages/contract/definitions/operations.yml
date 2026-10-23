@@ -454,7 +454,7 @@ operations:
     assuranceLevel: 1
     idempotent: false
     schema: named
-    requestFields: ["action"]
+    requestFields: ["action","username","displayName","password"]
     responseFields: ["action","activation_status","created_at","events","finished_at","last_error","node_id","phase","plan_digest","platform","progress","result","schema_version","started_at","status","task_id","updated_at","waiting_external"]
     requirements: [MVP06, MVP15]
     controller: 01_core_hexin/services/commerce/src/foundation/interface/OperationController.ts

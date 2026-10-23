@@ -1,4 +1,5 @@
 import { ApiError } from '@shop/sdk';
+import { beginBrowserAuthorization } from '@shop/sdk/browser-authorization';
 import { createIdempotencyKey } from '@shop/sdk/context';
 import {
   createFetchIdentityMobileChallenge,
@@ -48,7 +49,7 @@ const AutoNodeTaskResultSchema = z.object({
 const AutoNodeTaskReceiptSchema = z.object({
   schema_version: z.literal('sfl.autonode-control-task-receipt.v1'),
   task_id: z.string().min(1),
-  action: z.enum(['ACTIVATE', 'CREATE', 'DELETE']),
+  action: z.enum(['ACTIVATE', 'CREATE', 'DELETE', 'INITIALIZE']),
   node_id: z.string().min(1),
   status: z.enum(['QUEUED', 'RUNNING', 'WAITING_EXTERNAL', 'FAILED_RETRYABLE', 'SUCCEEDED']),
   phase: z.string().min(1),
@@ -291,6 +292,8 @@ const InstanceSchema = z.object({
   node_id: z.string(), instance: z.string(), name: z.string(), lifecycle: z.boolean(), state: z.string(),
   access_entries: z.array(z.object({ surface_ref: z.string(), url: z.string() })),
   task: AutoNodeTaskReceiptSchema.nullable().optional(),
+  administrator_ready: z.boolean().optional(),
+  api_origin: z.string().nullable().optional(),
 });
 export type ManagedInstance = z.infer<typeof InstanceSchema>;
 
@@ -299,8 +302,32 @@ export async function readManagedInstances(context: ConsoleContext, scope: Conso
   return z.object({ items: z.array(InstanceSchema) }).parse(value).items;
 }
 
-export async function manageInstance(context: ConsoleContext, scope: ConsoleScope, nodeId: string, action: 'CREATE' | 'DELETE'): Promise<AutoNodeTaskReceipt> {
-  const value = await instancesManage({ path: { instanceid: nodeId }, body: { action } }, consoleCommand(scope, {
+export interface InstanceAdministratorInput { username: string; displayName: string; password: string; }
+export async function enterManagedInstance(instance: ManagedInstance, administrator: InstanceAdministratorInput): Promise<string> {
+  if (!instance.api_origin) throw new Error('实例入口尚未生成');
+  const authorization = await beginBrowserAuthorization();
+  const post = async (path: string, body: unknown, csrf?: string) => {
+    const response = await fetch(new URL(path, instance.api_origin!), {
+      method: 'POST', credentials: 'include', headers: {
+        'content-type': 'application/json', 'idempotency-key': createIdempotencyKey(),
+        'x-client-version': '1.1.0', 'x-device-id': 'console-instance-initialization',
+        ...(csrf ? { 'x-csrf-token': csrf } : {}),
+      }, body: JSON.stringify(body),
+    });
+    const value = await response.json();
+    if (!response.ok) throw new Error(value.error?.message ?? value.error?.code ?? value.code ?? '新商城登录失败');
+    return value;
+  };
+  const subject = administrator.username.trim().replace(/^1([3-9]\d{9})$/, '+861$1');
+  const session = await post('/api/v1/identity/sessions', { provider: 'password', subject, password: administrator.password, target: 'console', authorization: authorization.request });
+  const exchange = await post('/api/v1/identity/tickets/exchange', { ticket: session.callback.ticket, state: session.callback.state, nonce: authorization.secret.nonce, verifier: authorization.secret.verifier }, session.csrf);
+  const destination = new URL(exchange.returnTarget.url);
+  const consoleEntry = instance.access_entries.find((entry) => entry.surface_ref === 'surface:console');
+  if (!consoleEntry || destination.origin !== new URL(consoleEntry.url).origin) throw new Error('新商城后台地址不匹配');
+  return destination.toString();
+}
+export async function manageInstance(context: ConsoleContext, scope: ConsoleScope, nodeId: string, action: 'CREATE' | 'DELETE' | 'INITIALIZE', administrator?: InstanceAdministratorInput): Promise<AutoNodeTaskReceipt> {
+  const value = await instancesManage({ path: { instanceid: nodeId }, body: { action, ...administrator } }, consoleCommand(scope, {
     accessVersion: context.session.accessVersion, idempotencyKey: createIdempotencyKey(),
     ...(context.session.csrf === undefined ? {} : { csrfToken: context.session.csrf }),
   }));

@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ProductionNodeOperationsProvider } from './autonode-operations-provider.mjs';
+import { initializeInstanceAdministrator } from './autonode-administrator.mjs';
 
 const MAX_OUTPUT_BYTES = 4 * 1024 * 1024;
 
@@ -43,6 +44,14 @@ export class AutoNodeActivationCliExecutor {
       await new ProductionNodeOperationsProvider({ cloudflareApiToken }).delete(operation);
       return { manifest_id: null, access_entries: [] };
     }
+    const initializeAdministrator = async () => {
+      if (!request.administrator) throw new Error('请填写管理员姓名、登录账号和密码');
+      await progress('ADMINISTRATOR', 95, '正在初始化独立管理员');
+      const controllerOrigin = configuration.instances.find((entry) => !entry.lifecycle)?.access_entries.find((entry) => entry.surface_ref === 'surface:console')?.url;
+      await initializeInstanceAdministrator(instance, request.administrator, controllerOrigin, this.runner);
+      return { manifest_id: null, access_entries: instance.access_entries };
+    };
+    if (request.action === 'INITIALIZE') return await initializeAdministrator();
     const credential = (await readFile(configuration.githubTokenFile, 'utf8')).trim();
     const api = async (path, body) => {
       const response = await fetch(`https://api.github.com/repos/${configuration.repository}${path}`, {
@@ -96,6 +105,7 @@ export class AutoNodeActivationCliExecutor {
       const response = await fetch(`http://127.0.0.1:${port}/health/ready`, { signal: AbortSignal.timeout(5000) });
       if (!response.ok) throw new Error(`AUTONODE_INSTANCE_NOT_READY:${port}`);
     }
+    if (request.administrator) return await initializeAdministrator();
     return { manifest_id: null, access_entries: instance.access_entries };
   }
 
@@ -105,7 +115,10 @@ export class AutoNodeActivationCliExecutor {
     return await Promise.all(configuration.instances.map(async (instance) => {
       const inventory = await readFile(`/var/lib/sfl-autonode-control/resources/${instance.instance}.json`, 'utf8')
         .then(JSON.parse).catch((error) => { if (error.code === 'ENOENT') return null; throw error; });
-      return { node_id: instance.node_id, instance: instance.instance, name: instance.name,
+        const administratorReady = await readFile(`/opt/sfl/nodes/${instance.instance}/runtime/administrator.json`, 'utf8').then(() => true).catch((error) => { if (error.code === 'ENOENT') return false; throw error; });
+        const manifest = await readFile(`/opt/sfl/nodes/${instance.instance}/manifest.json`, 'utf8').then(JSON.parse).catch((error) => { if (error.code === 'ENOENT') return null; throw error; });
+        const apiHost = manifest?.domain_bindings?.find((entry) => entry.surface_ref === 'surface:api')?.host;
+        return { node_id: instance.node_id, instance: instance.instance, name: instance.name, administrator_ready: administratorReady, api_origin: apiHost ? `https://${apiHost}` : null,
         lifecycle: instance.lifecycle === true, state: inventory?.state ?? 'EXISTING', access_entries: instance.access_entries };
     }));
   }
@@ -141,8 +154,9 @@ async function runCommand(command, args, options) {
     const child = spawn(command, args, {
       cwd: options.cwd,
       env: process.env,
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: ['pipe', 'pipe', 'pipe'],
     });
+    child.stdin.end(options.input ?? '');
     let stdout = '';
     let stderr = '';
     const collect = (target, chunk) => {

@@ -6786,6 +6786,15 @@
         "properties": {
           "action": {
             "$ref": "#/components/schemas/JsonValue"
+          },
+          "displayName": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "password": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "username": {
+            "$ref": "#/components/schemas/JsonValue"
           }
         },
         "type": "object"
@@ -46109,7 +46118,7 @@
           "operating_mall",
           "consumer"
         ],
-        "x-operation-hash": "86bc0f81cba503121c52e0bd2db50079e0666daf7d07754c8e7c56846967e541",
+        "x-operation-hash": "9dd6c9dddce458e701eaefc837cfae960c34526739f38e2fe9f2e79695e6b3c0",
         "x-permission": "organization.layer.manage",
         "x-request-schema": "ProvisioningInstancesManageRequest",
         "x-requirements": [
