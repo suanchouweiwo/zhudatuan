@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { createHash, randomBytes } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { appendFile, chmod, chown, copyFile, cp, link, lstat, mkdir, readFile, readlink, readdir, realpath, rename, rm, statfs, symlink, writeFile } from 'node:fs/promises';
+import { appendFile, chmod, copyFile, cp, link, lstat, mkdir, readFile, readlink, readdir, realpath, rename, rm, statfs, symlink, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { spawn } from 'node:child_process';
 import { performance } from 'node:perf_hooks';
@@ -28,15 +28,12 @@ try {
   const options = parseOptions(tokens);
   const policyRoot = process.env.AI_DELIVERY_POLICY_ROOT ?? '/etc/ai-delivery/projects';
   const project = safeName(required(options.project, 'PROJECT_REQUIRED'));
-  const bundledPolicy = join(dirname(fileURLToPath(import.meta.url)), `${project}.json`);
-  const policyPath = await exists(bundledPolicy) ? bundledPolicy : join(policyRoot, `${project}.json`);
+  const policyPath = join(policyRoot, `${project}.json`);
   const policyBody = await readFile(policyPath);
   const policy = JSON.parse(policyBody.toString('utf8'));
   loadedPolicy = policy;
+  validatePolicy(policy, project);
   const nodeKey = safeName(required(options.node, 'NODE_REQUIRED'));
-  const targetId = action === 'observe' ? null : safeName(required(options.target, 'TARGET_REQUIRED'));
-  const observedTargets = action === 'observe' ? required(options.targets, 'TARGETS_REQUIRED').split(',').map(safeName) : [];
-  validatePolicy(policy, project, nodeKey, action === 'observe' ? [] : [targetId], action);
   const nodePolicy = policy.nodes?.[nodeKey];
   assert(nodePolicy, 'NODE_NOT_ALLOWED');
   const preparedActions = new Set(['deploy-oss-direct', 'validate-oss-candidate', 'deploy-oss-direct-v2', 'validate-oss-candidate-v2', 'validate-oss-candidate-v3']);
@@ -46,17 +43,16 @@ try {
     assert(deployment, 'DEPLOYMENT_NOT_ALLOWED', { node: nodeKey, target: targetId });
     return { project, node: nodeKey, target: targetId, deployment, nodePolicy, policy, controlPlane };
   };
+  const targetId = action === 'observe' ? null : safeName(required(options.target, 'TARGET_REQUIRED'));
   const context = targetId ? makeContext(targetId) : null;
   loadedContext = context;
+  if (preparedActions.has(action) && (action.endsWith('-v2') || action.endsWith('-v3'))) assertExpectedPreparedControlPlane(controlPlane, options);
 
   let result;
   if (action === 'observe') {
-    const targetIds = observedTargets;
+    const targetIds = required(options.targets, 'TARGETS_REQUIRED').split(',').map((target) => safeName(target));
     assert(targetIds.length > 0 && new Set(targetIds).size === targetIds.length, 'TARGETS_INVALID');
-    result = await observeMany(targetIds, (target) => {
-      validatePolicy(policy, project, nodeKey, [target], 'observe');
-      return makeContext(target);
-    });
+    result = await observeMany(targetIds.map(makeContext));
   } else if (action === 'lookup') result = await lookup(context, options);
   else if (action === 'layer-lookup') result = await dependencyLayerLookup(context, options);
   else if (action === 'stage-layer') result = await stageDependencyLayer(context, options);
@@ -76,10 +72,7 @@ try {
   else if (action === 'status') result = await status(context);
   else throw failure('ACTION_UNKNOWN', { action });
 
-  if (action !== 'status' && action !== 'observe') {
-    try { await audit(policy, { action, ...contextSummary(context), result, completedAt: new Date().toISOString() }); }
-    catch (error) { process.stderr.write(`REMOTE_AUDIT_WARNING=${JSON.stringify(errorEvidence(error))}\n`); }
-  }
+  if (action !== 'status' && action !== 'observe') await audit(policy, { action, ...contextSummary(context), result, completedAt: new Date().toISOString() });
   process.stdout.write(`${JSON.stringify({ ok: true, action, result }, null, 2)}\n`);
 } catch (error) {
   if (actionName !== 'status' && actionName !== 'observe' && loadedPolicy && loadedContext) {
@@ -622,9 +615,12 @@ async function activate(context, options) {
   const previousRuntime = await pointer(root, 'runtime');
   const candidateRuntime = await dependencyLayerPath(context, manifest.dependencyLayer);
   const caddyBefore = await caddySemanticEvidence(context.policy);
+  if (options.expectedCaddySemantic) assert(caddyBefore?.digest === options.expectedCaddySemantic, 'CADDY_SEMANTIC_CHANGED_BEFORE_CUTOVER', { expected: options.expectedCaddySemantic, actual: caddyBefore?.digest });
   const rollbackPoint = context.deployment.databaseMigration
     ? { status: 'not-applicable', reason: 'database-migrations-are-forward-only', recovery: databaseRecoveryEvidence(context.deployment.databaseMigration), pointers: pointersBefore }
-    : { status: 'pointer-based', pointers: pointersBefore };
+    : previousCurrent === candidate
+      ? { status: 'not-required', reason: 'candidate-is-already-current', pointers: pointersBefore }
+      : await recordRollbackPoint(context, manifest, pointersBefore, caddyBefore);
   await ensureTraversablePointerRoot(context);
   timings.snapshot = Date.now() - snapshotStarted;
   let activationRestart = restartEvidence(context.deployment.restart, false);
@@ -653,17 +649,13 @@ async function activate(context, options) {
       throw failure('DATABASE_MIGRATION_FAILED', { cause: errorEvidence(migrationError), databaseMigration: receipt.databaseMigration, receipt });
     }
   }
-  if (context.nodePolicy.deployments?.['database-migration']?.databaseMigration?.initialize
-    && ['identity-api','web-api','storefront'].includes(context.target) && context.deployment.restart?.kind === 'systemd') {
-    await command(['systemctl','enable',context.deployment.restart.name]);
-  }
-  const serviceBefore = await processState(context.deployment.restart);
-  if (previousCurrent === candidate && (serviceBefore.kind === 'none' || serviceBefore.activeState === 'active')) {
+  if (previousCurrent === candidate && targetProcessBefore !== '0') {
     const readiness = await waitForReadiness(context, { candidateDir: candidate, currentDir: candidate, ...contextSummary(context) });
     timings.health = readiness.durationMs;
     const isolationStarted = Date.now();
     const protectedAfter = await assertProtectedUnchanged(context, protectedBefore);
     const caddyAfter = await caddySemanticEvidence(context.policy);
+    assert(caddyAfter?.digest === caddyBefore?.digest, 'CADDY_SEMANTIC_CHANGED', { before: caddyBefore?.digest, after: caddyAfter?.digest });
     timings.isolation = Date.now() - isolationStarted;
     timings.total = Date.now() - started;
     return {
@@ -698,15 +690,12 @@ async function activate(context, options) {
   }
   let readiness;
   let protectedAfter = null;
-  let nodeRuntimeRecovery = null;
   try {
     const cutoverStarted = Date.now();
-    nodeRuntimeRecovery = await captureNodeRuntime(context, candidate);
     if (previousCurrent && previousCurrent !== candidate) await atomicPointer(join(root, 'previous'), previousCurrent);
     if (previousRuntime) await atomicPointer(join(root, 'previous-runtime'), previousRuntime);
     if (candidateRuntime) await atomicPointer(join(root, 'runtime'), candidateRuntime);
     await atomicPointer(join(root, 'current'), candidate);
-    await installNodeRuntime(context, candidate);
     timings.cutover = Date.now() - cutoverStarted;
     const restartStarted = Date.now();
     activationRestart = await restart(context.deployment.restart);
@@ -721,6 +710,7 @@ async function activate(context, options) {
     protectedAfter = await assertProtectedUnchanged(context, protectedBefore);
     timings.isolation = Date.now() - isolationStarted;
     const caddyAfter = await caddySemanticEvidence(context.policy);
+    assert(caddyAfter?.digest === caddyBefore?.digest, 'CADDY_SEMANTIC_CHANGED', { before: caddyBefore?.digest, after: caddyAfter?.digest });
     const currentAfterHealth = await pointer(root, 'current');
     assert(currentAfterHealth === candidate, 'CUTOVER_SUPERSEDED', { candidate, current: currentAfterHealth, previousCurrent });
   } catch (candidateError) {
@@ -787,7 +777,6 @@ async function activate(context, options) {
     };
     let rollbackFailure = null;
     try {
-      await restoreNodeRuntime(nodeRuntimeRecovery);
       assert(previousCurrent, 'ROLLBACK_BASELINE_MISSING', { root });
       await chmod(previousCurrent, 0o755);
       const pointerStarted = performance.now();
@@ -981,6 +970,29 @@ async function initializeNodeIngress(context, candidate, artifact) {
     records.push(record);
     await recordNodeResources(context, { dnsRecord: { zoneId: hostZone.id, id: record.id, name: host } });
   }
+  if (context.domainSwitch) {
+    const inventoryFile = join('/var/lib/sfl-autonode-control/resources', `${context.node}.json`);
+    const inventory = await readJson(inventoryFile);
+    for (const record of inventory?.dnsRecords ?? []) {
+      if (hosts.includes(record.name)) continue;
+      const dnsClient = new AutoNodeCloudflareClient({ accountId: matchedZone.account.id, zoneId: record.zoneId, apiToken });
+      await dnsClient.deleteDnsRecord(record.id);
+    }
+    if (inventory) {
+      inventory.dnsRecords = inventory.dnsRecords.filter((record) => hosts.includes(record.name));
+      await writeFile(inventoryFile, JSON.stringify(inventory, null, 2) + '\n', { mode: 0o600 });
+    }
+    const configurationFile = '/opt/sfl/control/autonode/instances.json';
+    const configuration = await readJson(configurationFile);
+    const instance = configuration?.instances.find((item) => item.instance === context.node);
+    if (instance) {
+      instance.sourceSha = artifact.sourceSha;
+      instance.access_entries = nodeManifest.domain_bindings.filter((binding) =>
+        ['surface:console', 'surface:storefront'].includes(binding.surface_ref))
+        .map((binding) => ({ surface_ref: binding.surface_ref, url: `https://${binding.host}` }));
+      await writeFile(configurationFile, JSON.stringify(configuration, null, 2) + '\n', { mode: 0o600 });
+    }
+  }
   const serviceState = (await command(['systemctl', 'is-active', ...services])).stdout.trim().split(/\s+/);
   const apiHost = nodeManifest.domain_bindings.find((binding) => binding.surface_ref === 'surface:api').host;
   const localResponse = await command(['curl', '--fail', '--silent', '--show-error', '--max-time', '10', '-H', `Host: ${apiHost}`, `http://127.0.0.1:${setup.ports.gateway}/health/gateway`]);
@@ -1165,6 +1177,23 @@ async function executeDatabaseMigration(context, candidate, manifest) {
   if (context.domainSwitch) {
     const nodeManifest = await readJson(join(candidate, 'node-runtime/manifest.json'));
     const projection = await readJson(join(candidate, 'node-runtime/identity-node-projection.json'));
+    const root = join('/opt/sfl/nodes', context.node);
+    const previousManifest = await readJson(join(root, 'manifest.json'));
+    const replacements = (previousManifest?.domain_bindings ?? []).map((binding) => [binding.host,
+      nodeManifest.domain_bindings.find((next) => next.surface_ref === binding.surface_ref)?.host]).filter(([, host]) => host);
+    for (const target of ['identity-api', 'web-api', 'storefront', 'object-store']) {
+      const file = join(root, 'runtime', `${target}.env`);
+      if (!(await exists(file))) continue;
+      const env = parseEnvironmentFile(await readFile(file, 'utf8'));
+      for (const key of Object.keys(env)) {
+        if (!/(ORIGIN|HOST|URL)/.test(key) || key === 'IDENTITY_CONTROLLER_ORIGIN') continue;
+        for (const [before, after] of replacements) env[key] = env[key].split(before).join(after);
+      }
+      Object.assign(env, { NODE_MANIFEST_DIGEST: nodeManifest.manifest_digest,
+        NODE_RESOURCE_BINDING_VERSION: nodeManifest.resource_binding_set_ref.version });
+      await writeFile(file, environmentText(env), { mode: 0o640 });
+    }
+    await copyFile(join(candidate, 'node-runtime/manifest.json'), join(root, 'manifest.json'));
     const node = projection.nodes.find((item) => item.nodeId === nodeManifest.node_id);
     const credentials = parseEnvironmentFile(await readFile(context.deployment.databaseMigration.credentialFile, 'utf8'));
     const literal = (value) => `'${String(value).replaceAll("'", "''")}'`;
@@ -1438,44 +1467,22 @@ async function rollback(context) {
   const started = performance.now();
   const timings = { pointer: 0, restart: 0, readiness: 0, isolation: 0, total: 0 };
   await chmod(previous, 0o755);
-  try {
-    const pointerStarted = performance.now();
-    await atomicPointer(join(root, 'current'), previous);
-    if (current) await atomicPointer(join(root, 'previous'), current);
-    await restoreOptionalPointer(join(root, 'runtime'), previousRuntime);
-    await restoreOptionalPointer(join(root, 'previous-runtime'), currentRuntime);
-    if (!(await installNodeRuntime(context, previous))) {
-      await restoreNodeRuntime(nodeRuntimeRecoveryPath(context, current));
-    }
-    timings.pointer = elapsedMs(pointerStarted);
-    const restartStarted = performance.now();
-    const restartOperation = await restart(context.deployment.restart);
-    timings.restart = elapsedMs(restartStarted);
-    const readiness = await waitForReadiness(context, { candidateDir: previous, currentDir: previous, ...contextSummary(context) });
-    timings.readiness = readiness.durationMs;
-    const isolationStarted = performance.now();
-    const protectedAfter = await assertProtectedUnchanged(context, protectedBefore);
-    timings.isolation = elapsedMs(isolationStarted);
-    timings.total = elapsedMs(started);
-    return { current: previous, previous: current, runtime: previousRuntime, restart: restartOperation, readiness, timings, rollbackMs: timings.total, protectedProcesses: { before: protectedBefore, after: protectedAfter } };
-  } catch (error) {
-    const observations = await Promise.allSettled([
-      pointer(root, 'current'), pointer(root, 'previous'), pointer(root, 'runtime'), pointer(root, 'previous-runtime'), processState(context.deployment.restart),
-    ]);
-    const observed = (index) => observations[index].status === 'fulfilled' ? observations[index].value : { error: errorEvidence(observations[index].reason) };
-    throw failure('ROLLBACK_FAILED', {
-      rollbackFailure: errorEvidence(error),
-      originalCurrent: current,
-      attemptedCurrent: previous,
-      current: observed(0),
-      previous: observed(1),
-      runtime: observed(2),
-      previousRuntime: observed(3),
-      serviceStatus: observed(4),
-      timings: { ...timings, total: elapsedMs(started) },
-      nextAction: 'Run status and inspect the service. Do not repeat rollback blindly: current and previous may already have swapped. Recover the intended version manually.',
-    });
-  }
+  const pointerStarted = performance.now();
+  await atomicPointer(join(root, 'current'), previous);
+  if (current) await atomicPointer(join(root, 'previous'), current);
+  await restoreOptionalPointer(join(root, 'runtime'), previousRuntime);
+  await restoreOptionalPointer(join(root, 'previous-runtime'), currentRuntime);
+  timings.pointer = elapsedMs(pointerStarted);
+  const restartStarted = performance.now();
+  const restartOperation = await restart(context.deployment.restart);
+  timings.restart = elapsedMs(restartStarted);
+  const readiness = await waitForReadiness(context, { candidateDir: previous, currentDir: previous, ...contextSummary(context) });
+  timings.readiness = readiness.durationMs;
+  const isolationStarted = performance.now();
+  const protectedAfter = await assertProtectedUnchanged(context, protectedBefore);
+  timings.isolation = elapsedMs(isolationStarted);
+  timings.total = elapsedMs(started);
+  return { current: previous, previous: current, runtime: previousRuntime, restart: restartOperation, readiness, timings, rollbackMs: timings.total, protectedProcesses: { before: protectedBefore, after: protectedAfter } };
 }
 
 async function status(context) {
@@ -1497,165 +1504,15 @@ async function status(context) {
   };
 }
 
-function nodeRuntimeRecoveryPath(context, release) {
-  if (!release) return null;
-  const key = createHash('sha256').update(release).digest('hex');
-  return join(context.deployment.pointerRoot, 'state', 'node-runtime', key);
-}
-
-function nodeRuntimeDestinations(context) {
-  const nodeRoot = join('/opt/sfl/nodes', context.node);
-  const runtimeRoot = join(nodeRoot, 'runtime');
-  const environment = ['identity-api', 'web-api', 'storefront'].includes(context.target)
-    ? join(runtimeRoot, `${context.target}.env`) : null;
-  const centralFile = context.target === 'console' ? 'console-runtime.json'
-    : context.target === 'auth-web' ? 'identity-runtime.json' : null;
-  return { environment, centralFile, central: centralFile ? join(runtimeRoot, centralFile) : null };
-}
-
-async function readNodeRuntimeManifest(release) {
-  if (!release) return null;
-  return readJson(join(release, 'node-runtime', 'manifest.json'));
-}
-
-async function captureNodeRuntime(context, release) {
-  if (!(await readNodeRuntimeManifest(release))) return null;
-  const directory = nodeRuntimeRecoveryPath(context, release);
-  const destinations = nodeRuntimeDestinations(context);
-  await mkdir(directory, { recursive: true, mode: 0o700 });
-  await chmod(directory, 0o700);
-  const entries = [];
-  for (const path of [destinations.environment, destinations.central].filter(Boolean)) {
-    const stats = await lstatOrNull(path);
-    const entry = { path, kind: stats === null ? 'missing' : stats.isSymbolicLink() ? 'link' : 'file' };
-    if (entry.kind === 'link') entry.target = await readlink(path);
-    if (entry.kind === 'file') {
-      entry.mode = stats.mode & 0o777;
-      entry.uid = stats.uid;
-      entry.gid = stats.gid;
-      entry.backup = String(entries.length);
-      await writeFile(join(directory, entry.backup), await readFile(path), { mode: 0o600 });
-      await chmod(join(directory, entry.backup), 0o600);
-    }
-    entries.push(entry);
-  }
-  await writeAtomicJson(join(directory, 'before.json'), entries);
-  return directory;
-}
-
-async function installNodeRuntime(context, release) {
-  const manifest = await readNodeRuntimeManifest(release);
-  if (!manifest) return false;
-  const destinations = nodeRuntimeDestinations(context);
-  const activeRuntime = join(context.deployment.pointerRoot, 'current', 'node-runtime');
-  if (destinations.environment) {
-    const path = destinations.environment;
-    const stats = await lstat(path);
-    const before = await readFile(path, 'utf8');
-    const updates = {
-      SERVICE_VERSION: manifest.release_pointer_ref.source_sha,
-      NODE_MANIFEST_PATH: join(activeRuntime, 'manifest.json'),
-      NODE_MANIFEST_ID: manifest.manifest_id,
-      NODE_MANIFEST_DIGEST: manifest.manifest_digest,
-      NODE_RUNTIME_INSTANCE_ID: manifest.runtime_instance_id,
-      NODE_RUNTIME_CONFIG_REF: manifest.runtime_config_ref.ref,
-      NODE_RESOURCE_BINDING_VERSION: manifest.resource_binding_set_ref.version,
-      NODE_RELEASE_POINTER_REF: manifest.release_pointer_ref.ref,
-    };
-    if (['identity-api', 'web-api'].includes(context.target)) {
-      updates.API_ALLOWED_ORIGINS = manifest.domain_bindings.filter((binding) => binding.surface_ref !== 'surface:api').map((binding) => 'https://' + binding.host).join(',');
-    }
-    if (context.target === 'web-api') {
-      const projection = await readJson(join(release, 'node-runtime', 'identity-node-projection.json'));
-      const node = projection?.nodes?.find((entry) => entry.nodeId === manifest.node_id);
-      const storefrontTarget = node?.targets?.find((entry) => entry.surface === 'consumer');
-      if (storefrontTarget?.application) {
-        updates.PUBLIC_MALL_SLUG = storefrontTarget.application;
-        updates.PUBLIC_MALL_HOST_MAPPINGS = `${new URL(node.storefrontOrigin).hostname}=${storefrontTarget.application}`;
-      }
-    }
-    if (context.target === 'identity-api' && await exists(join(release, 'node-runtime', 'identity-runtime.json'))) {
-      updates.NODE_IDENTITY_RUNTIME_PATH = join(activeRuntime, 'identity-runtime.json');
-    }
-    if (context.target === 'storefront') {
-      const identity = await readJson(join(release, 'node-runtime', 'identity-runtime.json'));
-      const node = identity?.identity_node_registry?.nodes?.find((entry) => entry.nodeId === manifest.node_id);
-      if (node) {
-        const registry = JSON.stringify(identity.identity_node_registry);
-        const publicUpdates = {
-          NEXT_PUBLIC_API_BASE_URL: node.apiOrigin,
-          NEXT_PUBLIC_AUTH_ORIGIN: node.accountsOrigin,
-          NEXT_PUBLIC_CLIENT_VERSION: `0.0.0-g${manifest.release_pointer_ref.source_sha}`,
-          NEXT_PUBLIC_STOREFRONT_HOSTNAME: new URL(node.storefrontOrigin).hostname,
-          NEXT_PUBLIC_STOREFRONT_APPLICATION: node.consumerApplication,
-          NEXT_PUBLIC_IDENTITY_NODE_REGISTRY: registry,
-          SFL_STOREFRONT_HOSTNAME: new URL(node.storefrontOrigin).hostname,
-          SFL_STOREFRONT_APPLICATION: node.consumerApplication,
-          SFL_STOREFRONT_IDENTITY_NODE_REGISTRY: registry,
-        };
-        const existingKeys = new Set(before.split(/\r?\n/).map((line) =>
-          /^\s*(?:export\s+)?([A-Z0-9_]+)\s*=/.exec(line)?.[1]));
-        for (const [key, value] of Object.entries(publicUpdates)) {
-          if (existingKeys.has(key)) updates[key] = value;
-        }
-      }
-    }
-    const pending = new Set(Object.keys(updates));
-    const lines = before.split(/\r?\n/).map((line) => {
-      const key = /^\s*(?:export\s+)?([A-Z0-9_]+)\s*=/.exec(line)?.[1];
-      if (context.target === 'web-api' && ['OBJECT_STORE_ENDPOINT','OBJECT_STORE_BEARER_TOKEN'].includes(key)) return null;
-      if (!Object.hasOwn(updates, key ?? '')) return line;
-      pending.delete(key);
-      return environmentAssignment(key, updates[key]);
-    }).filter((line) => line !== null);
-    while (lines.at(-1) === '') lines.pop();
-    for (const key of pending) lines.push(environmentAssignment(key, updates[key]));
-    await writeNodeRuntimeFile(path, `${lines.join('\n')}\n`, stats);
-  }
-  if (destinations.central && await exists(join(release, 'node-runtime', destinations.centralFile))) {
-    await atomicPointer(destinations.central, join(activeRuntime, destinations.centralFile));
-  }
-  return true;
-}
-
-function environmentAssignment(key, value) {
-  const escaped = String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"').replaceAll('\n', '\\n');
-  return `${key}="${escaped}"`;
-}
-
-async function writeNodeRuntimeFile(path, contents, stats) {
-  const temporary = join(dirname(path), `.${basename(path)}.${process.pid}.${Date.now()}`);
-  try {
-    await writeFile(temporary, contents, { mode: stats.mode & 0o777 });
-    await chown(temporary, stats.uid, stats.gid);
-    await chmod(temporary, stats.mode & 0o777);
-    await rename(temporary, path);
-  } finally {
-    await rm(temporary, { force: true });
-  }
-}
-
-async function restoreNodeRuntime(directory) {
-  if (!directory) return;
-  const entries = await readJson(join(directory, 'before.json'));
-  if (!entries) return;
-  for (const entry of entries) {
-    if (entry.kind === 'missing') await rm(entry.path, { force: true });
-    else if (entry.kind === 'link') await atomicPointer(entry.path, entry.target);
-    else await writeNodeRuntimeFile(entry.path, await readFile(join(directory, entry.backup)), entry);
-  }
-}
-
-async function observeMany(targetIds, makeContext) {
-  const targets = await Promise.all(targetIds.map(async (target) => {
+async function observeMany(contexts) {
+  const targets = await Promise.all(contexts.map(async (context) => {
     let targetStatus;
     try {
-      const context = makeContext(target);
       targetStatus = await status(context);
       const verification = await verifyCurrent(context);
-      return { target, status: targetStatus, verification };
+      return { target: context.target, status: targetStatus, verification };
     } catch (error) {
-      return { target, status: targetStatus ?? null, verification: null, error: errorEvidence(error) };
+      return { target: context.target, status: targetStatus ?? null, verification: null, error: errorEvidence(error) };
     }
   }));
   return { targets };
@@ -1670,13 +1527,17 @@ async function verifyCurrent(context) {
   const current = await pointer(root, 'current');
   assert(current, 'CURRENT_POINTER_MISSING', { root });
   const readiness = await waitForReadiness(context, { candidateDir: '', currentDir: current, ...contextSummary(context) });
+  const protectedProcesses = {};
+  for (const definition of context.policy.protectedProcesses ?? []) {
+    protectedProcesses[`${definition.kind}:${definition.name}`] = await processId(definition);
+  }
   return {
     current,
     currentArtifact: await readJson(join(current, 'AI_DELIVERY_ARTIFACT.json')),
     targetProcess: await processId(context.deployment.restart),
     checks: readiness.checks,
     readiness,
-    protectedProcesses: {},
+    protectedProcesses,
   };
 }
 
@@ -1764,20 +1625,38 @@ async function dependencyLayerPath(context, layer) {
 }
 
 async function pointerSnapshot(root) {
-  return Object.fromEntries(await Promise.all(['candidate', 'current', 'previous', 'runtime', 'previous-runtime'].map(async (name) => [name, await pointer(root, name)])));
+  return Object.fromEntries(await Promise.all(['candidate', 'current', 'previous', 'rollback', 'runtime', 'previous-runtime'].map(async (name) => [name, await pointer(root, name)])));
 }
 
 async function capacityEvidence(context, artifactBytes) {
-  try {
-    const stats = await statfs(context.deployment.pointerRoot).catch(() => statfs(dirname(context.deployment.pointerRoot)));
-    return { status: 'observed', freeBytes: Number(stats.bavail) * Number(stats.bsize), artifactBytes };
-  } catch (error) {
-    return { status: 'unavailable', artifactBytes, error: errorEvidence(error) };
-  }
+  const stats = await statfs(context.deployment.pointerRoot).catch(() => statfs(dirname(context.deployment.pointerRoot)));
+  const freeBytes = Number(stats.bavail) * Number(stats.bsize);
+  const minimumFreeBytes = context.policy.minimumFreeBytes ?? 15 * 1024 ** 3;
+  assert(freeBytes - artifactBytes >= minimumFreeBytes, 'CAPACITY_CHECK_FAILED', { freeBytes, artifactBytes, minimumFreeBytes });
+  return { status: 'passed', freeBytes, artifactBytes, minimumFreeBytes };
 }
 
 async function caddySemanticEvidence(policy) {
-  return { status: 'not-required-for-target-deploy', digest: null, config: policy.caddyConfig ?? null };
+  if (!policy.caddyConfig) return { status: 'not-configured', digest: null, config: null };
+  const adapted = await command(['caddy', 'adapt', '--config', policy.caddyConfig, '--adapter', 'caddyfile'], { timeoutMs: 30_000 });
+  return { status: 'unchanged', digest: digest(adapted.stdout), config: policy.caddyConfig };
+}
+
+async function recordRollbackPoint(context, manifest, pointers, caddySemantic) {
+  const root = context.policy.rollbackRoot ?? join(context.deployment.pointerRoot, 'rollback-points');
+  assertAllowedRoot(context.policy, root);
+  const id = `${Date.now()}-${safeName(context.node)}-${safeName(context.target)}-${manifest.sourceSha.slice(0, 12)}`;
+  const directory = join(root, safeName(context.project), id);
+  await mkdir(directory, { recursive: true, mode: 0o700 });
+  let caddyBackup = null;
+  if (context.policy.caddyConfig) {
+    caddyBackup = join(directory, 'Caddyfile');
+    await copyFile(context.policy.caddyConfig, caddyBackup);
+    await chmod(caddyBackup, 0o600);
+  }
+  const evidence = { id, directory, pointers, caddyBackup, caddySemantic, createdAt: new Date().toISOString() };
+  await writeFile(join(directory, 'rollback-point.json'), `${JSON.stringify(evidence, null, 2)}\n`, { mode: 0o600 });
+  return evidence;
 }
 
 function artifactSummary(manifest) {
@@ -1786,6 +1665,7 @@ function artifactSummary(manifest) {
 
 async function deploymentReceipt(context, manifest, evidence) {
   const pointersAfter = await pointerSnapshot(context.deployment.pointerRoot);
+  const lifecycle = await lifecycleEvidence(context.policy);
   return {
     schema: 'ai.delivery.receipt.v1',
     version: `${manifest.sourceSha}-${manifest.treeDigest.slice(7, 19)}`,
@@ -1796,11 +1676,11 @@ async function deploymentReceipt(context, manifest, evidence) {
     pointers: { before: evidence.pointersBefore, after: pointersAfter },
     rollbackPoint: evidence.rollbackPoint,
     targetProcess: { before: evidence.targetProcessBefore, after: evidence.targetProcessAfter },
-    nonTargetProcesses: { before: evidence.protectedBefore, after: evidence.protectedAfter, unchanged: Object.keys(evidence.protectedBefore ?? {}).length ? stableJson(evidence.protectedBefore) === stableJson(evidence.protectedAfter) : null },
+    nonTargetProcesses: { before: evidence.protectedBefore, after: evidence.protectedAfter, unchanged: stableJson(evidence.protectedBefore) === stableJson(evidence.protectedAfter) },
     capacity: evidence.capacity,
     ready: evidence.readiness,
-    caddySemantic: { status: 'not-part-of-target-release', before: evidence.caddyBefore, after: evidence.caddyAfter, unchanged: null },
-    automaticCleanup: { status: 'not-observed-by-target-release' },
+    caddySemantic: { before: evidence.caddyBefore, after: evidence.caddyAfter, unchanged: evidence.caddyBefore?.digest === evidence.caddyAfter?.digest },
+    automaticCleanup: lifecycle,
     databaseMigration: evidence.databaseMigration ?? null,
     databaseRecovery: context.deployment.databaseMigration ? databaseRecoveryEvidence(context.deployment.databaseMigration) : null,
     restart: context.deployment.databaseMigration ? restartEvidence(context.deployment.restart, false) : undefined,
@@ -1809,18 +1689,30 @@ async function deploymentReceipt(context, manifest, evidence) {
   };
 }
 
+async function lifecycleEvidence(policy) {
+  const units = policy.lifecycleUnits ?? [];
+  if (units.length === 0) return { mode: 'existing-lifecycle', status: 'not-configured', units: [] };
+  const states = [];
+  for (const unit of units) {
+    const active = await command(['systemctl', 'is-active', unit], { timeoutMs: 10_000, acceptExitCodes: [0, 3] });
+    states.push({ unit, active: active.stdout.trim() });
+  }
+  return { mode: 'existing-lifecycle', status: states.every((item) => item.active === 'active') ? 'armed' : 'degraded', units: states };
+}
+
 async function protectedProcessSnapshot(context) {
   const own = context.deployment.restart;
   const protectedProcesses = (context.policy.protectedProcesses ?? []).filter((item) => !(own && item.kind === own.kind && item.name === own.name));
-  return Object.fromEntries(await Promise.all(protectedProcesses.map(async (item) => [`${item.kind}:${item.name}`, await processId(item).catch(() => 'unavailable')])));
+  return Object.fromEntries(await Promise.all(protectedProcesses.map(async (item) => [`${item.kind}:${item.name}`, await processId(item)])));
 }
 
 async function assertProtectedUnchanged(context, before) {
   const after = {};
-  for (const key of Object.keys(before)) {
+  for (const [key, oldPid] of Object.entries(before)) {
     const [kind, ...name] = key.split(':');
-    const newPid = await processId({ kind, name: name.join(':') }).catch(() => 'unavailable');
+    const newPid = await processId({ kind, name: name.join(':') });
     after[key] = newPid;
+    assert(newPid === oldPid, 'PROTECTED_PROCESS_CHANGED', { process: key, before: oldPid, after: newPid });
   }
   return after;
 }
@@ -1854,7 +1746,6 @@ function restartEvidence(definition = { kind: 'none', name: 'none' }, executed =
 
 async function restart(definition = { kind: 'none', name: 'none' }) {
   const evidence = restartEvidence(definition, true);
-  const restartAt = new Date().toISOString();
   if (evidence.commandCount === 0) return evidence;
   try {
     await command(evidence.commands[0], { timeoutMs: 45_000 });
@@ -1862,8 +1753,8 @@ async function restart(definition = { kind: 'none', name: 'none' }) {
     let serviceError = null;
     if (evidence.kind === 'systemd') {
       try {
-        const journal = await command(['journalctl','-u',evidence.target,'--since',restartAt,'-n','80','--no-pager','-o','cat']);
-        serviceError = journal.stdout.split('\n').filter((line) => /Error|Warning|curl:|unsettled|_TIMEOUT|_MISMATCH|_MISSING|_INVALID|_REQUIRED/i.test(line)).slice(-3).join('\n');
+        const journal = await command(['journalctl','-u',evidence.target,'-n','80','--no-pager','-o','cat']);
+        serviceError = journal.stdout.split('\n').filter((line) => /Error:|"error":|^error:|_TIMEOUT|_MISMATCH|_MISSING|_INVALID|_REQUIRED/i.test(line)).slice(-3).join('\n');
       } catch {}
     }
     throw failure('RESTART_COMMAND_FAILED', { restart: evidence, cause: errorEvidence(error), serviceError });
@@ -1890,7 +1781,7 @@ async function waitForReadiness(context, values) {
   const settings = readinessSettings(context);
   const started = performance.now();
   if (checks.length === 0) {
-    return { status: 'not-checked', attempts: 0, durationMs: 0, timeoutMs: settings.timeoutMs, intervalMs: settings.intervalMs, lastError: null, checks: [] };
+    return { status: 'ready', attempts: 0, durationMs: 0, timeoutMs: settings.timeoutMs, intervalMs: settings.intervalMs, lastError: null, checks: [] };
   }
   const deadline = started + settings.timeoutMs;
   let attempts = 0;
@@ -1929,7 +1820,6 @@ async function waitForReadiness(context, values) {
       try {
         successfulChecks = await runReadinessAttempt(checks, values, settings, deadline);
       } catch (error) {
-        if (error?.code === 'REMOTE_COMMAND_INTERRUPTED') throw error;
         lastError = errorEvidence(error);
       }
     } else {
@@ -2033,87 +1923,32 @@ function elapsedMs(started) {
 async function command(argv, options = {}) {
   const started = Date.now();
   const chunks = [];
-  let interruptedSignal = null;
   const result = await new Promise((resolvePromise, reject) => {
-    const useProcessGroup = process.platform !== 'win32';
-    let escalation;
-    let closedResult;
     const child = spawn(argv[0], argv.slice(1), {
       shell: false,
-      detached: useProcessGroup,
       stdio: [options.input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'],
       ...(options.cwd ? { cwd: options.cwd } : {}),
       ...(options.env ? { env: options.env } : {}),
       ...(options.uid === undefined ? {} : { uid: options.uid }),
       ...(options.gid === undefined ? {} : { gid: options.gid }),
     });
-    const terminate = (signal) => {
-      if (useProcessGroup && child.pid) {
-        try {
-          process.kill(-child.pid, signal);
-          return;
-        } catch (error) {
-          if (error?.code === 'ESRCH') return;
-        }
-      }
-      child.kill(signal);
-    };
-    const forwardedSignals = process.platform === 'win32' ? ['SIGINT', 'SIGTERM'] : ['SIGHUP', 'SIGINT', 'SIGTERM'];
-    const signalHandlers = new Map(forwardedSignals.map((signal) => [signal, () => {
-      interruptedSignal ??= signal;
-      terminate(signal);
-      if (escalation) return;
-      escalation = setTimeout(() => {
-        terminate('SIGKILL');
-        if (closedResult) resolvePromise(closedResult);
-      }, 2_000);
-      escalation.unref();
-    }]));
-    for (const [signal, handler] of signalHandlers) process.on(signal, handler);
-    const removeSignalHandlers = () => {
-      for (const [signal, handler] of signalHandlers) process.off(signal, handler);
-    };
     if (options.input !== undefined) {
       child.stdin.on('error', reject);
       child.stdin.end(options.input);
     }
     child.stdout.on('data', (chunk) => chunks.push(chunk));
     child.stderr.on('data', (chunk) => chunks.push(chunk));
-    child.on('error', (error) => {
-      removeSignalHandlers();
-      reject(error);
-    });
-    const timer = setTimeout(() => {
-      terminate('SIGKILL');
-    }, options.timeoutMs ?? 30_000);
+    child.on('error', reject);
+    const timer = setTimeout(() => child.kill('SIGKILL'), options.timeoutMs ?? 30_000);
     child.on('close', (code, signal) => {
       clearTimeout(timer);
-      removeSignalHandlers();
-      const completed = { code, signal };
-      if (escalation && useProcessGroup && processGroupExists(child.pid)) {
-        closedResult = completed;
-        escalation.ref();
-        return;
-      }
-      if (escalation) clearTimeout(escalation);
-      resolvePromise(completed);
+      resolvePromise({ code, signal });
     });
   });
   const stdout = Buffer.concat(chunks).toString('utf8');
-  if (interruptedSignal) throw failure('REMOTE_COMMAND_INTERRUPTED', { argv, signal: interruptedSignal, outputTail: stdout.slice(-3000) });
   const accepted = options.acceptExitCodes ?? [0];
   assert(accepted.includes(result.code), 'REMOTE_COMMAND_FAILED', { argv, code: result.code, signal: result.signal, outputTail: stdout.slice(-3000) });
   return { stdout, durationMs: Date.now() - started };
-}
-
-function processGroupExists(pid) {
-  if (!pid) return false;
-  try {
-    process.kill(-pid, 0);
-    return true;
-  } catch (error) {
-    return error?.code === 'EPERM';
-  }
 }
 
 async function treeEvidence(root, ignored = new Set()) {
@@ -2349,30 +2184,21 @@ function assertIncomingPath(policy, path) {
   assert(path.startsWith(`${root}/`) && !path.includes('/../'), 'INCOMING_PATH_NOT_ALLOWED', { path, root });
 }
 
-function validatePolicy(policy, project, selectedNode, selectedTargets, action) {
-  const recoveryOrObservation = ['status', 'observe', 'rollback'].includes(action);
+function validatePolicy(policy, project) {
   assert(policy?.schema === 'ai.delivery.remote-policy.v1' && policy.project === project, 'POLICY_INVALID');
   assert(Array.isArray(policy.allowedRoots) && policy.allowedRoots.length > 0, 'POLICY_ALLOWED_ROOTS_REQUIRED');
   for (const root of policy.allowedRoots) assert(typeof root === 'string' && root.startsWith('/') && root !== '/', 'POLICY_ALLOWED_ROOT_INVALID', { root });
-  if (!recoveryOrObservation) {
-    assert(typeof policy.incomingRoot === 'string' && policy.incomingRoot.startsWith('/'), 'POLICY_INCOMING_ROOT_INVALID');
-    validateReadiness(policy.readiness, 'policy');
-  }
+  assert(typeof policy.incomingRoot === 'string' && policy.incomingRoot.startsWith('/'), 'POLICY_INCOMING_ROOT_INVALID');
+  validateReadiness(policy.readiness, 'policy');
   assert(policy.nodes && typeof policy.nodes === 'object', 'POLICY_NODES_REQUIRED');
   const pointerRoots = new Set();
   for (const [node, nodePolicy] of Object.entries(policy.nodes)) {
-    if (node !== selectedNode) continue;
     assert(nodePolicy?.deployments && typeof nodePolicy.deployments === 'object', 'POLICY_DEPLOYMENTS_REQUIRED', { node });
     for (const [target, deployment] of Object.entries(nodePolicy.deployments)) {
-      if (!selectedTargets.includes(target)) continue;
       assert(typeof deployment.pointerRoot === 'string', 'POLICY_POINTER_ROOT_REQUIRED', { node, target });
       assertAllowedRoot(policy, deployment.pointerRoot);
       assert(!pointerRoots.has(deployment.pointerRoot), 'POLICY_POINTER_ROOT_DUPLICATE', { node, target, pointerRoot: deployment.pointerRoot });
       pointerRoots.add(deployment.pointerRoot);
-      if (action === 'rollback') {
-        assert(['none', 'systemd', 'pm2'].includes(deployment.restart?.kind) && typeof deployment.restart?.name === 'string', 'POLICY_RESTART_INVALID', { node, target });
-      }
-      if (recoveryOrObservation) continue;
       assert(['none', 'systemd', 'pm2'].includes(deployment.restart?.kind), 'POLICY_RESTART_INVALID', { node, target });
       assert(typeof deployment.restart?.name === 'string', 'POLICY_RESTART_NAME_REQUIRED', { node, target });
       if (deployment.restart?.kind === 'systemd') {
@@ -2473,6 +2299,21 @@ async function preparedControlPlane(options, policyBody) {
     remoteAgentSha256: `sha256:${await hashFile(fileURLToPath(import.meta.url))}`,
     remotePolicySha256: `sha256:${createHash('sha256').update(policyBody).digest('hex')}`,
   };
+}
+
+function assertExpectedPreparedControlPlane(controlPlane, options) {
+  const expectedAgentSha256 = required(options.expectedRemoteAgentSha256, 'EXPECTED_REMOTE_AGENT_SHA256_REQUIRED');
+  const expectedPolicySha256 = required(options.expectedRemotePolicySha256, 'EXPECTED_REMOTE_POLICY_SHA256_REQUIRED');
+  assert(/^sha256:[a-f0-9]{64}$/.test(expectedAgentSha256), 'EXPECTED_REMOTE_AGENT_SHA256_INVALID');
+  assert(/^sha256:[a-f0-9]{64}$/.test(expectedPolicySha256), 'EXPECTED_REMOTE_POLICY_SHA256_INVALID');
+  assert(controlPlane.remoteAgentSha256 === expectedAgentSha256, 'REMOTE_AGENT_SHA256_MISMATCH', {
+    expected: expectedAgentSha256,
+    actual: controlPlane.remoteAgentSha256,
+  });
+  assert(controlPlane.remotePolicySha256 === expectedPolicySha256, 'REMOTE_POLICY_SHA256_MISMATCH', {
+    expected: expectedPolicySha256,
+    actual: controlPlane.remotePolicySha256,
+  });
 }
 
 function expand(value, values) {
