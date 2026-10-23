@@ -149,10 +149,13 @@ async function initializeNodeBusiness() {
     if (provisioned.rowCount === 0) {
       // Historical migrations install fixtures. A new independent instance starts
       // without those accounts, products or applications; shared rules remain.
-      await client.query('truncate identity.principal,member.profile,catalog.product,experience.application,inventory.stockitem,inventory.cutoverreview restart identity cascade');
-      await client.query('truncate access.membershiprole,access.scopegrant,access.membershipoverride cascade');
-      await client.query(`insert into access.platformowner(singleton,state,membership_id,version,initialized_at,updated_at)
-        values(true,'bootstrap_pending',null,0,null,clock_timestamp())`);
+      await client.query('truncate catalog.product,experience.application,inventory.stockitem,inventory.cutoverreview restart identity cascade');
+      // Keep the singleton's bootstrap-pending row and its normal lifecycle.
+      // Removing fixture memberships as rows does not cascade-truncate it.
+      await client.query(`delete from member.invite;
+        delete from access.membershiprole; delete from access.scopegrant; delete from access.membershipoverride;
+        delete from access.membership; delete from identity.assurance;
+        delete from member.profile; delete from identity.principal;`);
     }
     for (const [id,kind,parent,name] of [[tenant,'tenant','organization-platform-root',node.displayName],
       [enterprise,'enterprise',tenant,node.displayName],[node.mallId,'mall',enterprise,node.mallName]]) {
