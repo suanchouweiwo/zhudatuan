@@ -2,7 +2,7 @@ import { Button } from '@shop/design';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import type { ConsoleContext, ConsoleScope } from '../../entity/session/ConsoleSession';
-import { manageInstance, readManagedInstances, readMallNodeTask, retryMallNodeTask, type AutoNodeTaskReceipt } from './MallCreateCommand';
+import { manageInstance, readManagedInstances, readMallNodeTask, type AutoNodeTaskReceipt } from './MallCreateCommand';
 
 export function InstanceLifecycle({ context, scope }: { context: ConsoleContext; scope: ConsoleScope }) {
   const [task, setTask] = useState<AutoNodeTaskReceipt>();
@@ -39,7 +39,7 @@ export function InstanceLifecycle({ context, scope }: { context: ConsoleContext;
     {task ? <p role="status">{task.status === 'SUCCEEDED' ? (task.action === 'DELETE' ? '删除完成' : '全新商城已生成') : `${task.phase} · ${task.progress}%`}</p> : null}
     {task?.last_error ? <p role="alert">{task.last_error.message}</p> : null}
     {task?.status === 'FAILED_RETRYABLE' ? <Button onPress={() => {
-      void retryMallNodeTask(context, scope, task.task_id).then(setTask).catch((cause: unknown) => setError(String(cause)));
+      void execute(task.node_id, task.action === 'DELETE' ? 'DELETE' : 'CREATE');
     }}>继续任务</Button> : null}
     {error ? <p role="alert">{error}</p> : null}
     {task?.status === 'SUCCEEDED' ? task.result?.access_entries.map((entry) => <p key={entry.surface_ref}><a href={entry.url}>{entry.surface_ref === 'surface:console' ? '打开新商城后台' : entry.surface_ref === 'surface:storefront' ? '打开新商城' : entry.url}</a></p>) : null}

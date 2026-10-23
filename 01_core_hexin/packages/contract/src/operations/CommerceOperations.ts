@@ -2416,7 +2416,7 @@ const definitions = [
     "availability": "runtime",
     "summary": "provisioning.instances.manage",
     "risk": "critical",
-    "stepup": true,
+    "stepup": false,
     "scopeKinds": [
       "platform"
     ],
@@ -2443,7 +2443,7 @@ const definitions = [
     "capability": "organization.layer.manage",
     "scope_resolver_ref": "access.resolve_scope.v1",
     "idempotencyScope": "operation+realm+node+membership+business-key",
-    "assuranceLevel": 2,
+    "assuranceLevel": 1,
     "makerChecker": false,
     "sensitiveFields": [],
     "csrfPolicy": "session",
@@ -2457,7 +2457,7 @@ const definitions = [
     "writePath": "transactional",
     "stateMachine": "provisioning.instances.manage.execution.v1",
     "businessNumber": "SFL-PROVISIONING-{sha256:16}",
-    "operationHash": "70e8a3aa8bf6f9dab713afefd693e7beaeff9307888fb233efba48ed9fbaeac3",
+    "operationHash": "86bc0f81cba503121c52e0bd2db50079e0666daf7d07754c8e7c56846967e541",
     "requirements": [
       "MVP06",
       "MVP15"

@@ -450,6 +450,8 @@ operations:
     path: /api/v1/provisioning/instances/{instanceid}/actions
     audience: operator
     permission: organization.layer.manage
+    stepup: false
+    assuranceLevel: 1
     idempotent: false
     schema: named
     requestFields: ["action"]

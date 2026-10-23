@@ -325,6 +325,9 @@ async function operationAccess(operation: ReturnType<typeof OperationCatalog.get
   if (isAdministratorOffboard(operation.id, request.body)) {
     return authorizer.authorize(request.headers, operation.id, operation.permission, resource, false);
   }
+  if (operation.id === 'provisioning.instances.manage') {
+    return authorizer.authorize(request.headers, operation.id, operation.permission, resource, operation.stepup);
+  }
   return authorizer.authorize(request.headers, operation.id, operation.permission, resource);
 }
 

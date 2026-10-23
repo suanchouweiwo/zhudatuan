@@ -46085,7 +46085,7 @@
         "tags": [
           "provisioning"
         ],
-        "x-assurance-level": 2,
+        "x-assurance-level": 1,
         "x-audience": "operator",
         "x-availability": "runtime",
         "x-business-number": "SFL-PROVISIONING-{sha256:16}",
@@ -46109,7 +46109,7 @@
           "operating_mall",
           "consumer"
         ],
-        "x-operation-hash": "70e8a3aa8bf6f9dab713afefd693e7beaeff9307888fb233efba48ed9fbaeac3",
+        "x-operation-hash": "86bc0f81cba503121c52e0bd2db50079e0666daf7d07754c8e7c56846967e541",
         "x-permission": "organization.layer.manage",
         "x-request-schema": "ProvisioningInstancesManageRequest",
         "x-requirements": [
@@ -46126,7 +46126,7 @@
         "x-scope-resolver-ref": "access.resolve_scope.v1",
         "x-sensitive-fields": [],
         "x-state-machine": "provisioning.instances.manage.execution.v1",
-        "x-stepup": true,
+        "x-stepup": false,
         "x-targets": [
           "console"
         ],

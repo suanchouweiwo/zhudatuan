@@ -100,6 +100,7 @@ function normalizeOperations(values: readonly RawOperationDefinition[]): readonl
     const permission = item.permission === undefined ? undefined : PERMISSION_CATALOG.find(({ code }) => code === item.permission);
     const normalized = {
       id: item.id, owner: item.owner, method: item.method, path: item.path, audience: item.audience,
+      ...(item.stepup === undefined ? {} : { stepup: item.stepup }),
       ...(item.permission === undefined ? {} : { permission: item.permission }), idempotent: item.idempotent,
       idempotency, expectedVersion, execution, availability, summary, schema: item.schema,
       title: item.title ?? summary,

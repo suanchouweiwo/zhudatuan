@@ -5,6 +5,7 @@ export interface OperationDefinition {
   readonly path: `/api/v1/${string}` | `/health/${string}`;
   readonly audience: 'public' | 'member' | 'operator' | 'provider';
   readonly permission?: string;
+  readonly stepup?: boolean;
   readonly idempotent: boolean;
   readonly idempotency?: 'none' | 'required';
   readonly expectedVersion?: 'none' | 'optional' | 'required';
@@ -105,7 +106,7 @@ export function buildOpenapi(
       'x-business-number': operation.businessNumber,
       'x-operation-hash': operation.operationHash,
       'x-scope-kinds': metadata?.scopes ?? [],
-      'x-stepup': metadata?.stepup ?? false,
+      'x-stepup': operation.stepup ?? metadata?.stepup ?? false,
       security: operation.audience === 'public' || operation.audience === 'provider' ? [] : [{ session: [] }],
       responses: {
         [execution === 'async' ? '202' : '200']: response('Success', operation.responseSchema ?? 'JsonValue'),
@@ -143,7 +144,7 @@ export function operationSource(
       id: item.id, method: item.method, path: item.path, module: item.owner, audience: item.audience,
       ...(item.permission === undefined ? {} : { permission: item.permission }), idempotent: item.idempotent,
       idempotency: item.idempotency!, expectedVersion: item.expectedVersion!, execution: item.execution!,
-      availability: item.availability!, summary: item.summary!, risk: metadata?.risk ?? 'low', stepup: metadata?.stepup ?? false,
+      availability: item.availability!, summary: item.summary!, risk: metadata?.risk ?? 'low', stepup: item.stepup ?? metadata?.stepup ?? false,
       scopeKinds: metadata?.scopes ?? [], schema: item.schema, title: item.title!, targets: item.targets!,
       node_profiles_allowed: item.node_profiles_allowed!, requestSchema: item.requestSchema!, responseSchema: item.responseSchema!,
       errorUnion: item.errorUnion!, capability: item.capability!, scope_resolver_ref: item.scope_resolver_ref!,
