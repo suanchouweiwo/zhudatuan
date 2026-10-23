@@ -2,16 +2,39 @@ import { createServer } from 'node:http';
 
 export const AUTONODE_CONTROL_API_SCHEMA_VERSION = 'sfl.autonode-control-api.v1';
 
-export function createAutoNodeControlServer(engine) {
+export function requireLoopbackControlHost(host) {
+  if (host !== '127.0.0.1' && host !== '::1') throw new Error('AUTONODE_CONTROL_HOST_NOT_LOOPBACK');
+  return host;
+}
+
+export function createAutoNodeControlServer(engine, archState) {
   if (!engine || typeof engine.submit !== 'function' || typeof engine.read !== 'function'
     || typeof engine.retry !== 'function' || typeof engine.list !== 'function') {
     throw new Error('AUTONODE_CONTROL_ENGINE_INVALID');
+  }
+  if (!archState || typeof archState.read !== 'function' || typeof archState.update !== 'function') {
+    throw new Error('L_ARCH_STATE_PROVIDER_INVALID');
   }
   return createServer(async (request, response) => {
     try {
       const url = new URL(request.url ?? '/', 'http://127.0.0.1');
       if (request.method === 'GET' && url.pathname === '/health/ready') {
         send(response, 200, { schema_version: AUTONODE_CONTROL_API_SCHEMA_VERSION, status: 'READY' });
+        return;
+      }
+      if (request.method === 'GET' && url.pathname === '/v1/arch') {
+        const state = await archState.read();
+        const nodeId = url.searchParams.get('node_id');
+        const interfaceId = url.searchParams.get('interface_id');
+        send(response, 200, nodeId === null && interfaceId === null ? state : {
+          ...state,
+          connections: state.connections.filter((connection) => (nodeId === null || connection.nodeId === nodeId)
+            && (interfaceId === null || connection.interfaceId === interfaceId)),
+        });
+        return;
+      }
+      if (request.method === 'PUT' && url.pathname === '/v1/arch') {
+        send(response, 200, await archState.update(await readBody(request)));
         return;
       }
       if (request.method === 'POST' && url.pathname === '/v1/tasks') {
@@ -41,6 +64,8 @@ export function createAutoNodeControlServer(engine) {
 }
 
 async function readBody(request) {
+  const contentType = request.headers['content-type']?.split(';', 1)[0]?.trim().toLowerCase();
+  if (contentType !== 'application/json') throw new Error('AUTONODE_CONTROL_CONTENT_TYPE_INVALID');
   let body = '';
   for await (const chunk of request) {
     body += chunk.toString('utf8');
