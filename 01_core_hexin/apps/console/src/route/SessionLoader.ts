@@ -154,6 +154,8 @@ async function readProfile(
   signal: AbortSignal,
 ): Promise<Readonly<{ profile: ConsoleProfile; state: 'ready' | 'unavailable' }>> {
   try {
+    const sessionProfile = parseProfile(session.profile);
+    if (sessionProfile?.status !== undefined) return Object.freeze({ profile: sessionProfile, state: 'ready' });
     const parsed = parseProfile(prefetched);
     if (parsed?.status !== undefined) return Object.freeze({ profile: parsed, state: 'ready' });
     const { memberProfileRead, consoleRequest } = await consoleClient();

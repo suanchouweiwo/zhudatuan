@@ -179,10 +179,11 @@ export function sessionTicketOperations(runtime: RealmOperationContext): Operati
           ? { accountId: access.actor.account, realmId: access.actor.realm }
           : await currentRealmAccount(database, access.membership.id, access.actor.id);
         const entryRealmId = access.actor.nodeContext?.manifest.realm_ref.ref ?? realmAccount.realmId;
-        const [activeContext, security] = await Promise.all([
+        const [activeContext, security, profile] = await Promise.all([
           resolveActiveMembershipContext(database, entryRealmId, realmAccount.accountId, access.membership.id,
             { resolverKnownAvailable: true }),
           memberPort.sessionSecurityProjection(database, realmAccount.accountId, realmAccount.realmId, access.actor.id),
+          access.actor.target === 'console' ? memberPort.currentProfile(database, access.membership.id) : undefined,
         ]);
         if (security === null) reject(403, 'REALM_ACCOUNT_INACTIVE');
         return {
@@ -205,7 +206,7 @@ export function sessionTicketOperations(runtime: RealmOperationContext): Operati
               organization: governance.organizationId,
             },
             ...(security.displayName === null ? {} : {
-              profile: { display_name: security.displayName, employee_no: null },
+              profile: profile ?? { display_name: security.displayName, employee_no: null },
             }),
             security: { hasLocalCredential: security.hasLocalCredential, phoneMasked: security.phoneMasked,
               passwordChangedAt: security.passwordChangedAt?.toISOString() ?? null },

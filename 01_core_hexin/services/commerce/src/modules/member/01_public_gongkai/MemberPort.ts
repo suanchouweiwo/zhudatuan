@@ -18,6 +18,7 @@ import {
   createMemberProfile,
   ensureImportedMemberProfile,
   readSecurityProfile,
+  readCurrentMemberProfile,
 } from '../04_adapters_shixian/persistence/MemberProfileRepository';
 
 export interface MemberInvite {
@@ -85,6 +86,10 @@ export class MemberPort {
           and (release.retired_at is null or release.retired_at>clock_timestamp()))
       order by application.updated_at desc,application.id limit 1`, [applicationSlug]);
     return result.rows[0];
+  }
+
+  async currentProfile(database: OperationDatabase, membership: string) {
+    return (await readCurrentMemberProfile(database, membership)).rows[0];
   }
 
   async securityProfile(database: OperationDatabase, principal: string): Promise<Readonly<{ displayName: string | null; mobileCiphertext: string | null }>> {
