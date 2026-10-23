@@ -911,6 +911,8 @@ async function initializeNodeIngress(context, candidate, artifact) {
   const nodeManifest = await readJson(join(candidate, 'node-runtime/manifest.json'));
   const apiToken = context.cloudflare?.apiToken?.trim();
   if (!apiToken) throw new Error('CLOUDFLARE_INGRESS_CREDENTIALS_MISSING');
+  await mkdir('/opt/sfl/control/autonode', { recursive: true, mode: 0o750 });
+  await writeFile('/opt/sfl/control/autonode/cloudflare-token', apiToken, { mode: 0o600 });
   const zoneResponse = await fetch(`https://api.cloudflare.com/client/v4/zones?per_page=50`, {
     headers: { authorization: `Bearer ${apiToken}` }, signal: AbortSignal.timeout(30000),
   });
@@ -936,6 +938,7 @@ async function initializeNodeIngress(context, candidate, artifact) {
   const client = new AutoNodeCloudflareClient({ accountId: matchedZone.account.id, zoneId, apiToken });
   const secret = createHash('sha256').update(`${credentials.POSTGRES_PASSWORD}\0LK_TUNNEL:${context.node}`).digest('base64');
   const tunnel = await client.ensureTunnel(setup.tunnelName, secret);
+  await recordNodeResources(context, { cloudflare: { accountId: matchedZone.account.id, tunnelId: tunnel.id } });
   const tunnelDirectory = join(root, 'tunnel');
   await mkdir(tunnelDirectory, { recursive: true, mode: 0o750 });
   const credentialFile = join(tunnelDirectory, 'credentials.json');
@@ -974,7 +977,9 @@ async function initializeNodeIngress(context, candidate, artifact) {
     const hostZone = zoneFor(host);
     if (!hostZone) throw new Error(`CLOUDFLARE_ZONE_NOT_FOUND:${host}`);
     const dnsClient = new AutoNodeCloudflareClient({ accountId: hostZone.account.id, zoneId: hostZone.id, apiToken });
-    records.push(await dnsClient.ensureCname(host, `${tunnel.id}.cfargotunnel.com`, `LK ${context.node}`));
+    const record = await dnsClient.ensureCname(host, `${tunnel.id}.cfargotunnel.com`, `LK ${context.node}`);
+    records.push(record);
+    await recordNodeResources(context, { dnsRecord: { zoneId: hostZone.id, id: record.id, name: host } });
   }
   const serviceState = (await command(['systemctl', 'is-active', ...services])).stdout.trim().split(/\s+/);
   const apiHost = nodeManifest.domain_bindings.find((binding) => binding.surface_ref === 'surface:api').host;
@@ -1009,6 +1014,7 @@ async function initializeNodeDatabase(context, candidate, manifest) {
   await copyFile(join(bootstrap, 'postgres-init.sh'), initFile);
   await chmod(initFile, 0o644);
   const container = `${context.node}-postgres`;
+  await recordNodeResources(context, { database: { container, dataDirectory: join(database, 'data') } });
   const composeFile = join(database, 'compose.yml');
   const compose = (await readFile(join(bootstrap, 'registration-compose.yml'), 'utf8'))
     .replace('name: zhudatuan-registration', `name: ${context.node}`)
@@ -1338,6 +1344,33 @@ async function executeDatabaseMigration(context, candidate, manifest) {
           };
     throw failure('DATABASE_MIGRATION_EXECUTOR_FAILED', { databaseMigration });
   }
+}
+
+async function recordNodeResources(context, update) {
+  const directory = '/var/lib/sfl-autonode-control/resources';
+  const file = join(directory, `${context.node}.json`);
+  const stored = await readJson(file);
+  const previous = stored?.state === 'DELETED' ? {} : stored ?? {};
+  const nodeRoot = join('/opt/sfl/nodes', context.node);
+  const services = ['storefront', 'identity-api', 'web-api', 'catalog-api', 'purchase-api',
+    'payment-webhook-api', 'catalog-jobs', 'payment-jobs', 'catalog-object-store',
+    'secret-store', 'api-gateway', 'cloudflared'].map((name) => `sfl-${name}@${context.node}.service`);
+  const dnsRecords = [...(previous.dnsRecords ?? [])];
+  if (update.dnsRecord && !dnsRecords.some((entry) => entry.zoneId === update.dnsRecord.zoneId && entry.id === update.dnsRecord.id)) {
+    dnsRecords.push(update.dnsRecord);
+  }
+  const { dnsRecord, ...fields } = update;
+  const resource = {
+    database: { container: `${context.node}-postgres`, dataDirectory: join(nodeRoot, 'database/data') },
+    ...previous, ...fields, state: 'PROVISIONED', node: context.node, nodeRoot, services, dnsRecords,
+    objectDirectory: `/var/lib/sfl-${context.node}-objects`,
+    networks: [`${context.node}_registration`, `${context.node}-database-link`],
+    updatedAt: new Date().toISOString(),
+  };
+  await mkdir(directory, { recursive: true, mode: 0o750 });
+  const temporary = `${file}.${process.pid}.tmp`;
+  await writeFile(temporary, `${JSON.stringify(resource, null, 2)}\n`, { mode: 0o600 });
+  await rename(temporary, file);
 }
 
 function parseEnvironmentFile(source) {
