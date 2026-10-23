@@ -144,6 +144,13 @@ async function initializeNodeBusiness() {
   const client = await owner.connect();
   try {
     await client.query('begin');
+    const activationId = `activation:${manifest.node_id}:initial`;
+    const provisioned = await client.query('select 1 from identity.nodeprovisioning where activation_request_id=$1',[activationId]);
+    if (provisioned.rowCount === 0) {
+      // Historical migrations install fixtures. A new independent instance starts
+      // without those accounts, products or applications; shared rules remain.
+      await client.query('truncate identity.principal,member.profile,catalog.product,experience.application restart identity cascade');
+    }
     for (const [id,kind,parent,name] of [[tenant,'tenant','organization-platform-root',node.displayName],
       [enterprise,'enterprise',tenant,node.displayName],[node.mallId,'mall',enterprise,node.mallName]]) {
       await client.query(`insert into organization.organization(id,kind,parent_id,name,timezone,status,version,created_at,updated_at)
@@ -176,7 +183,6 @@ async function initializeNodeBusiness() {
     const fact = {schema_version:'sfl.autonode-identity-realm-fact.v1',activation_request_id:`activation:${manifest.node_id}:initial`,
       provisioning_request_id:`provisioning:${manifest.node_id}:initial`,manifest_id:manifest.manifest_id,
       manifest_digest:manifest.manifest_digest,realm:expected.realms[0],entries:expected.entries,targets:expected.targets};
-    const provisioned = await client.query('select 1 from identity.nodeprovisioning where activation_request_id=$1',[fact.activation_request_id]);
     if (provisioned.rowCount === 0) await client.query('select identity.provision_node_realm($1::jsonb)',[JSON.stringify(fact)]);
     await client.query('commit');
   } catch(error) { await client.query('rollback'); throw error; }
