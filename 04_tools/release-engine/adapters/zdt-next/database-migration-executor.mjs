@@ -150,6 +150,9 @@ async function initializeNodeBusiness() {
       // Historical migrations install fixtures. A new independent instance starts
       // without those accounts, products or applications; shared rules remain.
       await client.query('truncate identity.principal,member.profile,catalog.product,experience.application restart identity cascade');
+      await client.query('truncate access.membershiprole,access.scopegrant,access.membershipoverride');
+      await client.query(`insert into access.platformowner(singleton,state,membership_id,version,initialized_at,updated_at)
+        values(true,'bootstrap_pending',null,0,null,clock_timestamp())`);
     }
     for (const [id,kind,parent,name] of [[tenant,'tenant','organization-platform-root',node.displayName],
       [enterprise,'enterprise',tenant,node.displayName],[node.mallId,'mall',enterprise,node.mallName]]) {
