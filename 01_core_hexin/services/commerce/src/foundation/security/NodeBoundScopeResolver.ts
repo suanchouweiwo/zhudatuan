@@ -18,6 +18,10 @@ export class NodeBoundScopeResolver implements ScopeResolver {
     // L0 console enumerates its authorized organization roots rather than one storefront scope.
     if (operation === 'organization.layers.read' && actor.target === 'console'
       && actor.nodeContext?.signed_level === 'L0') return scope;
+    if (actor.target === 'console' && actor.nodeContext?.signed_level === 'L0'
+      && actor.governanceOrganization
+      && (scope.id === actor.governanceOrganization
+        || scope.path.some((entry) => entry.id === actor.governanceOrganization))) return scope;
     let nodeScope = scope;
     if (scope.kind === 'owner') {
       if (!this.resolveOwnerNodeScope) throw new Error('NODE_SCOPE_MISMATCH');
