@@ -975,7 +975,7 @@ async function initializeNodeIngress(context, candidate, artifact) {
 
 async function initializeNodeDatabase(context, candidate, manifest) {
   const setup = context.deployment.databaseMigration.initialize;
-  if (setup.ingress) return initializeNodeIngress(context, candidate, manifest);
+  if (setup.ingress && !setup.applyBusiness) return initializeNodeIngress(context, candidate, manifest);
   const root = join('/opt/sfl/nodes', context.node);
   const runtime = join(root, 'runtime');
   const database = join(root, 'database');
@@ -1173,6 +1173,9 @@ async function executeDatabaseMigration(context, candidate, manifest) {
   }
   const definition = context.deployment.databaseMigration;
   if (definition.initialize?.applyBusiness) {
+    if (!(await exists(definition.credentialFile))) {
+      await initializeNodeDatabase(context, candidate, manifest);
+    }
     const nodeRoot = join('/opt/sfl/nodes',context.node);
     const credentials = parseEnvironmentFile(await readFile(definition.credentialFile,'utf8'));
     await command(['chgrp',definition.runtimeGroup,join(nodeRoot,'database')]);
