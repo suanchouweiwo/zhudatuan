@@ -17,7 +17,11 @@ export async function initializeInstanceAdministrator(instance, administrator, c
   const target = node.targets.find((entry) => entry.target === 'console');
   const environmentFile = join(runtime, 'identity-api.env');
   const environment = await readFile(environmentFile, 'utf8');
-  const keyRef = /^IDENTITY_KEY_REF=(.*)$/m.exec(environment)[1].trim();
+  const envValue = (name) => {
+    const value = new RegExp(`^${name}=(.*)$`, 'm').exec(environment)?.[1].trim() ?? '';
+    return value.startsWith('"') ? JSON.parse(value) : value.replace(/^'|'$/g, '');
+  };
+  const keyRef = envValue('IDENTITY_KEY_REF');
   const secrets = JSON.parse(await readFile(join(runtime, 'secrets.json'), 'utf8'));
   const subject = administrator.username.trim().replace(/^1([3-9]\d{9})$/, '+861$1').toLowerCase();
   const hash = createHmac('sha256', secrets[keyRef]).update(subject).digest('hex');
@@ -59,8 +63,8 @@ export async function initializeInstanceAdministrator(instance, administrator, c
     commit;`;
   await run('docker', ['exec', '-i', `${instance.instance}-postgres`, 'psql', '-X', '-v', 'ON_ERROR_STOP=1', '-U', 'zhudatuanroot', '-d', 'zhudatuan_registration'], { cwd: root, input: sql });
   if (controllerOrigin) {
-    const origins = /^API_ALLOWED_ORIGINS=(.*)$/m.exec(environment)?.[1].split(',') ?? [];
-    const next = environment.replace(/^API_ALLOWED_ORIGINS=.*$/m, `API_ALLOWED_ORIGINS=${[...new Set([...origins, controllerOrigin])].join(',')}`);
+    const origins = envValue('API_ALLOWED_ORIGINS').split(',').filter(Boolean);
+    const next = environment.replace(/^API_ALLOWED_ORIGINS=.*$/m, `API_ALLOWED_ORIGINS=${JSON.stringify([...new Set([...origins, new URL(controllerOrigin).origin])].join(','))}`);
     await writeFile(environmentFile, next);
     await run('systemctl', ['restart', `sfl-identity-api@${instance.instance}.service`], { cwd: root });
   }
