@@ -5,9 +5,11 @@
   padding: var(--sw-space-2) 0; box-shadow: none; }
 .cockpithero .swworkspaceherotitle { color: var(--sw-brand-ink); font-size: var(--sw-font-size-h1); line-height: var(--sw-line-height-h1); }
 .cockpithero .swworkspaceherodescription { color: var(--sw-text-secondary); font-size: var(--sw-font-size-body); }
-.cockpitpage .cockpithero { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
-.cockpithero .swworkspaceheroside { grid-column: 2; justify-self: end; }
-.cockpithero .swworkspaceheroactions { align-items: center; gap: 10px; }
+.cockpitpage .cockpithero { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 16px 24px; }
+.cockpithero .swworkspaceherocopy { display: grid; min-width: 0; gap: 4px; }
+.cockpithero .swworkspaceherotitle, .cockpithero .swworkspaceherodescription { margin: 0; }
+.cockpithero .swworkspaceheroside { grid-column: 2; width: auto; align-self: center; justify-self: end; }
+.cockpithero .swworkspaceheroactions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 10px; }
 .cockpitperiodfield { display: inline-flex; align-items: center; gap: 10px; color: var(--console-text-muted); font-size: 12px; white-space: nowrap; }
 .cockpitperiodtrigger { display: inline-flex; align-items: center; justify-content: space-between; gap: 16px;
   min-width: 112px; height: 36px; padding: 0 12px; border: 1px solid var(--console-border); border-radius: 6px;
