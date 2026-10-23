@@ -349,6 +349,7 @@
         {"source":"04_tools/scripts/provisioning/l-arch-control.mjs","destination":"runtime/l-arch-control.mjs"},
         {"source":"04_tools/scripts/provisioning/autonode-task-engine.mjs","destination":"runtime/autonode-task-engine.mjs"},
         {"source":"04_tools/scripts/provisioning/autonode-task-executor.mjs","destination":"runtime/autonode-task-executor.mjs"},
+        {"source":"04_tools/scripts/provisioning/autonode-administrator.mjs","destination":"runtime/autonode-administrator.mjs"},
         {"source":"04_tools/release-engine/dist/node-operations/autonode-activate-runtime.mjs","destination":"runtime/autonode-activate-runtime.mjs"},
         {"source":"04_tools/scripts/release/sfl-autonode-control.service","destination":"systemd/sfl-autonode-control.service"}
       ],
