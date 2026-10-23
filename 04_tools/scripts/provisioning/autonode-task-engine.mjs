@@ -108,7 +108,10 @@ export class AutoNodeTaskEngine {
   }
 
   async instances() {
-    return await this.executor.instances();
+    const [instances, tasks] = await Promise.all([this.executor.instances(), this.list()]);
+    return instances.map((instance) => ({ ...instance, task: tasks
+      .filter((task) => task.node_id === instance.node_id && task.action !== 'ACTIVATE')
+      .sort((left, right) => right.created_at.localeCompare(left.created_at))[0] ?? null }));
   }
 
   async read(taskId) {

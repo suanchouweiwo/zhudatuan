@@ -11,6 +11,11 @@ export function InstanceLifecycle({ context, scope }: { context: ConsoleContext;
   const instances = useQuery({ queryKey: ['managed-instances', scope.id], queryFn: () => readManagedInstances(context, scope) });
   const running = task !== undefined && ['QUEUED', 'RUNNING'].includes(task.status);
   useEffect(() => {
+    if (task) return;
+    const previous = instances.data?.find((instance) => instance.task)?.task;
+    if (previous) setTask(previous);
+  }, [instances.data, task]);
+  useEffect(() => {
     if (!running || !task) return;
     const timer = window.setTimeout(() => {
       void readMallNodeTask(context, scope, task.task_id).then((next) => {

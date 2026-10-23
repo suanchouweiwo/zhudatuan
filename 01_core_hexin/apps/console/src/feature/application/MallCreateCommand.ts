@@ -290,6 +290,7 @@ export async function readMallNodeTask(
 const InstanceSchema = z.object({
   node_id: z.string(), instance: z.string(), name: z.string(), lifecycle: z.boolean(), state: z.string(),
   access_entries: z.array(z.object({ surface_ref: z.string(), url: z.string() })),
+  task: AutoNodeTaskReceiptSchema.nullable().optional(),
 });
 export type ManagedInstance = z.infer<typeof InstanceSchema>;
 
