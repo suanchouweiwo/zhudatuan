@@ -34,7 +34,8 @@ export async function initializeInstanceAdministrator(instance, administrator, c
     insert into organization.node(id,line_id,sovereignty_tier,node_profile,realm_id,mall_id,status,created_at,updated_at)
       values(${q(node.nodeId)},${q(manifest.line_id)},'sovereign',${q(node.nodeProfile)},${q(node.realmId)},${q(node.mallId)},'active',clock_timestamp(),clock_timestamp()) on conflict(id) do nothing;
     insert into organization.noderelation(line_id,node_id,signed_level,host_sovereign_node_id,relation_version,effective_at)
-      values(${q(manifest.line_id)},${q(node.nodeId)},'L0',${q(node.nodeId)},1,clock_timestamp()) on conflict do nothing;
+      select ${q(manifest.line_id)},${q(node.nodeId)},'L0',${q(node.nodeId)},1,clock_timestamp()
+      where not exists(select 1 from organization.noderelation where node_id=${q(node.nodeId)} and line_id=${q(manifest.line_id)});
     insert into organization.nodeclosure(line_id,descendant_node_id,ancestor_node_id,depth,descendant_relation_version,effective_at)
       values(${q(manifest.line_id)},${q(node.nodeId)},${q(node.nodeId)},0,1,clock_timestamp()) on conflict do nothing;
     insert into identity.principal(id,status,created_at,updated_at) values(${q(principal)},'active',clock_timestamp(),clock_timestamp()) on conflict(id) do nothing;
