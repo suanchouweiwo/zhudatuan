@@ -1190,9 +1190,7 @@ async function executeDatabaseMigration(context, candidate, manifest) {
   }
   const definition = context.deployment.databaseMigration;
   if (definition.initialize?.applyBusiness) {
-    if (!(await exists(definition.credentialFile))) {
-      await initializeNodeDatabase(context, candidate, manifest);
-    }
+    await initializeNodeDatabase(context, candidate, manifest);
     const nodeRoot = join('/opt/sfl/nodes',context.node);
     const credentials = parseEnvironmentFile(await readFile(definition.credentialFile,'utf8'));
     await command(['chgrp',definition.runtimeGroup,join(nodeRoot,'database')]);
