@@ -52,6 +52,7 @@ export class AutoNodeControlClient implements AutoNodeControlPort {
     private readonly sourceSha: string,
     private readonly endpoint = 'http://127.0.0.1:4370',
     private readonly request: typeof fetch = fetch,
+    private readonly baseDomain?: string,
   ) {}
 
   async submitMall(mall: CreatedMall, createdAt: string, access: AccessContext, idempotencyKey: string): Promise<AutoNodeTaskReceipt> {
@@ -68,7 +69,7 @@ export class AutoNodeControlClient implements AutoNodeControlPort {
         actor_id: access.actor.id,
         membership_id: access.membership.id,
       },
-      activation_request: activationRequest(mall, createdAt, node, level, this.sourceSha, access, idempotencyKey),
+      activation_request: activationRequest(mall, createdAt, node, level, this.sourceSha, access, idempotencyKey, this.baseDomain),
     });
   }
 
@@ -106,10 +107,17 @@ function activationRequest(
   sourceSha: string,
   access: AccessContext,
   idempotencyKey: string,
+  configuredBaseDomain?: string,
 ): Readonly<Record<string, unknown>> {
   if (!/^[0-9a-f]{40}$/.test(sourceSha)) throw new Error('AUTONODE_SOURCE_SHA_INVALID');
   const slug = mall.publicSlug.toLowerCase();
   const parentPayment = parent.payment_binding_refs[0];
+  const storefrontHost = parent.domain_bindings
+    .filter((binding) => binding.surface_ref === 'surface:storefront')
+    .map((binding) => binding.host)
+    .sort((left, right) => left.length - right.length || left.localeCompare(right))[0]!;
+  const baseDomain = configuredBaseDomain?.trim().toLowerCase()
+    || (storefrontHost.startsWith('www.') ? storefrontHost.slice('www.'.length) : storefrontHost);
   return Object.freeze({
     schema_version: 'sfl.autonode-activation-request.v1',
     activation_request_id: `activation:${mall.mallId}`,
@@ -125,10 +133,10 @@ function activationRequest(
       node_slug: slug,
       display_name: mall.name,
       domains: {
-        api: `api.${slug}.hbbtzn.com`,
-        console: `console.${slug}.hbbtzn.com`,
-        identity: `accounts.${slug}.hbbtzn.com`,
-        storefront: `${slug}.hbbtzn.com`,
+        api: `api.${slug}.${baseDomain}`,
+        console: `console.${slug}.${baseDomain}`,
+        identity: `accounts.${slug}.${baseDomain}`,
+        storefront: `${slug}.${baseDomain}`,
       },
       business: {
         scope_id: mall.scopeId,
@@ -161,7 +169,7 @@ function activationRequest(
       binding_sources: {
         domains: {
           mode: 'OWN',
-          base_domain: 'hbbtzn.com',
+          base_domain: baseDomain,
           source_binding_ref: `domain-set:node:${slug}:${level.toLowerCase()}`,
         },
         wechat_identity: {

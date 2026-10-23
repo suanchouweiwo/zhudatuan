@@ -11,6 +11,7 @@ async function main() {
   const { values } = parseArgs({
     options: {
       manifest: { type: 'string' },
+      declaration: { type: 'string' },
       check: { type: 'string' },
       instance: { type: 'string' },
       'node-root': { type: 'string' },
@@ -24,6 +25,10 @@ async function main() {
       'support-port': { type: 'string' },
       'provisioning-port': { type: 'string' },
       'omit-runtime-config': { type: 'boolean' },
+      'http-loopback': { type: 'boolean' },
+      'public-https': { type: 'boolean' },
+      'http-port': { type: 'string' },
+      'targets-root': { type: 'string' },
     },
     strict: true,
   });
@@ -55,8 +60,17 @@ async function main() {
     }
     ports.provisioning = provisioning;
   }
+  const declaration = values.declaration ? JSON.parse(await readFile(values.declaration, 'utf8')) : null;
+  const binding = declaration?.node_bindings?.find((entry) => entry.node_id === manifest.node_id);
+  const primaryStorefrontHost = manifest.domain_bindings.find((entry) =>
+    entry.binding_ref.ref === binding?.primary_storefront_binding_ref)?.host;
   const expected = gatewayConfiguration(manifest, nodeRoot, ports, {
     runtimeConfigRoutes: values['omit-runtime-config'] !== true,
+    httpLoopback: values['http-loopback'] === true,
+    primaryStorefrontHost,
+    publicHttps: values['public-https'] === true,
+    httpPort: values['http-port'],
+    targetsRoot: values['targets-root'],
   });
   if (values.check) {
     const actual = await readFile(values.check, 'utf8');
@@ -90,15 +104,22 @@ export function gatewayConfiguration(manifest, nodeRoot, ports, options = {}) {
     throw new Error('SFL_GATEWAY_DOMAIN_BINDINGS_INVALID');
   }
   const apiHost = apiHosts[0];
+  const primaryStorefrontHost = options.primaryStorefrontHost
+    ?? storefrontHosts.find((host) => host.startsWith('www.') && storefrontHosts.includes(host.slice(4)));
+  const canonicalAlias = primaryStorefrontHost?.startsWith('www.')
+    ? storefrontHosts.find((host) => host === primaryStorefrontHost.slice(4))
+    : storefrontHosts.find((host) => host === `www.${primaryStorefrontHost}`);
   const allHosts = [...apiHosts, ...identityHosts, ...consoleHosts, ...storefrontHosts];
   if (new Set(allHosts).size !== allHosts.length) throw new Error('SFL_GATEWAY_DOMAIN_BINDINGS_AMBIGUOUS');
   const loopback = options.httpLoopback === true;
+  const publicHttps = options.publicHttps === true && !loopback;
+  const targetsRoot = options.targetsRoot ?? `${nodeRoot}/targets`;
   const proxy = (port) => `\t\treverse_proxy 127.0.0.1:${port} {\n\t\t\theader_up Host {http.request.host}\n${loopback ? '\t\t\theader_up X-Forwarded-Proto https\n' : ''}\t\t\theader_up X-Real-IP {http.request.header.CF-Connecting-IP}\n\t\t\theader_up -X-Sfl-Node-Id\n\t\t\theader_up -X-Sfl-Node-Manifest-Id\n\t\t\theader_up -X-Sfl-Node-Surface\n\t\t\theader_up -X-Zdt-Identity-Entry-Host\n\t\t}`;
   return `# Generated from ${manifest.manifest_id} (${manifest.manifest_digest}). Do not hand edit.\n` +
-`{\n\tadmin off\n\tauto_https off\n}\n\n` +
-`${loopback ? 'http://:' : 'https://:'}${ports.gateway} {\n${loopback ? '\tbind 127.0.0.1\n' : ''}` +
-`${loopback ? '' : `\ttls ${nodeRoot}/runtime/tls/origin.crt ${nodeRoot}/runtime/tls/origin.key\n`}\tencode gzip\n\n` +
-`${manifest.node_id === 'node:zhudatuan:l0' && storefrontHosts.includes('zhudatuan.com') && storefrontHosts.includes('www.zhudatuan.com') ? '\t@storefrontCanonical host zhudatuan.com\n\thandle @storefrontCanonical {\n\t\tredir https://www.zhudatuan.com{uri} 308\n\t}\n\n' : ''}` +
+`{\n${publicHttps ? (options.httpPort ? `\thttp_port ${options.httpPort}\n` : '') : '\tadmin off\n\tauto_https off\n'}\n}\n\n` +
+`${publicHttps ? allHosts.join(', ') : `${loopback ? 'http://:' : 'https://:'}${ports.gateway}`} {\n${loopback ? '\tbind 127.0.0.1\n' : ''}` +
+`${loopback || publicHttps ? '' : `\ttls ${nodeRoot}/runtime/tls/origin.crt ${nodeRoot}/runtime/tls/origin.key\n`}\tencode gzip\n\n` +
+`${canonicalAlias ? `\t@storefrontCanonical host ${canonicalAlias}\n\thandle @storefrontCanonical {\n\t\tredir https://${primaryStorefrontHost}{uri} 308\n\t}\n\n` : ''}` +
 `\t@ordersReadPreflight {\n\t\thost ${apiHost}\n\t\tmethod OPTIONS\n\t\tpath /api/v1/orders /api/v1/orders/*\n\t\theader Access-Control-Request-Method GET\n\t}\n` +
 `\thandle @ordersReadPreflight {\n${proxy(ports.web)}\n\t}\n\n` +
 `\t@purchaseWrite {\n\t\thost ${apiHost}\n\t\tmethod POST OPTIONS\n\t\tpath /api/v1/checkouts/quotes /api/v1/orders /api/v1/payments/intents\n\t}\n` +
@@ -130,11 +151,11 @@ export function gatewayConfiguration(manifest, nodeRoot, ports, options = {}) {
 `${options.runtimeConfigRoutes === false ? '' : `\t@identityRuntime {\n\t\thost ${identityHosts.join(' ')}\n\t\tpath /identity-runtime.json\n\t}\n` +
 `\thandle @identityRuntime {\n\t\troot * ${nodeRoot}/runtime\n\t\tfile_server\n\t}\n\n` +
 ``}` +
-`\t@accounts host ${identityHosts.join(' ')}\n\thandle @accounts {\n\t\t@accountsEntry not path /assets/* /brand/*\n\t\trequest_header @accountsEntry -If-None-Match\n\t\trequest_header @accountsEntry -If-Modified-Since\n\t\theader @accountsEntry Cache-Control "no-store"\n\t\theader @accountsEntry -Etag\n\t\troot * ${nodeRoot}/targets/auth-web/current/static\n\t\ttry_files {path} /index.html\n\t\tfile_server\n\t}\n\n` +
+`\t@accounts host ${identityHosts.join(' ')}\n\thandle @accounts {\n\t\t@accountsEntry not path /assets/* /brand/*\n\t\trequest_header @accountsEntry -If-None-Match\n\t\trequest_header @accountsEntry -If-Modified-Since\n\t\theader @accountsEntry Cache-Control "no-store"\n\t\theader @accountsEntry -Etag\n\t\troot * ${targetsRoot}/auth-web/current/static\n\t\ttry_files {path} /index.html\n\t\tfile_server\n\t}\n\n` +
 `${options.runtimeConfigRoutes === false ? '' : `\t@consoleRuntime {\n\t\thost ${consoleHosts.join(' ')}\n\t\tpath /console-runtime.json\n\t}\n` +
 `\thandle @consoleRuntime {\n\t\troot * ${nodeRoot}/runtime\n\t\tfile_server\n\t}\n\n` +
 ``}` +
-`\t@console host ${consoleHosts.join(' ')}\n\thandle @console {\n\t\t@consoleEntry not path /assets/* /brand/*\n\t\trequest_header @consoleEntry -If-None-Match\n\t\trequest_header @consoleEntry -If-Modified-Since\n\t\theader @consoleEntry Cache-Control "no-store"\n\t\theader @consoleEntry -Etag\n\t\troot * ${nodeRoot}/targets/console/current/static\n\t\ttry_files {path} /index.html\n\t\tfile_server\n\t}\n\n` +
+`\t@console host ${consoleHosts.join(' ')}\n\thandle @console {\n\t\t@consoleEntry not path /assets/* /brand/*\n\t\trequest_header @consoleEntry -If-None-Match\n\t\trequest_header @consoleEntry -If-Modified-Since\n\t\theader @consoleEntry Cache-Control "no-store"\n\t\theader @consoleEntry -Etag\n\t\troot * ${targetsRoot}/console/current/static\n\t\ttry_files {path} /index.html\n\t\tfile_server\n\t}\n\n` +
 `\t@storefront host ${storefrontHosts.join(' ')}\n\thandle @storefront {\n${proxy(ports.storefront)}\n\t}\n\n` +
 `\thandle {\n\t\theader Content-Type application/json\n\t\trespond \`{"code":"NODE_BOUNDARY_HOST_MISMATCH"}\` 421\n\t}\n}\n`;
 }

@@ -7,13 +7,8 @@ import {
   type EnvironmentSource,
 } from './Environment';
 import { apiAllowedOrigins } from './ApiEnvironment';
-import { nodeOriginForBinding } from './SflNodeRegistry';
 
 export const MALL_PROVISIONING_API_PROFILE = 'mall-provisioning-only' as const;
-const PLATFORM_CONSOLE_ORIGIN = nodeOriginForBinding(
-  'node:zhudatuan:l0',
-  'domain:zhudatuan:l0:console',
-);
 
 export const MALL_PROVISIONING_API_ENVIRONMENT_KEYS = Object.freeze([
   'MALL_PROVISIONING_API_PROFILE',
@@ -26,6 +21,8 @@ export const MALL_PROVISIONING_API_ENVIRONMENT_KEYS = Object.freeze([
   'DATABASE_API_CONNECTION_REF',
   'SECRET_STORE_ENDPOINT',
   'SECRET_STORE_BEARER_TOKEN',
+  'AUTONODE_CONTROL_ENDPOINT',
+  'AUTONODE_BASE_DOMAIN',
 ] as const);
 
 export type MallProvisioningApiEnvironment = Readonly<Partial<Record<
@@ -65,11 +62,8 @@ export function validateMallProvisioningApiEnvironment(source: EnvironmentSource
     throw new Error('MALL_PROVISIONING_API_SECRET_STORE_ENDPOINT_INVALID');
   }
   bearerToken(source.SECRET_STORE_BEARER_TOKEN, 'SECRET_STORE_BEARER_TOKEN_INVALID');
-  const origins = apiAllowedOrigins(source);
-  if (app === 'production' && origins.join(',') !== PLATFORM_CONSOLE_ORIGIN) {
-    throw new Error('MALL_PROVISIONING_API_ORIGINS_INVALID');
-  }
-  if (mallProvisioningApiPort(source) !== 4325) throw new Error('MALL_PROVISIONING_API_PORT_INVALID');
+  apiAllowedOrigins(source);
+  mallProvisioningApiPort(source);
 }
 
 export function mallProvisioningApiPort(environment: MallProvisioningApiEnvironment): number {

@@ -111,6 +111,9 @@ export async function createMallProvisioningApiRuntime(
       container.bind(AUDIT_SINK, audit);
       container.bind(AUTONODE_CONTROL_CLIENT, new AutoNodeControlClient(
         required(environment.SERVICE_VERSION, 'SERVICE_VERSION_MISSING'),
+        environment.AUTONODE_CONTROL_ENDPOINT,
+        undefined,
+        environment.AUTONODE_BASE_DOMAIN,
       ));
     },
     async close() {

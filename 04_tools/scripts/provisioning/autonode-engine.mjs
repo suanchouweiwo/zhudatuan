@@ -144,6 +144,10 @@ export class FileNodeProvisioningEngine {
 
       const nodeDirectory = this.#nodeDirectory(request);
       const removedFiles = await fileInventory(nodeDirectory, this.root);
+      const nodesFile = join(this.stateRoot, 'nodes.json');
+      const nodes = await this.#nodeRegistry();
+      const child = Object.entries(nodes.nodes).find(([, fact]) => fact.parent_node_id === identity.nodeId);
+      if (child !== undefined) throw new Error(`AUTONODE_NODE_HAS_CHILDREN:${child[0]}`);
       const resourcesFile = join(this.stateRoot, 'resources.json');
       const registry = await this.#resourceRegistry();
       const allocation = registry.allocations[identity.nodeId] ?? null;
@@ -154,10 +158,6 @@ export class FileNodeProvisioningEngine {
       registry.revision += 1;
       await writeJsonAtomic(resourcesFile, registry);
 
-      const nodesFile = join(this.stateRoot, 'nodes.json');
-      const nodes = await this.#nodeRegistry();
-      const child = Object.entries(nodes.nodes).find(([, fact]) => fact.parent_node_id === identity.nodeId);
-      if (child !== undefined) throw new Error(`AUTONODE_NODE_HAS_CHILDREN:${child[0]}`);
       if (nodes.nodes[identity.nodeId]?.idempotency_digest === identity.idempotencyDigest) {
         delete nodes.nodes[identity.nodeId];
       }
