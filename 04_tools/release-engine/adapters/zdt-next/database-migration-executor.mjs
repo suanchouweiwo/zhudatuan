@@ -149,8 +149,8 @@ async function initializeNodeBusiness() {
     if (provisioned.rowCount === 0) {
       // Historical migrations install fixtures. A new independent instance starts
       // without those accounts, products or applications; shared rules remain.
-      await client.query('truncate identity.principal,member.profile,catalog.product,experience.application restart identity cascade');
-      await client.query('truncate access.membershiprole,access.scopegrant,access.membershipoverride');
+      await client.query('truncate identity.principal,member.profile,catalog.product,experience.application,inventory.stockitem,inventory.cutoverreview restart identity cascade');
+      await client.query('truncate access.membershiprole,access.scopegrant,access.membershipoverride cascade');
       await client.query(`insert into access.platformowner(singleton,state,membership_id,version,initialized_at,updated_at)
         values(true,'bootstrap_pending',null,0,null,clock_timestamp())`);
     }
