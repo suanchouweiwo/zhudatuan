@@ -1,12 +1,12 @@
 {
   "schema_version": "sfl.node-registry-declaration.v1",
   "registry_version": "1.6.1",
-  "generated_at": "2026-09-09T20:30:00+08:00",
+  "generated_at": "2026-10-23T20:49:43.549Z",
   "manifests": [
     {
       "manifest_id": "manifest:l0-2:l0:v1",
-      "manifest_revision": 2,
-      "generated_at": "2026-09-09T20:30:00+08:00",
+      "manifest_revision": 3,
+      "generated_at": "2026-10-23T20:49:43.549Z",
       "lifecycle_status": "active",
       "line_id": "line:l0-2:commerce:v1",
       "node_id": "node:l0-2:l0",
@@ -17,37 +17,37 @@
       "host_node_id": null,
       "domain_bindings": [
         {
-          "host": "accounts-l0-2.zhudatuan.com",
+          "host": "accounts.fufuwang.com.cn",
           "binding_ref": {
             "ref": "domain:l0-2:l0:identity",
-            "version": "1"
+            "version": "2"
           },
           "application_ref": "application:identity",
           "surface_ref": "surface:identity"
         },
         {
-          "host": "api-l0-2.zhudatuan.com",
+          "host": "api.fufuwang.com.cn",
           "binding_ref": {
             "ref": "domain:l0-2:l0:api",
-            "version": "1"
+            "version": "2"
           },
           "application_ref": "application:commerce-api",
           "surface_ref": "surface:api"
         },
         {
-          "host": "console-l0-2.zhudatuan.com",
+          "host": "console.fufuwang.com.cn",
           "binding_ref": {
             "ref": "domain:l0-2:l0:console",
-            "version": "1"
+            "version": "2"
           },
           "application_ref": "application:console",
           "surface_ref": "surface:console"
         },
         {
-          "host": "l0-2.zhudatuan.com",
+          "host": "fufuwang.com.cn",
           "binding_ref": {
             "ref": "domain:l0-2:l0:storefront:www",
-            "version": "1"
+            "version": "2"
           },
           "application_ref": "application:mall-l0-2",
           "surface_ref": "surface:storefront"

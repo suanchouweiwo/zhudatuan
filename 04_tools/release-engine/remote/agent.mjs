@@ -970,6 +970,29 @@ async function initializeNodeIngress(context, candidate, artifact) {
     records.push(record);
     await recordNodeResources(context, { dnsRecord: { zoneId: hostZone.id, id: record.id, name: host } });
   }
+  if (context.domainSwitch) {
+    const inventoryFile = join('/var/lib/sfl-autonode-control/resources', `${context.node}.json`);
+    const inventory = await readJson(inventoryFile);
+    for (const record of inventory?.dnsRecords ?? []) {
+      if (hosts.includes(record.name)) continue;
+      const dnsClient = new AutoNodeCloudflareClient({ accountId: matchedZone.account.id, zoneId: record.zoneId, apiToken });
+      await dnsClient.deleteDnsRecord(record.id);
+    }
+    if (inventory) {
+      inventory.dnsRecords = inventory.dnsRecords.filter((record) => hosts.includes(record.name));
+      await writeFile(inventoryFile, JSON.stringify(inventory, null, 2) + '\n', { mode: 0o600 });
+    }
+    const configurationFile = '/opt/sfl/control/autonode/instances.json';
+    const configuration = await readJson(configurationFile);
+    const instance = configuration?.instances.find((item) => item.instance === context.node);
+    if (instance) {
+      instance.sourceSha = artifact.sourceSha;
+      instance.access_entries = nodeManifest.domain_bindings.filter((binding) =>
+        ['surface:console', 'surface:storefront'].includes(binding.surface_ref))
+        .map((binding) => ({ surface_ref: binding.surface_ref, url: `https://${binding.host}` }));
+      await writeFile(configurationFile, JSON.stringify(configuration, null, 2) + '\n', { mode: 0o600 });
+    }
+  }
   const serviceState = (await command(['systemctl', 'is-active', ...services])).stdout.trim().split(/\s+/);
   const apiHost = nodeManifest.domain_bindings.find((binding) => binding.surface_ref === 'surface:api').host;
   const localResponse = await command(['curl', '--fail', '--silent', '--show-error', '--max-time', '10', '-H', `Host: ${apiHost}`, `http://127.0.0.1:${setup.ports.gateway}/health/gateway`]);
@@ -1154,6 +1177,23 @@ async function executeDatabaseMigration(context, candidate, manifest) {
   if (context.domainSwitch) {
     const nodeManifest = await readJson(join(candidate, 'node-runtime/manifest.json'));
     const projection = await readJson(join(candidate, 'node-runtime/identity-node-projection.json'));
+    const root = join('/opt/sfl/nodes', context.node);
+    const previousManifest = await readJson(join(root, 'manifest.json'));
+    const replacements = (previousManifest?.domain_bindings ?? []).map((binding) => [binding.host,
+      nodeManifest.domain_bindings.find((next) => next.surface_ref === binding.surface_ref)?.host]).filter(([, host]) => host);
+    for (const target of ['identity-api', 'web-api', 'storefront', 'object-store']) {
+      const file = join(root, 'runtime', `${target}.env`);
+      if (!(await exists(file))) continue;
+      const env = parseEnvironmentFile(await readFile(file, 'utf8'));
+      for (const key of Object.keys(env)) {
+        if (!/(ORIGIN|HOST|URL)/.test(key) || key === 'IDENTITY_CONTROLLER_ORIGIN') continue;
+        for (const [before, after] of replacements) env[key] = env[key].split(before).join(after);
+      }
+      Object.assign(env, { NODE_MANIFEST_DIGEST: nodeManifest.manifest_digest,
+        NODE_RESOURCE_BINDING_VERSION: nodeManifest.resource_binding_set_ref.version });
+      await writeFile(file, environmentText(env), { mode: 0o640 });
+    }
+    await copyFile(join(candidate, 'node-runtime/manifest.json'), join(root, 'manifest.json'));
     const node = projection.nodes.find((item) => item.nodeId === nodeManifest.node_id);
     const credentials = parseEnvironmentFile(await readFile(context.deployment.databaseMigration.credentialFile, 'utf8'));
     const literal = (value) => `'${String(value).replaceAll("'", "''")}'`;
