@@ -2,7 +2,7 @@ import { Button } from '@shop/design';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import type { ConsoleContext, ConsoleScope } from '../../entity/session/ConsoleSession';
-import { manageInstance, readManagedInstances, readMallNodeTask, type AutoNodeTaskReceipt } from './MallCreateCommand';
+import { manageInstance, readManagedInstances, type AutoNodeTaskReceipt } from './MallCreateCommand';
 
 export function InstanceLifecycle({ context, scope }: { context: ConsoleContext; scope: ConsoleScope }) {
   const [task, setTask] = useState<AutoNodeTaskReceipt>();
@@ -18,7 +18,9 @@ export function InstanceLifecycle({ context, scope }: { context: ConsoleContext;
   useEffect(() => {
     if (!running || !task) return;
     const timer = window.setTimeout(() => {
-      void readMallNodeTask(context, scope, task.task_id).then((next) => {
+      void readManagedInstances(context, scope).then((items) => {
+        const next = items.find((instance) => instance.node_id === task.node_id)?.task;
+        if (!next) return;
         setTask(next);
         if (next.status === 'SUCCEEDED') void instances.refetch();
       }).catch((cause: unknown) => { setError(cause instanceof Error ? cause.message : String(cause)); });
