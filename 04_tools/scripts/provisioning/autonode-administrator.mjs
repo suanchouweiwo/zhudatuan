@@ -65,7 +65,8 @@ export async function initializeInstanceAdministrator(instance, administrator, c
   if (controllerOrigin) {
     const origins = envValue('API_ALLOWED_ORIGINS').split(',').filter(Boolean);
     const next = environment.replace(/^API_ALLOWED_ORIGINS=.*$/m, `API_ALLOWED_ORIGINS=${JSON.stringify([...new Set([...origins, new URL(controllerOrigin).origin])].join(','))}`);
-    await writeFile(environmentFile, next);
+    const configured = next.replace(/^IDENTITY_CONTROLLER_ORIGIN=.*\n?/m, '');
+    await writeFile(environmentFile, `${configured.trimEnd()}\nIDENTITY_CONTROLLER_ORIGIN=${JSON.stringify(new URL(controllerOrigin).origin)}\n`);
     await run('systemctl', ['restart', `sfl-identity-api@${instance.instance}.service`], { cwd: root });
   }
   const result = { principal, membership, realm: manifest.realm_ref.ref, initializedAt: new Date().toISOString() };

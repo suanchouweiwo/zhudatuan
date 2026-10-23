@@ -213,9 +213,11 @@ export function assertIdentityRegistrationNodeManifest(
   if (manifest.node_profile !== 'operating_mall') throw new Error('IDENTITY_NODE_PROFILE_INVALID');
   if (!nodeManifestHasFeature(manifest, 'identity') || !nodeManifestHasSurface(manifest, 'identity')
     || !nodeManifestHasSurface(manifest, 'api')) throw new Error('IDENTITY_NODE_FEATURE_INVALID');
-  const expectedOrigins = manifest.domain_bindings
+  const expectedOrigins = [...new Set([...manifest.domain_bindings
     .filter((binding) => binding.surface_ref !== 'surface:api')
-    .map((binding) => `https://${binding.host}`)
+    .map((binding) => `https://${binding.host}`),
+    ...(environment.IDENTITY_CONTROLLER_ORIGIN ? [new URL(environment.IDENTITY_CONTROLLER_ORIGIN).origin] : []),
+  ])]
     .sort();
   const actualOrigins = required(environment.API_ALLOWED_ORIGINS, 'API_ALLOWED_ORIGINS_MISSING')
     .split(',').map((origin) => origin.trim()).filter(Boolean).sort();
