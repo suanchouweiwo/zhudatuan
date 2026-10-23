@@ -2337,6 +2337,133 @@ const definitions = [
     ]
   },
   {
+    "id": "provisioning.instances.read",
+    "method": "GET",
+    "path": "/api/v1/provisioning/instances",
+    "module": "provisioning",
+    "audience": "operator",
+    "permission": "organization.layer.read",
+    "idempotent": true,
+    "idempotency": "none",
+    "expectedVersion": "none",
+    "execution": "sync",
+    "availability": "runtime",
+    "summary": "provisioning.instances.read",
+    "risk": "low",
+    "stepup": false,
+    "scopeKinds": [
+      "platform",
+      "distributor",
+      "tenant",
+      "enterprise",
+      "mall",
+      "department"
+    ],
+    "schema": "named",
+    "title": "provisioning.instances.read",
+    "targets": [
+      "console"
+    ],
+    "node_profiles_allowed": [
+      "operating_mall",
+      "consumer"
+    ],
+    "requestSchema": "ProvisioningInstancesReadRequest",
+    "responseSchema": "ProvisioningInstancesReadResponse",
+    "errorUnion": [
+      "CONTRACT_REQUEST_INVALID",
+      "CONTRACT_RESPONSE_INVALID",
+      "IDEMPOTENCY_KEY_REQUIRED",
+      "IDEMPOTENCY_KEY_REUSED",
+      "STATE_INVALID",
+      "SCOPE_DENIED",
+      "VERSION_CONFLICT"
+    ],
+    "capability": "organization.layer.read",
+    "scope_resolver_ref": "access.resolve_scope.v1",
+    "idempotencyScope": "none",
+    "assuranceLevel": 1,
+    "makerChecker": false,
+    "sensitiveFields": [],
+    "csrfPolicy": "none",
+    "originPolicy": "same-node",
+    "targetPolicy": "resolved-node",
+    "responseMode": "json",
+    "cachePolicy": "private",
+    "rateClass": "low",
+    "timeout": 10000,
+    "sdk": "01_core_hexin/packages/sdk/src/operations/provisioning.ts",
+    "writePath": "none",
+    "stateMachine": "none",
+    "businessNumber": "none",
+    "operationHash": "999e526201564ba41401621e696568924fedb40b38b44c88c73f53fb907476a8",
+    "requirements": [
+      "MVP06",
+      "MVP15"
+    ]
+  },
+  {
+    "id": "provisioning.instances.manage",
+    "method": "POST",
+    "path": "/api/v1/provisioning/instances/{instanceid}/actions",
+    "module": "provisioning",
+    "audience": "operator",
+    "permission": "organization.layer.manage",
+    "idempotent": false,
+    "idempotency": "required",
+    "expectedVersion": "optional",
+    "execution": "sync",
+    "availability": "runtime",
+    "summary": "provisioning.instances.manage",
+    "risk": "critical",
+    "stepup": true,
+    "scopeKinds": [
+      "platform"
+    ],
+    "schema": "named",
+    "title": "provisioning.instances.manage",
+    "targets": [
+      "console"
+    ],
+    "node_profiles_allowed": [
+      "operating_mall",
+      "consumer"
+    ],
+    "requestSchema": "ProvisioningInstancesManageRequest",
+    "responseSchema": "ProvisioningInstancesManageResponse",
+    "errorUnion": [
+      "CONTRACT_REQUEST_INVALID",
+      "CONTRACT_RESPONSE_INVALID",
+      "IDEMPOTENCY_KEY_REQUIRED",
+      "IDEMPOTENCY_KEY_REUSED",
+      "STATE_INVALID",
+      "SCOPE_DENIED",
+      "VERSION_CONFLICT"
+    ],
+    "capability": "organization.layer.manage",
+    "scope_resolver_ref": "access.resolve_scope.v1",
+    "idempotencyScope": "operation+realm+node+membership+business-key",
+    "assuranceLevel": 2,
+    "makerChecker": false,
+    "sensitiveFields": [],
+    "csrfPolicy": "session",
+    "originPolicy": "same-node",
+    "targetPolicy": "resolved-node",
+    "responseMode": "json",
+    "cachePolicy": "none",
+    "rateClass": "critical",
+    "timeout": 10000,
+    "sdk": "01_core_hexin/packages/sdk/src/operations/provisioning.ts",
+    "writePath": "transactional",
+    "stateMachine": "provisioning.instances.manage.execution.v1",
+    "businessNumber": "SFL-PROVISIONING-{sha256:16}",
+    "operationHash": "70e8a3aa8bf6f9dab713afefd693e7beaeff9307888fb233efba48ed9fbaeac3",
+    "requirements": [
+      "MVP06",
+      "MVP15"
+    ]
+  },
+  {
     "id": "access.center.read",
     "method": "GET",
     "path": "/api/v1/access/center",

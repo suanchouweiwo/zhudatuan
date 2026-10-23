@@ -45,6 +45,10 @@ export function createAutoNodeControlServer(engine, archState) {
         send(response, 200, { items: await engine.list() });
         return;
       }
+      if (request.method === 'GET' && url.pathname === '/v1/instances') {
+        send(response, 200, { items: await engine.instances() });
+        return;
+      }
       const match = url.pathname.match(/^\/v1\/tasks\/([^/]+)$/);
       if (match && request.method === 'GET') {
         send(response, 200, await engine.read(decodeURIComponent(match[1])));

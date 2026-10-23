@@ -6781,6 +6781,120 @@
         },
         "type": "object"
       },
+      "ProvisioningInstancesManageRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/JsonValue"
+          }
+        },
+        "type": "object"
+      },
+      "ProvisioningInstancesManageResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "activation_status": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "code": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "details": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "events": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "finished_at": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "last_error": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "message": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "node_id": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "phase": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "plan_digest": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "platform": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "progress": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "requestId": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "result": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "retryable": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "schema_version": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "started_at": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "status": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "task_id": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "waiting_external": {
+            "$ref": "#/components/schemas/JsonValue"
+          }
+        },
+        "type": "object"
+      },
+      "ProvisioningInstancesReadRequest": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "type": "object"
+      },
+      "ProvisioningInstancesReadResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "details": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "items": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "message": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "requestId": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "retryable": {
+            "$ref": "#/components/schemas/JsonValue"
+          }
+        },
+        "type": "object"
+      },
       "ProvisioningMallsCreateRequest": {
         "additionalProperties": false,
         "properties": {
@@ -45680,6 +45794,343 @@
           "console"
         ],
         "x-write-path": "none"
+      }
+    },
+    "/api/v1/provisioning/instances": {
+      "get": {
+        "operationId": "provisioning.instances.read",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProvisioningInstancesReadResponse"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "204": {
+            "description": "Success without content"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error Contract"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error Contract"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error Contract"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error Contract"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error Contract"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error Contract"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error Contract"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error Contract"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "provisioning.instances.read",
+        "tags": [
+          "provisioning"
+        ],
+        "x-assurance-level": 1,
+        "x-audience": "operator",
+        "x-availability": "runtime",
+        "x-business-number": "none",
+        "x-capability": "organization.layer.read",
+        "x-error-union": [
+          "CONTRACT_REQUEST_INVALID",
+          "CONTRACT_RESPONSE_INVALID",
+          "IDEMPOTENCY_KEY_REQUIRED",
+          "IDEMPOTENCY_KEY_REUSED",
+          "STATE_INVALID",
+          "SCOPE_DENIED",
+          "VERSION_CONFLICT"
+        ],
+        "x-execution": "sync",
+        "x-expected-version": "none",
+        "x-idempotency": "none",
+        "x-idempotency-scope": "none",
+        "x-idempotent": true,
+        "x-maker-checker": false,
+        "x-node-profiles-allowed": [
+          "operating_mall",
+          "consumer"
+        ],
+        "x-operation-hash": "999e526201564ba41401621e696568924fedb40b38b44c88c73f53fb907476a8",
+        "x-permission": "organization.layer.read",
+        "x-request-schema": "ProvisioningInstancesReadRequest",
+        "x-requirements": [
+          "MVP06",
+          "MVP15"
+        ],
+        "x-response-mode": "json",
+        "x-response-schema": "ProvisioningInstancesReadResponse",
+        "x-risk": "low",
+        "x-schema-fidelity": "named",
+        "x-scope-kinds": [
+          "platform",
+          "distributor",
+          "tenant",
+          "enterprise",
+          "mall",
+          "department"
+        ],
+        "x-scope-resolver-ref": "access.resolve_scope.v1",
+        "x-sensitive-fields": [],
+        "x-state-machine": "none",
+        "x-stepup": false,
+        "x-targets": [
+          "console"
+        ],
+        "x-write-path": "none"
+      }
+    },
+    "/api/v1/provisioning/instances/{instanceid}/actions": {
+      "post": {
+        "operationId": "provisioning.instances.manage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "instanceid",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProvisioningInstancesManageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProvisioningInstancesManageResponse"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "204": {
+            "description": "Success without content"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error Contract"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error Contract"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error Contract"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error Contract"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error Contract"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error Contract"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error Contract"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error Contract"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "provisioning.instances.manage",
+        "tags": [
+          "provisioning"
+        ],
+        "x-assurance-level": 2,
+        "x-audience": "operator",
+        "x-availability": "runtime",
+        "x-business-number": "SFL-PROVISIONING-{sha256:16}",
+        "x-capability": "organization.layer.manage",
+        "x-error-union": [
+          "CONTRACT_REQUEST_INVALID",
+          "CONTRACT_RESPONSE_INVALID",
+          "IDEMPOTENCY_KEY_REQUIRED",
+          "IDEMPOTENCY_KEY_REUSED",
+          "STATE_INVALID",
+          "SCOPE_DENIED",
+          "VERSION_CONFLICT"
+        ],
+        "x-execution": "sync",
+        "x-expected-version": "optional",
+        "x-idempotency": "required",
+        "x-idempotency-scope": "operation+realm+node+membership+business-key",
+        "x-idempotent": false,
+        "x-maker-checker": false,
+        "x-node-profiles-allowed": [
+          "operating_mall",
+          "consumer"
+        ],
+        "x-operation-hash": "70e8a3aa8bf6f9dab713afefd693e7beaeff9307888fb233efba48ed9fbaeac3",
+        "x-permission": "organization.layer.manage",
+        "x-request-schema": "ProvisioningInstancesManageRequest",
+        "x-requirements": [
+          "MVP06",
+          "MVP15"
+        ],
+        "x-response-mode": "json",
+        "x-response-schema": "ProvisioningInstancesManageResponse",
+        "x-risk": "critical",
+        "x-schema-fidelity": "named",
+        "x-scope-kinds": [
+          "platform"
+        ],
+        "x-scope-resolver-ref": "access.resolve_scope.v1",
+        "x-sensitive-fields": [],
+        "x-state-machine": "provisioning.instances.manage.execution.v1",
+        "x-stepup": true,
+        "x-targets": [
+          "console"
+        ],
+        "x-write-path": "transactional"
       }
     },
     "/api/v1/provisioning/malls": {

@@ -34,6 +34,7 @@ import {
   type MallStepupChallenge,
 } from './MallCreateCommand';
 import { MallCreateDialog, type MallCreatePhase } from './MallCreateDialog';
+import { InstanceLifecycle } from './InstanceLifecycle';
 import { appConfig } from '../../shared/config/AppConfig';
 import './application-workspace.css';
 import './application-table.css';
@@ -343,6 +344,7 @@ export function Component() {
         }
       >
         <div className="commercecontent">
+          {context.scope.kind === 'platform' && provisioningScope ? <InstanceLifecycle context={context} scope={provisioningScope} /> : null}
           {commandNotice === undefined ? null : (
             <p className="commercefiltermeta" role="status">
               {commandNotice}

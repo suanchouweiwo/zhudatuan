@@ -132,7 +132,7 @@ export function gatewayConfiguration(manifest, nodeRoot, ports, options = {}) {
 `\thandle @storefrontPublicCatalog {\n${proxy(ports.web)}\n\t}\n\n` +
 `\t@webBusiness {\n\t\thost ${apiHost}\n\t\tpath /api/v1/members/me* /api/v1/organizations/layers* /api/v1/reports/dashboard* /api/v1/catalog/listings /api/v1/catalog/public/products* /api/v1/pricing/offers* /api/v1/inventory/availability* /api/v1/carts/current* /api/v1/benefits/accounts* /api/v1/benefits/ledgers*\n\t}\n` +
 `\thandle @webBusiness {\n${proxy(ports.web)}\n\t}\n\n` +
-`${ports.provisioning ? `\t@mallProvisioning {\n\t\thost ${apiHost}\n\t\tmethod GET POST OPTIONS\n\t\tpath /api/v1/provisioning/malls /api/v1/provisioning/malls/* /api/v1/provisioning/node-tasks/*\n\t}\n` +
+`${ports.provisioning ? `\t@mallProvisioning {\n\t\thost ${apiHost}\n\t\tmethod GET POST OPTIONS\n\t\tpath /api/v1/provisioning/malls /api/v1/provisioning/malls/* /api/v1/provisioning/node-tasks/* /api/v1/provisioning/instances /api/v1/provisioning/instances/*\n\t}\n` +
 `\thandle @mallProvisioning {\n${proxy(ports.provisioning)}\n\t}\n\n` : ''}` +
 `\t@catalogImports {\n\t\thost ${apiHost}\n\t\tpath /api/v1/catalog/imports*\n\t}\n` +
 `\thandle @catalogImports {\n${proxy(ports.catalog)}\n\t}\n\n` +

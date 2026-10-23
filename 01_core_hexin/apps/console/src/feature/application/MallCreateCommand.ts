@@ -11,6 +11,8 @@ import {
   createFetchProvisioningMallsCreate,
   createFetchProvisioningNodetasksRead,
   createFetchProvisioningNodetasksRetry,
+  createFetchProvisioningInstancesRead,
+  createFetchProvisioningInstancesManage,
 } from '@shop/sdk/provisioning';
 import { z } from 'zod';
 import type { ConsoleContext, ConsoleScope } from '../../entity/session/ConsoleSession';
@@ -20,6 +22,8 @@ import { appConfig } from '../../shared/config/AppConfig';
 const mallsCreate = createFetchProvisioningMallsCreate(appConfig.apiBaseUrl);
 const nodeTasksRead = createFetchProvisioningNodetasksRead(appConfig.apiBaseUrl);
 const nodeTasksRetry = createFetchProvisioningNodetasksRetry(appConfig.apiBaseUrl);
+const instancesRead = createFetchProvisioningInstancesRead(appConfig.apiBaseUrl);
+const instancesManage = createFetchProvisioningInstancesManage(appConfig.apiBaseUrl);
 const passwordVerify = createFetchIdentityPasswordVerify(appConfig.apiBaseUrl);
 const mobileChallenge = createFetchIdentityMobileChallenge(appConfig.apiBaseUrl);
 const mobileManage = createFetchIdentityMobileManage(appConfig.apiBaseUrl);
@@ -44,7 +48,7 @@ const AutoNodeTaskResultSchema = z.object({
 const AutoNodeTaskReceiptSchema = z.object({
   schema_version: z.literal('sfl.autonode-control-task-receipt.v1'),
   task_id: z.string().min(1),
-  action: z.literal('ACTIVATE'),
+  action: z.enum(['ACTIVATE', 'CREATE', 'DELETE']),
   node_id: z.string().min(1),
   status: z.enum(['QUEUED', 'RUNNING', 'WAITING_EXTERNAL', 'FAILED_RETRYABLE', 'SUCCEEDED']),
   phase: z.string().min(1),
@@ -279,6 +283,25 @@ export async function readMallNodeTask(
   const value = await nodeTasksRead({ path: { taskid: taskId } }, consoleCommand(scope, {
     accessVersion: context.session.accessVersion,
     ...(signal === undefined ? {} : { signal }),
+  }));
+  return AutoNodeTaskReceiptSchema.parse(value);
+}
+
+const InstanceSchema = z.object({
+  node_id: z.string(), instance: z.string(), name: z.string(), lifecycle: z.boolean(), state: z.string(),
+  access_entries: z.array(z.object({ surface_ref: z.string(), url: z.string() })),
+});
+export type ManagedInstance = z.infer<typeof InstanceSchema>;
+
+export async function readManagedInstances(context: ConsoleContext, scope: ConsoleScope): Promise<readonly ManagedInstance[]> {
+  const value = await instancesRead({}, consoleCommand(scope, { accessVersion: context.session.accessVersion }));
+  return z.object({ items: z.array(InstanceSchema) }).parse(value).items;
+}
+
+export async function manageInstance(context: ConsoleContext, scope: ConsoleScope, nodeId: string, action: 'CREATE' | 'DELETE'): Promise<AutoNodeTaskReceipt> {
+  const value = await instancesManage({ path: { instanceid: nodeId }, body: { action } }, consoleCommand(scope, {
+    accessVersion: context.session.accessVersion, idempotencyKey: createIdempotencyKey(),
+    ...(context.session.csrf === undefined ? {} : { csrfToken: context.session.csrf }),
   }));
   return AutoNodeTaskReceiptSchema.parse(value);
 }

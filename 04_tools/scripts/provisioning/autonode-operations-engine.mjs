@@ -11,9 +11,10 @@ export const AUTONODE_OPERATION_TYPES = Object.freeze([
   'UPGRADE',
   'ROLLBACK',
   'LOGS',
+  'DELETE',
 ]);
 
-const MUTATING_ACTIONS = new Set(['PAUSE', 'RESUME', 'UPGRADE', 'ROLLBACK']);
+const MUTATING_ACTIONS = new Set(['PAUSE', 'RESUME', 'UPGRADE', 'ROLLBACK', 'DELETE']);
 const LOCK_WAIT_MS = 10_000;
 const LOCK_STALE_MS = 30_000;
 

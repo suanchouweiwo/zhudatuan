@@ -41,6 +41,7 @@ const LOCAL_HEALTH_SERVICES = Object.freeze({
 export class ProductionNodeOperationsProvider {
   constructor(options = {}) {
     this.fetcher = options.fetcher ?? fetch;
+    this.cloudflareApiToken = options.cloudflareApiToken ?? process.env.CLOUDFLARE_API_TOKEN;
     this.runner = options.runner ?? runCommand;
     this.journalctl = options.journalctl ?? '/usr/bin/journalctl';
     if (!isAbsolute(this.journalctl)) throw new Error('AUTONODE_JOURNALCTL_PATH_INVALID');
@@ -49,6 +50,68 @@ export class ProductionNodeOperationsProvider {
   async status(request) {
     const context = await this.#context(request);
     return await this.#inspect(context);
+  }
+
+  async delete(request) {
+    const node = request.target.node_directory.split('/').at(-1);
+    const nodeParts = request.target.node_id.split(':');
+    if (nodeParts.length !== 3 || node !== `${nodeParts[1]}-${nodeParts[2]}`
+      || resolve(request.target.node_directory) !== `/opt/sfl/nodes/${node}`) {
+      throw new Error('AUTONODE_OPERATION_NODE_IDENTITY_MISMATCH');
+    }
+    const file = `/var/lib/sfl-autonode-control/resources/${node}.json`;
+    const resource = await readRequiredJson(file);
+    if (resource.node !== node || resource.nodeRoot !== request.target.node_directory
+      || resource.database?.container !== `${node}-postgres`
+      || resource.objectDirectory !== `/var/lib/sfl-${node}-objects`) {
+      throw new Error('AUTONODE_OPERATION_RESOURCE_IDENTITY_MISMATCH');
+    }
+    if (resource.state === 'DELETED') return { node_id: request.target.node_id, state: 'DELETED', changed: false };
+    for (const unit of resource.services) {
+      if (!/^sfl-[a-z-]+@/.test(unit) || !unit.endsWith(`@${node}.service`)) {
+        throw new Error('AUTONODE_OPERATION_RESOURCE_UNIT_MISMATCH');
+      }
+      const loaded = await this.runner('/usr/bin/systemctl', ['show', unit, '--property=LoadState', '--value']);
+      if (loaded.stdout.trim() !== 'not-found') {
+        await this.runner('/usr/bin/systemctl', ['stop', unit]);
+        await this.runner('/usr/bin/systemctl', ['disable', unit]);
+      }
+    }
+    const cloudflare = async (path) => {
+      const token = this.cloudflareApiToken;
+      if (!token) throw new Error('CLOUDFLARE_INGRESS_CREDENTIALS_MISSING');
+      const response = await this.fetcher(`https://api.cloudflare.com/client/v4${path}`, {
+        method: 'DELETE', headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(30000),
+      });
+      const payload = await response.json();
+      if (response.status !== 404 && (!response.ok || payload.success !== true)) {
+        throw new Error(`AUTONODE_RESOURCE_DELETE_FAILED:${response.status}`);
+      }
+    };
+    for (const record of resource.dnsRecords ?? []) {
+      await cloudflare(`/zones/${encodeURIComponent(record.zoneId)}/dns_records/${encodeURIComponent(record.id)}`);
+    }
+    if (resource.cloudflare?.tunnelId) {
+      await cloudflare(`/accounts/${encodeURIComponent(resource.cloudflare.accountId)}/cfd_tunnel/${encodeURIComponent(resource.cloudflare.tunnelId)}`);
+    }
+    const container = resource.database.container;
+    const existing = await this.runner('/usr/bin/docker', ['container', 'ls', '-a', '--format', '{{.Names}}']);
+    if (existing.stdout.split('\n').includes(container)) await this.runner('/usr/bin/docker', ['rm', '-f', container]);
+    const networks = await this.runner('/usr/bin/docker', ['network', 'ls', '--format', '{{.Name}}']);
+    for (const network of resource.networks ?? []) {
+      if (![`${node}_registration`, `${node}-database-link`].includes(network)) throw new Error('AUTONODE_OPERATION_RESOURCE_NETWORK_MISMATCH');
+      if (networks.stdout.split('\n').includes(network)) await this.runner('/usr/bin/docker', ['network', 'rm', network]);
+    }
+    for (const unit of resource.services) {
+      await rm(`/etc/systemd/system/${unit}`, { force: true });
+      await rm(`/etc/systemd/system/${unit}.d`, { recursive: true, force: true });
+    }
+    await this.runner('/usr/bin/systemctl', ['daemon-reload']);
+    // rm removes links themselves; it does not traverse shared runtime targets.
+    await rm(resource.objectDirectory, { recursive: true, force: true });
+    await rm(resource.nodeRoot, { recursive: true, force: true });
+    await writeJsonAtomic(file, { ...resource, state: 'DELETED', deletedAt: new Date().toISOString() }, 0o600);
+    return { node_id: request.target.node_id, state: 'DELETED', changed: true };
   }
 
   async pause(request) {

@@ -12,6 +12,8 @@ export const MALL_PROVISIONING_OPERATION_IDS = Object.freeze([
   'provisioning.malls.read',
   'provisioning.nodetasks.read',
   'provisioning.nodetasks.retry',
+  'provisioning.instances.read',
+  'provisioning.instances.manage',
 ] as const satisfies readonly OperationId[]);
 
 export function provisioningOperations(context: ModuleContext): ModuleOperations {
@@ -19,6 +21,16 @@ export function provisioningOperations(context: ModuleContext): ModuleOperations
   const createMall = new CreateMall();
   const nodeControl = context.container.get(AUTONODE_CONTROL_CLIENT);
   return new ModuleOperations('provisioning', pool, context.container.get(AUDIT_SINK), {
+    'provisioning.instances.read': async (request) => {
+      requireAccess(request);
+      return { status: 200, body: await nodeControl.instances() };
+    },
+    'provisioning.instances.manage': async (request) => {
+      const access = requireAccess(request);
+      const action = textField(bodyRecord(request), 'action');
+      if (action !== 'CREATE' && action !== 'DELETE') reject(422, 'VALIDATION_FAILED');
+      return { status: 202, body: await nodeControl.lifecycle(request.input.path.instanceid!, action as 'CREATE' | 'DELETE', access, request.input.idempotency!) };
+    },
     'provisioning.malls.create': operationLifecycle({
       async execute(request, database) {
         const access = requireAccess(request);
