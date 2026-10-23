@@ -154,9 +154,8 @@ async function readProfile(
   signal: AbortSignal,
 ): Promise<Readonly<{ profile: ConsoleProfile; state: 'ready' | 'unavailable' }>> {
   try {
-    if (session.profile !== undefined) return Object.freeze({ profile: session.profile, state: 'ready' });
     const parsed = parseProfile(prefetched);
-    if (parsed !== undefined) return Object.freeze({ profile: parsed, state: 'ready' });
+    if (parsed?.status !== undefined) return Object.freeze({ profile: parsed, state: 'ready' });
     const { memberProfileRead, consoleRequest } = await consoleClient();
     const value = await memberProfileRead({}, consoleRequest(undefined, signal, session.accessVersion));
     const profile = parseProfile(value);
@@ -165,7 +164,7 @@ async function readProfile(
   } catch (cause) {
     if (signal.aborted || apiErrorStatus(cause) === 401) throw cause;
     return Object.freeze({
-      profile: Object.freeze({ display_name: '当前用户', employee_no: null }),
+      profile: session.profile ?? Object.freeze({ display_name: '当前用户', employee_no: null }),
       state: 'unavailable',
     });
   }

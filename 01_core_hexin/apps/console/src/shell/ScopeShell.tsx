@@ -254,9 +254,9 @@ export function ScopeShell() {
           <div className="scopebar">
             <div className="scopepagetitle"><span>{brandName} / {scopeDisplayName(context.scope)}</span><strong>{routeTitle}</strong></div>
             <div className="scopecontext">
-              {controlContext ? <span>{context.scope.id === 'platform:preview' ? '本地预览' : scopeKindLabel(context.scope.kind)}</span> : null}
-              {controlContext ? <i aria-hidden="true">·</i> : null}
-              {controlContext ? <span>AAL{context.session.assurance.level}</span> : <>
+              {!profileRoute && controlContext ? <span>{context.scope.id === 'platform:preview' ? '本地预览' : scopeKindLabel(context.scope.kind)}</span> : null}
+              {!profileRoute && controlContext ? <i aria-hidden="true">·</i> : null}
+              {profileRoute ? null : controlContext ? <span>AAL{context.session.assurance.level}</span> : <>
                 <label className="sr-only" htmlFor="consoleperiod">统计周期</label>
                 <select id="consoleperiod" value={selectedPeriod} onChange={(event) => selectPeriod(event.target.value)}>
                   <option value="7days">近 7 天</option><option value="30days">近 30 天</option><option value="90days">近 90 天</option>
