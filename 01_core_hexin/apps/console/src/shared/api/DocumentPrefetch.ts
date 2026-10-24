@@ -6,6 +6,7 @@ interface ScopeCandidate {
 }
 
 interface SessionCandidate {
+  readonly profile?: Readonly<{ status?: string }>;
   readonly accessVersion?: number;
   readonly capabilities?: readonly string[];
   readonly permissions?: readonly string[];
@@ -100,7 +101,9 @@ export function startDocumentPrefetch(
     const roots = Array.isArray(value?.scopes) ? value.scopes.filter(isConsoleScope) : [];
     if (!Number.isInteger(value?.accessVersion) || roots.length === 0) return undefined;
     const headers = { 'x-access-version': String(value.accessVersion) };
-    const profile = readJson<unknown>('/api/v1/members/me', headers);
+    const profile = value.profile?.status !== undefined
+      ? { promise: Promise.resolve(value.profile) }
+      : readJson<unknown>('/api/v1/members/me', headers);
     const canReadLayers = Array.isArray(value.permissions) && value.permissions.includes('organization.layer.read')
       && Array.isArray(value.capabilities) && value.capabilities.includes('organization.layers.read');
     const layers = canReadLayers ? roots.map(async (scope) => ({
