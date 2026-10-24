@@ -1603,7 +1603,10 @@ async function installNodeRuntime(context, release) {
       NODE_RELEASE_POINTER_REF: manifest.release_pointer_ref.ref,
     };
     if (['identity-api', 'web-api'].includes(context.target)) {
-      updates.API_ALLOWED_ORIGINS = manifest.domain_bindings.filter((binding) => binding.surface_ref !== 'surface:api').map((binding) => 'https://' + binding.host).join(',');
+      const origins = manifest.domain_bindings.filter((binding) => binding.surface_ref !== 'surface:api').map((binding) => 'https://' + binding.host);
+      const controllerOrigin = parseEnvironmentFile(before).IDENTITY_CONTROLLER_ORIGIN;
+      if (context.target === 'identity-api' && controllerOrigin) origins.push(new URL(controllerOrigin).origin);
+      updates.API_ALLOWED_ORIGINS = [...new Set(origins)].join(',');
     }
     if (context.target === 'web-api') {
       const projection = await readJson(join(release, 'node-runtime', 'identity-node-projection.json'));
