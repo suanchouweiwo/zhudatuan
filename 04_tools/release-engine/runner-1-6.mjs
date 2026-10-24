@@ -17,6 +17,7 @@ const SHA = /^[a-f0-9]{40}$/;
 const RELEASE_ID = /^r16-([a-f0-9]{40})$/;
 const context = { stage: 'startup', operation: null, target: null, node: null, sourceSha: null, completedTargets: [] };
 const coreStartedAt = performance.now();
+const L0_TARGETS = ['identity-api', 'web-api', 'storefront', 'auth-web', 'console'];
 
 async function main() {
   try {
@@ -35,6 +36,18 @@ async function main() {
     if (options.operation === 'release' || options.operation === 'retry') {
       invariant(sourceSha, 'SOURCE_SHA_REQUIRED', 'release and retry require a full Source SHA or r16 release id');
       result = await release(adapter, controlRoot, sourceSha, options.target, options.node);
+      const mainTargets = result.targets?.filter((entry) => entry.node === 'zhudatuan-l0').map((entry) => entry.target) ?? [];
+      if (L0_TARGETS.every((target) => mainTargets.includes(target))) {
+        const deployment = resolveDeployment(adapter, 'zhudatuan-l0', 'console');
+        const transport = deployment.node.transport ?? adapter.transport;
+        const host = process.env[transport.hostEnv ?? 'AI_DELIVERY_SSH_HOST'] ?? transport.host;
+        const synchronized = await runCommand({
+          name: 'synchronize-l0-core', argv: sshArgv(host, ['node', '--input-type=module', '-']),
+          input: `import { synchronizeL0Release } from '/opt/sfl/control/node-operations/current/runtime/autonode-task-executor.mjs';\nconsole.log(JSON.stringify(await synchronizeL0Release(${JSON.stringify(sourceSha)}, ${JSON.stringify(process.env.GITHUB_RUN_ID)})));\n`,
+          timeoutMs: 120000,
+        }, commandContext(adapter));
+        result.l0Synchronization = JSON.parse(synchronized.output.trim());
+      }
     } else if (options.operation === 'status') {
       invariant(!(options.identifier ?? options.sourceSha) || sourceSha, 'SOURCE_SHA_INVALID', 'status accepts an optional full Source SHA or r16 release id');
       result = await status(adapter, sourceSha);
@@ -82,7 +95,11 @@ async function release(adapter, controlRoot, sourceSha, target, node) {
   const exactScope = Boolean(target || node);
   invariant(!exactScope || (target && node), 'EXACT_SCOPE_INCOMPLETE', 'Fast production deployment requires both target and physical node');
   if (exactScope) {
-    const placements = exactPlacements(target, node);
+    let placements = exactPlacements(target, node);
+    if (placements.some((entry) => entry.node === 'zhudatuan-l0' && L0_TARGETS.includes(entry.target))) {
+      placements = [...placements.filter((entry) => entry.node !== 'zhudatuan-l0' || !L0_TARGETS.includes(entry.target)),
+        ...L0_TARGETS.map((target) => ({ target, node: 'zhudatuan-l0' }))];
+    }
     if (placements.length === 1) return deployExact(adapter, controlRoot, sourceSha, placements[0].target, placements[0].node);
     return deployExactBatch(adapter, controlRoot, sourceSha, placements);
   }
