@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ProductionNodeOperationsProvider } from './autonode-operations-provider.mjs';
@@ -52,6 +52,7 @@ export class AutoNodeActivationCliExecutor {
       return { manifest_id: null, access_entries: instance.access_entries };
     };
     if (request.action === 'INITIALIZE') return await initializeAdministrator();
+    const sourceSha = configuration.coreSourceSha ?? instance.sourceSha;
     const credential = (await readFile(configuration.githubTokenFile, 'utf8')).trim();
     const api = async (path, body) => {
       const response = await fetch(`https://api.github.com/repos/${configuration.repository}${path}`, {
@@ -74,7 +75,7 @@ export class AutoNodeActivationCliExecutor {
       }
       if (!run) {
         await api(`${path}/dispatches`, { ref: configuration.controlRef ?? 'zdt-next', inputs: {
-          operation: 'release', identifier: instance.sourceSha,
+          operation: 'release', identifier: sourceSha,
           release_target: targets.join(','), physical_node: targets.map(() => instance.instance).join(','),
           instance_path: instance.instancePath, request_id: requestId, execution_location: 'auto',
           domain_switch: String(domainSwitch),
@@ -99,7 +100,7 @@ export class AutoNodeActivationCliExecutor {
     await release(['database-migration'], true, 'ingress');
     for (const target of ['identity-api', 'web-api', 'storefront', 'auth-web', 'console']) {
       const manifest = JSON.parse(await readFile(`/opt/sfl/nodes/${instance.instance}/targets/${target}/current/AI_DELIVERY_ARTIFACT.json`, 'utf8'));
-      if (manifest.sourceSha !== instance.sourceSha) throw new Error(`AUTONODE_INSTANCE_VERSION_MISMATCH:${target}`);
+      if (manifest.sourceSha !== sourceSha) throw new Error(`AUTONODE_INSTANCE_VERSION_MISMATCH:${target}`);
     }
     for (const port of instance.healthPorts) {
       const response = await fetch(`http://127.0.0.1:${port}/health/ready`, { signal: AbortSignal.timeout(5000) });
@@ -147,6 +148,39 @@ export class AutoNodeActivationCliExecutor {
       await rm(temporary, { recursive: true, force: true });
     }
   }
+}
+
+export async function synchronizeL0Release(sourceSha, releaseRunId) {
+  const file = process.env.AUTONODE_INSTANCES_FILE ?? '/opt/sfl/control/autonode/instances.json';
+  const configuration = JSON.parse(await readFile(file, 'utf8'));
+  configuration.coreSourceSha = sourceSha;
+  for (const instance of configuration.instances) instance.sourceSha = sourceSha;
+  const temporary = `${file}.${process.pid}.tmp`;
+  await writeFile(temporary, `${JSON.stringify(configuration, null, 2)}\n`, { mode: 0o600 });
+  await rename(temporary, file);
+  const token = (await readFile(configuration.githubTokenFile, 'utf8')).trim();
+  const targets = ['identity-api', 'web-api', 'storefront', 'auth-web', 'console'];
+  const instances = [];
+  for (const instance of configuration.instances.filter((entry) => entry.lifecycle)) {
+    const inventory = await readFile(`/var/lib/sfl-autonode-control/resources/${instance.instance}.json`, 'utf8')
+      .then(JSON.parse).catch((error) => { if (error.code === 'ENOENT') return null; throw error; });
+    if (inventory?.state === 'DELETED') {
+      instances.push({ instance: instance.instance, state: 'DELETED', nextCreateSourceSha: sourceSha });
+      continue;
+    }
+    const requestId = `core-sync-${releaseRunId}-${instance.instance}`;
+    const response = await fetch(`https://api.github.com/repos/${configuration.repository}/actions/workflows/delivery-1-6.yml/dispatches`, {
+      method: 'POST', headers: { authorization: `Bearer ${token}`, accept: 'application/vnd.github+json', 'content-type': 'application/json' },
+      body: JSON.stringify({ ref: configuration.controlRef ?? 'zdt-next', inputs: {
+        operation: 'release', identifier: sourceSha, release_target: targets.join(','),
+        physical_node: targets.map(() => instance.instance).join(','), instance_path: instance.instancePath,
+        request_id: requestId, execution_location: 'auto',
+      } }), signal: AbortSignal.timeout(30000),
+    });
+    if (!response.ok) throw new Error(`L0_CORE_SYNC_DISPATCH_FAILED:${instance.instance}:${response.status}`);
+    instances.push({ instance: instance.instance, state: 'QUEUED', sourceSha, requestId });
+  }
+  return { sourceSha, instances };
 }
 
 async function runCommand(command, args, options) {
