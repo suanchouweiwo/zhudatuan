@@ -108,6 +108,13 @@ async function release(adapter, controlRoot, sourceSha, target, node) {
   const plan = await createReleasePlan(adapter, { from: `${sourceSha}^`, to: sourceSha });
   const releaseId = `r16-${sourceSha}`;
   if (!plan.deployRequired) return { state: 'NO_CHANGE', releaseId, sourceSha, executor: executor(), targets: [], message: 'No runtime target changed.' };
+  const plannedPlacements = plan.deploymentOrder.flatMap((target) => physicalPlacements(adapter, target).map((node) => ({ target, node })));
+  if (plannedPlacements.some((entry) => entry.node === 'zhudatuan-l0' && L0_TARGETS.includes(entry.target))) {
+    return deployExactBatch(adapter, controlRoot, sourceSha, [
+      ...plannedPlacements.filter((entry) => entry.node !== 'zhudatuan-l0' || !L0_TARGETS.includes(entry.target)),
+      ...L0_TARGETS.map((target) => ({ target, node: 'zhudatuan-l0' })),
+    ]);
+  }
   const client = await artifactClientFromEnvironment();
   const cache = [];
   progress('artifact-lookup', { sourceSha, targets: plan.deploymentOrder });
