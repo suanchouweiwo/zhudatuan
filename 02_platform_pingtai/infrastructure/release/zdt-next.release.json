@@ -725,6 +725,10 @@
           "restart": "none",
           "pointerRoot": "/opt/sfl/nodes/l0-2-l0/targets/auth-web"
         },
+        "purchase-api": {
+          "pointerRoot": "/opt/sfl/nodes/l0-2-l0/targets/purchase-api",
+          "service": "sfl-purchase-api@l0-2-l0.service"
+        },
         "web-api": {
           "pointerRoot": "/opt/sfl/nodes/l0-2-l0/targets/web-api",
           "service": "sfl-web-api@l0-2-l0.service"
