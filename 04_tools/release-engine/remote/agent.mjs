@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 import { createHash, randomBytes } from 'node:crypto';
+import { setDefaultAutoSelectFamily } from 'node:net';
+import { setDefaultResultOrder } from 'node:dns';
+
 import { createReadStream } from 'node:fs';
 import { appendFile, chmod, chown, copyFile, cp, link, lstat, mkdir, readFile, readlink, readdir, realpath, rename, rm, statfs, symlink, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, relative, resolve } from 'node:path';
@@ -7,6 +10,10 @@ import { spawn } from 'node:child_process';
 import { performance } from 'node:perf_hooks';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+
+// Deployment hosts use IPv4; avoid aborting reachable addresses during IPv6 fallback.
+setDefaultAutoSelectFamily(false);
+setDefaultResultOrder('ipv4first');
 
 let actionName = 'unknown';
 let loadedPolicy = null;
