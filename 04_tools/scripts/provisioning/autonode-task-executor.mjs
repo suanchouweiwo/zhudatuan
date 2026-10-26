@@ -5,6 +5,8 @@ import { fileURLToPath } from 'node:url';
 import { ProductionNodeOperationsProvider } from './autonode-operations-provider.mjs';
 import { initializeInstanceAdministrator } from './autonode-administrator.mjs';
 
+const L0_APPLICATION_TARGETS = Object.freeze(['identity-api', 'web-api', 'purchase-api', 'storefront', 'auth-web', 'console']);
+
 const MAX_OUTPUT_BYTES = 4 * 1024 * 1024;
 
 export class AutoNodeActivationCliExecutor {
@@ -95,10 +97,10 @@ export class AutoNodeActivationCliExecutor {
     await progress('DATABASE', 20, 'Runner 正在初始化独立空库');
     await release(['database-migration'], false, 'database');
     await progress('RELEASING', 50, 'Runner 正在安装同一核心的商城、登录和后台');
-    await release(['identity-api', 'web-api', 'storefront', 'auth-web', 'console'], false, 'applications');
+    await release(L0_APPLICATION_TARGETS, false, 'applications');
     await progress('INGRESS', 80, 'Runner 正在接通实例入口');
     await release(['database-migration'], true, 'ingress');
-    for (const target of ['identity-api', 'web-api', 'storefront', 'auth-web', 'console']) {
+    for (const target of L0_APPLICATION_TARGETS) {
       const manifest = JSON.parse(await readFile(`/opt/sfl/nodes/${instance.instance}/targets/${target}/current/AI_DELIVERY_ARTIFACT.json`, 'utf8'));
       if (manifest.sourceSha !== sourceSha) throw new Error(`AUTONODE_INSTANCE_VERSION_MISMATCH:${target}`);
     }
@@ -159,7 +161,7 @@ export async function synchronizeL0Release(sourceSha, releaseRunId) {
   await writeFile(temporary, `${JSON.stringify(configuration, null, 2)}\n`, { mode: 0o600 });
   await rename(temporary, file);
   const token = (await readFile(configuration.githubTokenFile, 'utf8')).trim();
-  const targets = ['identity-api', 'web-api', 'storefront', 'auth-web', 'console'];
+  const targets = L0_APPLICATION_TARGETS;
   const instances = [];
   for (const instance of configuration.instances.filter((entry) => entry.lifecycle)) {
     const inventory = await readFile(`/var/lib/sfl-autonode-control/resources/${instance.instance}.json`, 'utf8')
