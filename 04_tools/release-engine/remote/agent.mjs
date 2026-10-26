@@ -661,7 +661,7 @@ async function activate(context, options) {
     }
   }
   if (context.nodePolicy.deployments?.['database-migration']?.databaseMigration?.initialize
-    && ['identity-api','web-api','storefront'].includes(context.target) && context.deployment.restart?.kind === 'systemd') {
+    && ['identity-api','web-api','purchase-api','storefront'].includes(context.target) && context.deployment.restart?.kind === 'systemd') {
     await command(['systemctl','enable',context.deployment.restart.name]);
   }
   const serviceBefore = await processState(context.deployment.restart);
@@ -913,6 +913,10 @@ async function initializeNodeIngress(context, candidate, artifact) {
   const setup = context.deployment.databaseMigration.initialize.ingress;
   const root = join('/opt/sfl/nodes', context.node);
   const runtime = join(root, 'runtime');
+  if (!credentials.ZHUDATUAN_PURCHASE_API_PASSWORD) {
+    credentials.ZHUDATUAN_PURCHASE_API_PASSWORD = randomBytes(36).toString('base64url');
+    await writeFile(credentialFile, environmentText(credentials), { mode: 0o600 });
+  }
   const bootstrap = join(candidate, 'database/bootstrap');
   const credentials = parseEnvironmentFile(await readFile(join(root, 'database/postgres.env'), 'utf8'));
   const nodeManifest = await readJson(join(candidate, 'node-runtime/manifest.json'));
@@ -1034,9 +1038,13 @@ async function initializeNodeDatabase(context, candidate, manifest) {
   else {
     credentials = { POSTGRES_DB: 'zhudatuan_registration', POSTGRES_USER: 'zhudatuanroot' };
     for (const key of ['POSTGRES_PASSWORD','SHOPAPP_PASSWORD','SHOPJOB_PASSWORD','SHOPMIGRATION_PASSWORD','SHOPREAD_PASSWORD',
-      'ZHUDATUANBOOTSTRAP_PASSWORD','DATABASE_SENTINEL','ZHUDATUAN_IDENTITY_API_PASSWORD','ZHUDATUAN_WEB_API_PASSWORD']) {
+      'ZHUDATUANBOOTSTRAP_PASSWORD','DATABASE_SENTINEL','ZHUDATUAN_IDENTITY_API_PASSWORD','ZHUDATUAN_WEB_API_PASSWORD','ZHUDATUAN_PURCHASE_API_PASSWORD']) {
       credentials[key] = randomBytes(36).toString('base64url');
     }
+    await writeFile(credentialFile, environmentText(credentials), { mode: 0o600 });
+  }
+  if (!credentials.ZHUDATUAN_PURCHASE_API_PASSWORD) {
+    credentials.ZHUDATUAN_PURCHASE_API_PASSWORD = randomBytes(36).toString('base64url');
     await writeFile(credentialFile, environmentText(credentials), { mode: 0o600 });
   }
   const bootstrap = join(candidate, 'database/bootstrap');
@@ -1082,25 +1090,33 @@ async function initializeNodeDatabase(context, candidate, manifest) {
   // This instance consumes them over its own loopback database connection.
   const roleSql = `alter role zhudatuanidentityapi login password '${credentials.ZHUDATUAN_IDENTITY_API_PASSWORD}';
 alter role zhudatuanwebapi login password '${credentials.ZHUDATUAN_WEB_API_PASSWORD}';
+alter role zhudatuanpurchaseapi login password '${credentials.ZHUDATUAN_PURCHASE_API_PASSWORD}';
 `;
   await command(['docker','exec','-i',container,'psql','-X','-v','ON_ERROR_STOP=1','-U',credentials.POSTGRES_USER,'-d',credentials.POSTGRES_DB], { input: roleSql });
   const sourceRoot = join('/opt/sfl/nodes', setup.environmentSource, 'runtime');
   const inputs = {};
-  for (const target of ['identity-api','web-api','storefront']) {
-    inputs[target] = parseEnvironmentFile(await readFile(join(sourceRoot, `${target}.env`), 'utf8'));
+  for (const target of ['identity-api','web-api','purchase-api','storefront']) {
+    const inputFile = target === 'purchase-api' && await exists(join(runtime, `${target}.env`))
+      ? join(runtime, `${target}.env`) : join(sourceRoot, `${target}.env`);
+    inputs[target] = parseEnvironmentFile(await readFile(inputFile, 'utf8'));
   }
   const prefix = setup.secretPrefix;
   const secretsFile = join(runtime, 'secrets.json');
   let secrets = await readJson(secretsFile) ?? {};
   for (const [target, role, password] of [
     ['identity-api','zhudatuanidentityapi',credentials.ZHUDATUAN_IDENTITY_API_PASSWORD],
-    ['web-api','zhudatuanwebapi',credentials.ZHUDATUAN_WEB_API_PASSWORD]]) {
+    ['web-api','zhudatuanwebapi',credentials.ZHUDATUAN_WEB_API_PASSWORD],
+    ['purchase-api','zhudatuanpurchaseapi',credentials.ZHUDATUAN_PURCHASE_API_PASSWORD]]) {
     secrets[`${prefix}/database/${target}`] = `postgresql://${role}:${password}@127.0.0.1:${setup.port}/${credentials.POSTGRES_DB}`;
   }
-  for (const key of ['identity/session','identity/index']) secrets[`${prefix}/${key}`] ??= randomBytes(36).toString('base64url');
+  for (const key of ['identity/session','identity/index','purchase/checkout/quote']) secrets[`${prefix}/${key}`] ??= randomBytes(36).toString('base64url');
   await writeFile(secretsFile, JSON.stringify(secrets, null, 2) + '\n', { mode: 0o640 });
-  const origins = setup.origins;
   const nodeManifest = await readJson(join(candidate, 'node-runtime/manifest.json'));
+  const origins = { ...setup.origins };
+  for (const [key, surface] of [['identity','identity'], ['console','console'], ['storefront','storefront']]) {
+    const binding = nodeManifest?.domain_bindings.find((entry) => entry.surface_ref === `surface:${surface}`);
+    if (binding) origins[key] = `https://${binding.host}`;
+  }
   if (nodeManifest) {
     await copyFile(join(candidate, 'node-runtime/manifest.json'), join(root, 'manifest.json'));
   }
@@ -1113,10 +1129,10 @@ alter role zhudatuanwebapi login password '${credentials.ZHUDATUAN_WEB_API_PASSW
       NODE_RELEASE_POINTER_REF: nodeManifest.release_pointer_ref.ref,
     });
     if (target !== 'storefront') {
-      env.API_PORT = String(setup.servicePorts[target]);
+      env.API_PORT = String(setup.servicePorts[target] ?? (target === 'purchase-api' ? setup.ingress?.ports?.purchase : undefined));
       env.API_ALLOWED_ORIGINS = [origins.identity, origins.console, origins.storefront].filter(Boolean).join(',');
       env.DATABASE_API_CONNECTION_REF = `${prefix}/database/${target}`;
-      env.DATABASE_API_ROLE = target === 'identity-api' ? 'zhudatuanidentityapi' : 'zhudatuanwebapi';
+      env.DATABASE_API_ROLE = target === 'identity-api' ? 'zhudatuanidentityapi' : target === 'purchase-api' ? 'zhudatuanpurchaseapi' : 'zhudatuanwebapi';
       env.SECRET_STORE_ENDPOINT = `https://127.0.0.1:${setup.secretPort}`;
       if (target === 'identity-api') env.OBJECT_STORE_ENDPOINT = `https://127.0.0.1:${setup.objectPort}`;
     } else {
@@ -1130,6 +1146,14 @@ alter role zhudatuanwebapi login password '${credentials.ZHUDATUAN_WEB_API_PASSW
       // WeChat configuration remains unset until this instance has its own application.
       delete env.WECHAT_APPLICATION_CONFIG_REF;
       delete env.WECHAT_IDENTITY_CONFIG_REF;
+    }
+    if (target === 'purchase-api') {
+      env.QUOTE_KEY_REF = `${prefix}/purchase/checkout/quote`;
+      env.API_ALLOWED_ORIGINS = nodeManifest.domain_bindings.filter((binding) => binding.surface_ref === 'surface:storefront').map((binding) => `https://${binding.host}`).join(',');
+      // Each instance supplies its own payment merchant configuration.
+      if (!(await exists(join(runtime, 'purchase-api.env')))) {
+        for (const key of ['KMS_ENDPOINT', 'KMS_BEARER_TOKEN', 'WECHAT_APPLICATION_CONFIG_REF', 'WECHAT_PAYMENT_CONFIG_REF']) delete env[key];
+      }
     }
     if (target === 'web-api') {
       env.PUBLIC_MALL_SLUG = setup.application;
@@ -1162,7 +1186,7 @@ alter role zhudatuanwebapi login password '${credentials.ZHUDATUAN_WEB_API_PASSW
   await command(['chown','-R','zhudatuan:zhudatuan',runtime,objectEnvironment.LOCAL_OBJECTS_DIRECTORY]);
   // Install the existing unit definitions; application activation is a later release.
   const units = join(bootstrap, 'systemd');
-  for (const name of ['sfl-storefront@.service','sfl-identity-api@.service','sfl-web-api@.service','sfl-catalog-object-store@.service','sfl-secret-store@.service']) {
+  for (const name of ['sfl-storefront@.service','sfl-identity-api@.service','sfl-web-api@.service','sfl-purchase-api@.service','sfl-catalog-object-store@.service','sfl-secret-store@.service']) {
     await copyFile(join(units, name), join('/etc/systemd/system', name));
   }
   if (!(await exists(join(root, 'current')))) await symlink('/opt/zhudatuan/current', join(root, 'current'));
@@ -1199,7 +1223,7 @@ async function executeDatabaseMigration(context, candidate, manifest) {
     const previousManifest = await readJson(join(root, 'manifest.json'));
     const replacements = (previousManifest?.domain_bindings ?? []).map((binding) => [binding.host,
       nodeManifest.domain_bindings.find((next) => next.surface_ref === binding.surface_ref)?.host]).filter(([, host]) => host);
-    for (const target of ['identity-api', 'web-api', 'storefront', 'object-store']) {
+    for (const target of ['identity-api', 'web-api', 'purchase-api', 'storefront', 'object-store']) {
       const file = join(root, 'runtime', `${target}.env`);
       if (!(await exists(file))) continue;
       const env = parseEnvironmentFile(await readFile(file, 'utf8'));
@@ -1553,7 +1577,7 @@ function nodeRuntimeRecoveryPath(context, release) {
 function nodeRuntimeDestinations(context) {
   const nodeRoot = join('/opt/sfl/nodes', context.node);
   const runtimeRoot = join(nodeRoot, 'runtime');
-  const environment = ['identity-api', 'web-api', 'storefront'].includes(context.target)
+  const environment = ['identity-api', 'web-api', 'purchase-api', 'storefront'].includes(context.target)
     ? join(runtimeRoot, `${context.target}.env`) : null;
   const centralFile = context.target === 'console' ? 'console-runtime.json'
     : context.target === 'auth-web' ? 'identity-runtime.json' : null;
@@ -1614,6 +1638,9 @@ async function installNodeRuntime(context, release) {
       const controllerOrigin = parseEnvironmentFile(before).IDENTITY_CONTROLLER_ORIGIN;
       if (context.target === 'identity-api' && controllerOrigin) origins.push(new URL(controllerOrigin).origin);
       updates.API_ALLOWED_ORIGINS = [...new Set(origins)].join(',');
+    }
+    if (context.target === 'purchase-api') {
+      updates.API_ALLOWED_ORIGINS = manifest.domain_bindings.filter((binding) => binding.surface_ref === 'surface:storefront').map((binding) => `https://${binding.host}`).join(',');
     }
     if (context.target === 'web-api') {
       const projection = await readJson(join(release, 'node-runtime', 'identity-node-projection.json'));

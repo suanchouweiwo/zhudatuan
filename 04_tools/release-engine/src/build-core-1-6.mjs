@@ -106,7 +106,7 @@ function commandContext(adapter, plan, runDirectory, target, logName) {
 function instanceOutputDirectory(adapter, target) {
   if (target === 'database-migration') return join(adapter.projectRoot, '01_core_hexin/services/commerce/dist');
   const directory = { console: 'console', 'auth-web': 'auth-web', storefront: 'storefront-web',
-    'identity-api': 'services/identity-api', 'web-api': 'services/web-api' }[target];
+    'identity-api': 'services/identity-api', 'web-api': 'services/web-api', 'purchase-api': 'services/purchase-api' }[target];
   return directory ? join(adapter.instanceRoot, 'dist', directory) : null;
 }
 

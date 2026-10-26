@@ -17,7 +17,7 @@ const SHA = /^[a-f0-9]{40}$/;
 const RELEASE_ID = /^r16-([a-f0-9]{40})$/;
 const context = { stage: 'startup', operation: null, target: null, node: null, sourceSha: null, completedTargets: [] };
 const coreStartedAt = performance.now();
-const L0_TARGETS = ['identity-api', 'web-api', 'storefront', 'auth-web', 'console'];
+const L0_TARGETS = ['identity-api', 'web-api', 'purchase-api', 'storefront', 'auth-web', 'console'];
 
 async function main() {
   try {
