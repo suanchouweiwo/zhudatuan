@@ -1227,8 +1227,10 @@ async function executeDatabaseMigration(context, candidate, manifest) {
         if (!/(ORIGIN|HOST|URL)/.test(key) || key === 'IDENTITY_CONTROLLER_ORIGIN') continue;
         for (const [before, after] of replacements) env[key] = env[key].split(before).join(after);
       }
-      Object.assign(env, { NODE_MANIFEST_DIGEST: nodeManifest.manifest_digest,
-        NODE_RESOURCE_BINDING_VERSION: nodeManifest.resource_binding_set_ref.version });
+      const applicationManifest = await readJson(join(root, 'targets', target, 'current', 'node-runtime', 'manifest.json'));
+      const runtimeManifest = applicationManifest ?? nodeManifest;
+      Object.assign(env, { NODE_MANIFEST_DIGEST: runtimeManifest.manifest_digest,
+        NODE_RESOURCE_BINDING_VERSION: runtimeManifest.resource_binding_set_ref.version });
       await writeFile(file, environmentText(env), { mode: 0o640 });
     }
     await copyFile(join(candidate, 'node-runtime/manifest.json'), join(root, 'manifest.json'));
