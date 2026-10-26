@@ -913,10 +913,6 @@ async function initializeNodeIngress(context, candidate, artifact) {
   const setup = context.deployment.databaseMigration.initialize.ingress;
   const root = join('/opt/sfl/nodes', context.node);
   const runtime = join(root, 'runtime');
-  if (!credentials.ZHUDATUAN_PURCHASE_API_PASSWORD) {
-    credentials.ZHUDATUAN_PURCHASE_API_PASSWORD = randomBytes(36).toString('base64url');
-    await writeFile(credentialFile, environmentText(credentials), { mode: 0o600 });
-  }
   const bootstrap = join(candidate, 'database/bootstrap');
   const credentials = parseEnvironmentFile(await readFile(join(root, 'database/postgres.env'), 'utf8'));
   const nodeManifest = await readJson(join(candidate, 'node-runtime/manifest.json'));
