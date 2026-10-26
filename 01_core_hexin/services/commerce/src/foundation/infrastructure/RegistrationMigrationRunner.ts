@@ -79,9 +79,15 @@ export class RegistrationMigrationRunner {
       await client.query("select pg_advisory_lock(hashtext('zhudatuan:registration-migration:v1'))");
       locked = true;
       const files = (await readdir(this.directory)).filter((name) => MIGRATION_FILE.test(name)).sort();
-      const targetFile = files.at(-1);
-      if (targetFile === undefined) throw new Error('REGISTRATION_MIGRATION_TARGET_FILESET_INVALID');
-      const target = registrationMigrationTarget(targetFile, await readFile(join(this.directory, targetFile), 'utf8'));
+      // Permission-only migrations do not introduce a runtime schema version.
+      let target: RegistrationMigrationTarget | undefined;
+      for (const file of [...files].reverse()) {
+        const source = await readFile(join(this.directory, file), 'utf8');
+        if (!/insert\s+into\s+runtime\.schemaversion/i.test(source)) continue;
+        target = registrationMigrationTarget(file, source);
+        break;
+      }
+      if (target === undefined) throw new Error('REGISTRATION_MIGRATION_TARGET_FILESET_INVALID');
       await this.assertHistory(files);
       await this.assertFreshOrManagedState(client);
       await this.ensureLedger(client);
