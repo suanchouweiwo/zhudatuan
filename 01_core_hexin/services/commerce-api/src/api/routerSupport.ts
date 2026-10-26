@@ -1,6 +1,6 @@
 import { apiError } from './http';
 import { resourceScopeFromDatabaseRow } from './membershipContext';
-import { callRpc } from './supabase';
+import { callRpc } from './postgresRpc';
 import type { AuthorizationContext, WorkerEnv } from './types';
 import type { ResourceScope } from '@smart-wing/api-contract';
 

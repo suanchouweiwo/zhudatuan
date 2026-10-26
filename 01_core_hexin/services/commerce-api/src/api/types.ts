@@ -2,10 +2,9 @@ import type { Membership, Permission } from '@smart-wing/api-contract';
 
 export interface WorkerEnv {
   ASSETS?: Fetcher;
-  SUPABASE_URL?: string;
+  DATABASE_URL?: string;
   /** Provider region used only for health and operations reporting. */
-  SUPABASE_REGION?: string;
-  SUPABASE_SERVICE_ROLE_KEY?: string;
+  DATABASE_REGION?: string;
   /** One server-selected public mall shared by Web and mini-program guests. */
   PUBLIC_MALL_SLUG?: string;
   /** Canonical public media origin shared by Web and the WeChat mini-program. */

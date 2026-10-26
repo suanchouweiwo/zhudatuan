@@ -8,13 +8,13 @@
     "@alicloud/dysmsapi20170525": "^4.6.0",
     "@alicloud/openapi-client": "^0.4.15",
     "@alicloud/tea-util": "^1.4.11",
-    "@google/genai": "^2.4.0",
     "@smart-wing/api-contract": "1.0.0",
     "@smart-wing/authz": "1.0.0",
     "@shop/contract": "1.0.0",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
-    "qrcode-generator": "1.4.4"
+    "qrcode-generator": "1.4.4",
+    "pg": "8.16.3"
   },
   "scripts": {
     "lint": "tsc --noEmit",

@@ -1,5 +1,5 @@
 import { apiError, json, methodNotAllowed } from './http';
-import { callRpc } from './supabase';
+import { callRpc } from './postgresRpc';
 import type { WorkerEnv } from './types';
 import { loadWechatPayConfig, WechatPayConfigurationError } from './wechatPayConfig';
 import { WechatPayProtocolError } from './wechatPayModels';

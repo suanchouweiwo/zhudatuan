@@ -1,6 +1,6 @@
 import type { Membership, ResourceScope, ScopeBinding } from '@smart-wing/api-contract';
 import { readSession } from './session';
-import { callRpc } from './supabase';
+import { callRpc } from './postgresRpc';
 import type { AuthorizationContext, WorkerEnv } from './types';
 
 export interface MembershipRuntime {

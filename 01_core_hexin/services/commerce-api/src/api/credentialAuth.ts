@@ -1,5 +1,5 @@
 import { verifyPassword } from './registrationSecurity';
-import { callRpc } from './supabase';
+import { callRpc } from './postgresRpc';
 import type { WorkerEnv } from './types';
 
 type Credential = { passwordHash?: string; credentialVersion?: number };

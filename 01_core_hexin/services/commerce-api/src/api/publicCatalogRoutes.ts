@@ -1,7 +1,7 @@
 import { apiError, json, methodNotAllowed } from './http';
 import { readCoreProjection, writeCoreProjection, type CoreProjectionMetadata } from './coreReadCache';
 import { publicCatalogCoverUrl } from './publicCatalogImages';
-import { callRpc } from './supabase';
+import { callRpc } from './postgresRpc';
 import type { WorkerEnv } from './types';
 
 interface PublicCatalogRow {
@@ -68,7 +68,7 @@ async function queryCatalogRows(env: WorkerEnv, mallSlug: string, category: stri
 }
 
 async function cachedCatalogRows(env: WorkerEnv, mallSlug: string, category: string | null, limit: number, cursor: number): Promise<CatalogResult> {
-  const key = [env.SUPABASE_URL, mallSlug, category ?? '', limit, cursor].join('|');
+  const key = [env.DATABASE_URL, mallSlug, category ?? '', limit, cursor].join('|');
   const now = Date.now();
   const cached = catalogCache.get(key);
   if (cached && cached.expiresAt > now) return { projection: cached.projection, hit: true, tier: 'memory' };

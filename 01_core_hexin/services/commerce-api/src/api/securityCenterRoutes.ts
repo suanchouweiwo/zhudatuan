@@ -8,7 +8,7 @@ import { readJsonBody } from './routerSupport';
 import { deliverOtp, otpDeliveryAvailable } from './otpDelivery';
 import { SmsDeliveryError } from './smsProvider';
 import { clearSessionCookie, readSession } from './session';
-import { callRpc } from './supabase';
+import { callRpc } from './postgresRpc';
 import type { AuthorizationContext, WorkerEnv } from './types';
 
 type ChallengePurpose = 'password_reset' | 'phone_change';

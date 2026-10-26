@@ -2,7 +2,7 @@ import { PERMISSIONS, type Permission } from '@smart-wing/api-contract';
 import { authorize } from './auth';
 import { apiError, json, methodNotAllowed } from './http';
 import { authorizationEvidence, invalidBody, readJsonBody } from './routerSupport';
-import { callRpc } from './supabase';
+import { callRpc } from './postgresRpc';
 import type { AuthorizationContext, WorkerEnv } from './types';
 import { CONFIG_PERMISSIONS, hasFreshStepUp, parseConfigInput, persistQualificationConfig, type QualificationConfigKind } from './qualificationAdminRoutes';
 

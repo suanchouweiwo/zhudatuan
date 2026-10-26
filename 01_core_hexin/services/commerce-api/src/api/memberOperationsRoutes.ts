@@ -4,7 +4,7 @@ import { sha256 } from './crypto';
 import { apiError, json, methodNotAllowed } from './http';
 import { hashPassword, normalizeLocalUsername, validRegistrationPassword } from './registrationSecurity';
 import { authorizationEvidence, invalidBody, readJsonBody } from './routerSupport';
-import { callRpc } from './supabase';
+import { callRpc } from './postgresRpc';
 import type { AuthorizationContext, WorkerEnv } from './types';
 
 type ImportRow = { rowNumber: number; username: string; password: string; displayName: string; employeeNo?: string; email?: string; departmentId?: string };

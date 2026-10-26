@@ -4,7 +4,7 @@ import { authorize } from './auth';
 import { sha256 } from './crypto';
 import { apiError, json, methodNotAllowed } from './http';
 import { authorizationScope, invalidBody, readJsonBody } from './routerSupport';
-import { callRpc } from './supabase';
+import { callRpc } from './postgresRpc';
 import type { AuthorizationContext, WorkerEnv } from './types';
 
 interface IssueResult {

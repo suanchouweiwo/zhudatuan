@@ -40,7 +40,7 @@
     "generate:clients": "node --import tsx 04_tools/scripts/build-miniapp-environment.mjs && node --import tsx 04_tools/scripts/build-miniapp-contract.mjs",
     "generate:frontendmanifest": "node 04_tools/scripts/evidence/frontendmanifest.mjs",
     "build:commerce": "node 04_tools/scripts/build-commerce.mjs",
-    "build:compat-admin-reference": "esbuild 01_core_hexin/services/commerce-api/src/adminServer.ts --bundle --platform=node --format=cjs --external:@google/genai --external:dotenv --external:express --sourcemap --outfile=01_core_hexin/services/commerce-api/dist/admin-server.cjs",
+    "build:compat-admin-reference": "esbuild 01_core_hexin/services/commerce-api/src/adminServer.ts --bundle --platform=node --format=cjs --external:dotenv --external:express --sourcemap --outfile=01_core_hexin/services/commerce-api/dist/admin-server.cjs",
     "build:workspace": "npm run build --workspaces --if-present",
     "build": "npm run build:workspace && npm run build:commerce",
     "typecheck": "npm run typecheck --workspaces --if-present && tsc -p 03_quality_ceshi/tests/browser/tsconfig.json --noEmit",

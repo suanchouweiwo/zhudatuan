@@ -3,7 +3,7 @@ import { PERMISSIONS } from '@smart-wing/api-contract';
 import { decryptJson, encryptJson } from './crypto';
 import { apiError, json, methodNotAllowed } from './http';
 import { authorizationScope, invalidBody, readJsonBody } from './routerSupport';
-import { callRpc } from './supabase';
+import { callRpc } from './postgresRpc';
 import type { AuthorizationContext, WorkerEnv } from './types';
 
 type Address = { id?: string; name: string; phone: string; province: string; city: string; district: string; detail: string; tag?: string; isDefault: boolean };

@@ -4,7 +4,7 @@ import { encryptJson, sha256 } from './crypto';
 import { apiError, json, methodNotAllowed } from './http';
 import { requirePhoneVerified } from './identityAssurance';
 import { authorizationEvidence, authorizationScope, invalidBody, loadResourceScope, readJsonBody } from './routerSupport';
-import { callRpc } from './supabase';
+import { callRpc } from './postgresRpc';
 import type { AuthorizationContext, WorkerEnv } from './types';
 import { parseCreateAfterSaleInput, parseCreateOrderInput, parseExecuteRefundInput, parseInternalPaymentInput } from './validation';
 

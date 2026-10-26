@@ -6,7 +6,7 @@ import { authenticateLocalMember } from './publicRoutes';
 import { hashPassword, normalizeLocalUsername, PASSWORD_POLICY_MESSAGE, validRegistrationPassword } from './registrationSecurity';
 import { readJsonBody } from './routerSupport';
 import { createTrackedMiniappSessionToken } from './session';
-import { callRpc, isSupabaseConfigured } from './supabase';
+import { callRpc, isPostgresConfigured } from './postgresRpc';
 import type { WorkerEnv } from './types';
 
 const WECHAT_CODE_ENDPOINT = 'https://api.weixin.qq.com/sns/jscode2session';
@@ -171,7 +171,7 @@ export async function exchangeWechatCode(
 }
 
 function wechatAuthConfigured(env: WorkerEnv): boolean {
-  return Boolean(isSupabaseConfigured(env) && env.WECHAT_MINIAPP_APP_ID && env.WECHAT_MINIAPP_APP_SECRET && env.MINIAPP_SESSION_SIGNING_KEY && env.MINIAPP_SESSION_SIGNING_KEY.length >= 32);
+  return Boolean(isPostgresConfigured(env) && env.WECHAT_MINIAPP_APP_ID && env.WECHAT_MINIAPP_APP_SECRET && env.MINIAPP_SESSION_SIGNING_KEY && env.MINIAPP_SESSION_SIGNING_KEY.length >= 32);
 }
 
 function wechatRegistrationEnabled(env: WorkerEnv): boolean {

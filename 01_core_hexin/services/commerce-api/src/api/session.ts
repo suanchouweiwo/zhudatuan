@@ -1,7 +1,7 @@
 import type { WorkerEnv } from './types';
 import { sha256 } from './crypto';
 import { readTrustedClientIp } from './loginRateLimitBypass';
-import { callRpc } from './supabase';
+import { callRpc } from './postgresRpc';
 
 export type SessionTarget = 'storefront' | 'admin';
 

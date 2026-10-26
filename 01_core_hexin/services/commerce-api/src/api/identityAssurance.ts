@@ -1,5 +1,5 @@
 import { apiError } from './http';
-import { callRpc } from './supabase';
+import { callRpc } from './postgresRpc';
 import type { AuthorizationContext, WorkerEnv } from './types';
 
 export interface MemberAssurance {

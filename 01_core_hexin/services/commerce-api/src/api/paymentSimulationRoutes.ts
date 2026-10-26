@@ -2,7 +2,7 @@ import { authorize } from './auth';
 import { sha256 } from './crypto';
 import { apiError, json, methodNotAllowed } from './http';
 import { authorizationEvidence, authorizationScope, invalidBody, loadResourceScope, readJsonBody } from './routerSupport';
-import { callRpc } from './supabase';
+import { callRpc } from './postgresRpc';
 import { parseSimulationBenefitInput, parseSimulationMixedPaymentInput, parseSimulationRechargeInput } from './validation';
 import { PERMISSIONS } from '@smart-wing/api-contract';
 import type { AuthorizationContext, WorkerEnv } from './types';

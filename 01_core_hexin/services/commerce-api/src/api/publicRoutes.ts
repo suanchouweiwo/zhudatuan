@@ -7,7 +7,7 @@ import { localPhoneSubject } from './registrationRoutes';
 import { hashPassword, normalizeChineseMobile, normalizeLocalUsername, PASSWORD_POLICY_MESSAGE, validRegistrationPassword, verifyPassword } from './registrationSecurity';
 import { readJsonBody } from './routerSupport';
 import { clearSessionCookie, createTrackedSessionCookie, readSession, targetForRequest } from './session';
-import { callRpc, isSupabaseConfigured } from './supabase';
+import { callRpc, isPostgresConfigured } from './postgresRpc';
 import type { AuthorizationContext, WorkerEnv } from './types';
 
 interface CatalogRow {
@@ -37,7 +37,7 @@ interface CatalogRow {
 export async function handleHealth(request: Request, env: WorkerEnv, requestId: string): Promise<Response> {
   if (request.method !== 'GET') return methodNotAllowed(['GET'], requestId);
   let health = { databaseReady: false, tableCount: 0 };
-  if (isSupabaseConfigured(env)) {
+  if (isPostgresConfigured(env)) {
     health = await callRpc<typeof health>(env, 'api_health');
   }
   const authReady = Boolean(env.SESSION_SIGNING_KEY && env.ADMIN_SESSION_SIGNING_KEY && (env.AUTH_MODE === 'membership' || isDemoAuthEnabled(env)));
@@ -51,7 +51,7 @@ export async function handleHealth(request: Request, env: WorkerEnv, requestId: 
       authentication: authReady ? 'mvp_session_ready' : 'awaiting_enterprise_provider',
       piiEncryption: piiReady ? 'configured' : 'required_for_orders',
     },
-    database: { provider: 'Supabase PostgreSQL', region: env.SUPABASE_REGION ?? 'unconfigured' },
+    database: { provider: 'PostgreSQL', region: env.DATABASE_REGION ?? 'unconfigured' },
     requestId,
   });
 }
@@ -61,7 +61,7 @@ export async function handleLogin(request: Request, env: WorkerEnv, requestId: s
   if (!loginOriginAllowed(request, env)) {
     return apiError(403, 'LOGIN_ORIGIN_NOT_ALLOWED', '登录请求来源不在允许清单', requestId);
   }
-  const registeredAuthEnabled = isSupabaseConfigured(env);
+  const registeredAuthEnabled = isPostgresConfigured(env);
   if (!registeredAuthEnabled && !isDemoAuthEnabled(env)) {
     return apiError(503, 'AUTH_PROVIDER_NOT_CONFIGURED', '生产环境仅接受已配置的企业身份提供方登录', requestId);
   }
@@ -140,7 +140,7 @@ export async function handleRegisteredCredentialDiscovery(request: Request, env:
   if (!loginOriginAllowed(request, env)) {
     return apiError(403, 'LOGIN_ORIGIN_NOT_ALLOWED', '登录请求来源不在允许清单', requestId);
   }
-  if (!isSupabaseConfigured(env)) {
+  if (!isPostgresConfigured(env)) {
     return apiError(503, 'AUTH_PROVIDER_NOT_CONFIGURED', '会员账号服务尚未配置', requestId);
   }
   const input = await readLoginInput(request);

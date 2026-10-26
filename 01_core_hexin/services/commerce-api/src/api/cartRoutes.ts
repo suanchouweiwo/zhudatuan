@@ -3,7 +3,7 @@ import { PERMISSIONS } from '@smart-wing/api-contract';
 import { apiError, json, methodNotAllowed } from './http';
 import { authorizationScope, invalidBody, readJsonBody } from './routerSupport';
 import { publicCatalogCoverUrl } from './publicCatalogImages';
-import { callRpc } from './supabase';
+import { callRpc } from './postgresRpc';
 import type { AuthorizationContext, WorkerEnv } from './types';
 
 export async function handleCart(request: Request, env: WorkerEnv, authorization: AuthorizationContext, requestId: string): Promise<Response> {

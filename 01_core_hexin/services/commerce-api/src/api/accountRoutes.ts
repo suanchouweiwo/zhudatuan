@@ -4,7 +4,7 @@ import { apiError } from './http';
 import { json, methodNotAllowed } from './http';
 import { loadMemberAssurance } from './identityAssurance';
 import { authorizationScope } from './routerSupport';
-import { callRpc } from './supabase';
+import { callRpc } from './postgresRpc';
 import type { AuthorizationContext, WorkerEnv } from './types';
 
 interface BootstrapRow {

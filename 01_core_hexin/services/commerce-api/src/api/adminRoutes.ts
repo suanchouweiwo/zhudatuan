@@ -3,7 +3,7 @@ import { authorize } from './auth';
 import { sha256 } from './crypto';
 import { apiError, json, methodNotAllowed } from './http';
 import { authorizationEvidence, authorizationScope, invalidBody, loadResourceScope, readJsonBody } from './routerSupport';
-import { callRpc } from './supabase';
+import { callRpc } from './postgresRpc';
 import type { AuthorizationContext, WorkerEnv } from './types';
 
 export async function handleAdminCatalog(request: Request, env: WorkerEnv, authorization: AuthorizationContext, requestId: string): Promise<Response> {

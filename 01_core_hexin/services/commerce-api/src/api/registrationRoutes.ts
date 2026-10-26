@@ -5,7 +5,7 @@ import { generateOtp, hashPassword, maskMobile, normalizeChineseMobile, normaliz
 import { readJsonBody } from './routerSupport';
 import { deliverOtp, otpDeliveryAvailable } from './otpDelivery';
 import { SmsDeliveryError } from './smsProvider';
-import { callRpc } from './supabase';
+import { callRpc } from './postgresRpc';
 import type { WorkerEnv } from './types';
 
 type RegisterResult = { status?: string; memberId?: string; membershipId?: string; employeeNo?: string };

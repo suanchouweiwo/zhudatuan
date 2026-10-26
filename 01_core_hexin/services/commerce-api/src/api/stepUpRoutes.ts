@@ -5,7 +5,7 @@ import { apiError, json, methodNotAllowed } from './http';
 import { readTrustedClientIp } from './loginRateLimitBypass';
 import { readJsonBody } from './routerSupport';
 import { createTrackedSessionCookie, readSession } from './session';
-import { callRpc } from './supabase';
+import { callRpc } from './postgresRpc';
 import type { AuthorizationContext, WorkerEnv } from './types';
 
 export async function handleStepUp(request: Request, env: WorkerEnv, authorization: AuthorizationContext, requestId: string): Promise<Response> {

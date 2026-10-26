@@ -1,5 +1,5 @@
 import { sendVerificationSms, SmsDeliveryError, smsProviderAvailable, type VerificationPurpose } from './smsProvider';
-import { callRpc } from './supabase';
+import { callRpc } from './postgresRpc';
 import type { WorkerEnv } from './types';
 
 export const OTP_RESEND_AFTER_SECONDS = 30 as const;

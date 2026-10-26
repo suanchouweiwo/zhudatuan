@@ -2,7 +2,7 @@ import { PERMISSIONS } from '@smart-wing/api-contract';
 import { authorize } from './auth';
 import { apiError, json, methodNotAllowed } from './http';
 import { authorizationEvidence, invalidBody, readJsonBody } from './routerSupport';
-import { callRpc } from './supabase';
+import { callRpc } from './postgresRpc';
 import type { AuthorizationContext, WorkerEnv } from './types';
 
 type RoleInput = { code: string; name: string; description: string; permissionCodes: string[]; sourceRoleId: string | null; reason: string };
