@@ -24,6 +24,16 @@ GitHub 工作流先选择可立即执行的阿里云 Build Runner；没有匹配
 
 带 `<target> <physical-node>` 的 `release/retry` 只处理该目标和节点；缓存缺失时由同一个 Runner 构建对应制品，再继续部署。总耗时包括准备与目标切换；120 秒是观测目标，不是阻断发布或恢复的门禁。
 
+指定主打团 L0 的单个目标同样只发布该目标，不自动扩展为六目标，也不自动同步继承实例。不带目标时仍按源码变化计算受影响目标，不强制扩展为 L0 整批。
+
+只有 Ethan 明确要求核心整批升级时，才使用既有多目标口令列出六个目标：
+
+```bash
+zdt-delivery release <full-source-sha> identity-api zhudatuan-l0 web-api zhudatuan-l0 purchase-api zhudatuan-l0 storefront zhudatuan-l0 auth-web zhudatuan-l0 console zhudatuan-l0
+```
+
+继承实例同步是独立的显式选项，默认关闭。只有 Ethan 明确要求同步时，才在本次 L0 发布口令前设置 `ZDT_SYNC_INSTANCES=true`；派发器将其传给工作流的 `sync_instances`，阿里云与 Hosted 接管均沿用同一选项。即使明确发布六个目标，未指定同步也不会更新继承实例版本记录或派发继承实例发布。同步本身仍复用现有 `synchronizeL0Release`，保留既有实例与数据行为。
+
 OSS 只是缓存和不可变制品存储，不是审批者。正常路径和目标节点都不创建全局锁、目录锁或解锁状态，也不存在 Seal、Closure、Claim、Lease 或另一份可部署权威。若两个切换并发，后完成的旧任务发现 `current` 已被更新时只报告被新切换取代，不会把新版本回滚掉。
 
 生产状态只读取目标机 `current`、`previous`、服务进程和健康结果。GitHub Actions 的绿色状态不是生产成功事实。用户状态固定为 `QUEUED / RUNNING / HEALTHY / FAILED / ROLLED_BACK / UNKNOWN`；节点读取失败显示 `UNKNOWN`，不会冒充生产失败或阻止独立回滚。确认失败时输出阶段、目标、命令、退出码、底层输出、服务状态和恢复结果。

@@ -17,7 +17,6 @@ const SHA = /^[a-f0-9]{40}$/;
 const RELEASE_ID = /^r16-([a-f0-9]{40})$/;
 const context = { stage: 'startup', operation: null, target: null, node: null, sourceSha: null, completedTargets: [] };
 const coreStartedAt = performance.now();
-const L0_TARGETS = ['identity-api', 'web-api', 'purchase-api', 'storefront', 'auth-web', 'console'];
 
 async function main() {
   try {
@@ -36,8 +35,7 @@ async function main() {
     if (options.operation === 'release' || options.operation === 'retry') {
       invariant(sourceSha, 'SOURCE_SHA_REQUIRED', 'release and retry require a full Source SHA or r16 release id');
       result = await release(adapter, controlRoot, sourceSha, options.target, options.node);
-      const mainTargets = result.targets?.filter((entry) => entry.node === 'zhudatuan-l0').map((entry) => entry.target) ?? [];
-      if (L0_TARGETS.every((target) => mainTargets.includes(target))) {
+      if (process.env.ZDT_SYNC_INSTANCES === 'true' && result.targets?.some((entry) => entry.node === 'zhudatuan-l0')) {
         const deployment = resolveDeployment(adapter, 'zhudatuan-l0', 'console');
         const transport = deployment.node.transport ?? adapter.transport;
         const host = process.env[transport.hostEnv ?? 'AI_DELIVERY_SSH_HOST'] ?? transport.host;
@@ -95,11 +93,7 @@ async function release(adapter, controlRoot, sourceSha, target, node) {
   const exactScope = Boolean(target || node);
   invariant(!exactScope || (target && node), 'EXACT_SCOPE_INCOMPLETE', 'Fast production deployment requires both target and physical node');
   if (exactScope) {
-    let placements = exactPlacements(target, node);
-    if (placements.some((entry) => entry.node === 'zhudatuan-l0' && L0_TARGETS.includes(entry.target))) {
-      placements = [...placements.filter((entry) => entry.node !== 'zhudatuan-l0' || !L0_TARGETS.includes(entry.target)),
-        ...L0_TARGETS.map((target) => ({ target, node: 'zhudatuan-l0' }))];
-    }
+    const placements = exactPlacements(target, node);
     if (placements.length === 1) return deployExact(adapter, controlRoot, sourceSha, placements[0].target, placements[0].node);
     return deployExactBatch(adapter, controlRoot, sourceSha, placements);
   }
@@ -108,13 +102,6 @@ async function release(adapter, controlRoot, sourceSha, target, node) {
   const plan = await createReleasePlan(adapter, { from: `${sourceSha}^`, to: sourceSha });
   const releaseId = `r16-${sourceSha}`;
   if (!plan.deployRequired) return { state: 'NO_CHANGE', releaseId, sourceSha, executor: executor(), targets: [], message: 'No runtime target changed.' };
-  const plannedPlacements = plan.deploymentOrder.flatMap((target) => physicalPlacements(adapter, target).map((node) => ({ target, node })));
-  if (plannedPlacements.some((entry) => entry.node === 'zhudatuan-l0' && L0_TARGETS.includes(entry.target))) {
-    return deployExactBatch(adapter, controlRoot, sourceSha, [
-      ...plannedPlacements.filter((entry) => entry.node !== 'zhudatuan-l0' || !L0_TARGETS.includes(entry.target)),
-      ...L0_TARGETS.map((target) => ({ target, node: 'zhudatuan-l0' })),
-    ]);
-  }
   const client = await artifactClientFromEnvironment();
   const cache = [];
   progress('artifact-lookup', { sourceSha, targets: plan.deploymentOrder });

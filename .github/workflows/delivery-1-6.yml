@@ -25,6 +25,11 @@ on:
         description: Optional public instance snapshot directory in the selected Source SHA
         required: false
         type: string
+      sync_instances:
+        description: Explicitly synchronize inherited instances after the requested L0 release
+        required: false
+        default: false
+        type: boolean
       cloudflare_domain:
         description: Optional read-only Cloudflare domain lookup during status
         required: false
@@ -150,6 +155,7 @@ jobs:
       CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
       ZDT_CLOUDFLARE_DOMAIN: ${{ inputs.cloudflare_domain }}
       ZDT_DOMAIN_SWITCH: ${{ inputs.domain_switch }}
+      ZDT_SYNC_INSTANCES: ${{ inputs.sync_instances }}
       ZDT_CLOUDFLARE_ZONE: ${{ inputs.cloudflare_zone }}
       ZDT_RELEASE_SSH_KEY: ${{ secrets.ZDT_RELEASE_SSH_KEY }}
       CONTROL_SHA: ${{ github.sha }}
@@ -242,6 +248,7 @@ jobs:
       CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
       ZDT_CLOUDFLARE_DOMAIN: ${{ inputs.cloudflare_domain }}
       ZDT_DOMAIN_SWITCH: ${{ inputs.domain_switch }}
+      ZDT_SYNC_INSTANCES: ${{ inputs.sync_instances }}
       ZDT_CLOUDFLARE_ZONE: ${{ inputs.cloudflare_zone }}
       ZDT_RELEASE_SSH_KEY: ${{ secrets.ZDT_RELEASE_SSH_KEY }}
       CONTROL_SHA: ${{ github.sha }}
