@@ -17,6 +17,7 @@ const SHA = /^[a-f0-9]{40}$/;
 const RELEASE_ID = /^r16-([a-f0-9]{40})$/;
 const context = { stage: 'startup', operation: null, target: null, node: null, sourceSha: null, completedTargets: [] };
 const coreStartedAt = performance.now();
+const L0_TARGETS = ['identity-api', 'web-api', 'purchase-api', 'storefront', 'auth-web', 'console'];
 
 async function main() {
   try {
@@ -102,6 +103,10 @@ async function release(adapter, controlRoot, sourceSha, target, node) {
   const plan = await createReleasePlan(adapter, { from: `${sourceSha}^`, to: sourceSha });
   const releaseId = `r16-${sourceSha}`;
   if (!plan.deployRequired) return { state: 'NO_CHANGE', releaseId, sourceSha, executor: executor(), targets: [], message: 'No runtime target changed.' };
+  const plannedPlacements = plan.deploymentOrder.flatMap((target) => physicalPlacements(adapter, target).map((node) => ({ target, node })));
+  if (plannedPlacements.some((entry) => entry.node === 'zhudatuan-l0' && L0_TARGETS.includes(entry.target))) {
+    return deployExactBatch(adapter, controlRoot, sourceSha, plannedPlacements);
+  }
   const client = await artifactClientFromEnvironment();
   const cache = [];
   progress('artifact-lookup', { sourceSha, targets: plan.deploymentOrder });
