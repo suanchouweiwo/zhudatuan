@@ -180,6 +180,12 @@ export const Footer: React.FC = () => {
 
           <div>© 2026 {brandName}企业福利商城。保留所有权利。 技术服务：雍彻科技</div>
 
+          {brandName === '主打团' && (
+            <div>
+              <a href="https://beian.miit.gov.cn/">鄂ICP备2026060739号-5</a>
+            </div>
+          )}
+
           <div className="text-gray-600 text-[10px]">商品、库存、企业权益与订单状态以登录账户的实时数据为准。</div>
         </div>
       </div>
