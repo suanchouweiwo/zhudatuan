@@ -3,7 +3,7 @@ const API_ROOT = 'https://api.cloudflare.com/client/v4';
 export class AutoNodeCloudflareClient {
   constructor({ accountId, zoneId, apiToken, fetcher = fetch }) {
     this.accountId = identifier(accountId, 'CLOUDFLARE_ACCOUNT_ID_INVALID');
-    this.zoneId = identifier(zoneId, 'CLOUDFLARE_ZONE_ID_INVALID');
+    this.zoneId = zoneId === undefined ? undefined : identifier(zoneId, 'CLOUDFLARE_ZONE_ID_INVALID');
     this.apiToken = requiredText(apiToken, 'CLOUDFLARE_API_TOKEN_MISSING');
     if (typeof fetcher !== 'function') throw new Error('CLOUDFLARE_FETCH_INVALID');
     this.fetcher = fetcher;
@@ -34,11 +34,21 @@ export class AutoNodeCloudflareClient {
     }
   }
 
+  async zoneForDomain(name) {
+    const domain = hostname(name);
+    const query = new URLSearchParams({ name: domain, 'account.id': this.accountId, status: 'active' });
+    const zones = await this.#request('GET', `/zones?${query}`);
+    const matches = zones.filter((zone) => zone?.name === domain && zone.account?.id === this.accountId);
+    if (matches.length !== 1) throw new Error(`AUTONODE_CLOUDFLARE_ZONE_UNRESOLVED:${domain}`);
+    return identifier(matches[0].id, 'CLOUDFLARE_ZONE_ID_INVALID');
+  }
+
   async ensureCname(name, content, comment) {
     const host = hostname(name);
     const target = hostname(content);
+    const zoneId = identifier(this.zoneId, 'CLOUDFLARE_ZONE_ID_INVALID');
     const existing = await this.#request('GET',
-      `/zones/${this.zoneId}/dns_records?type=CNAME&name=${encodeURIComponent(host)}`);
+      `/zones/${zoneId}/dns_records?type=CNAME&name=${encodeURIComponent(host)}`);
     if (existing.length > 1) throw new Error(`AUTONODE_CLOUDFLARE_DNS_AMBIGUOUS:${host}`);
     if (existing.length === 1) {
       const record = existing[0];
@@ -53,7 +63,7 @@ export class AutoNodeCloudflareClient {
         created: false,
       });
     }
-    const created = await this.#request('POST', `/zones/${this.zoneId}/dns_records`, {
+    const created = await this.#request('POST', `/zones/${zoneId}/dns_records`, {
       type: 'CNAME',
       name: host,
       content: target,
@@ -71,8 +81,9 @@ export class AutoNodeCloudflareClient {
   }
 
   async deleteDnsRecord(recordId) {
+    const zoneId = identifier(this.zoneId, 'CLOUDFLARE_ZONE_ID_INVALID');
     try {
-      await this.#request('DELETE', `/zones/${this.zoneId}/dns_records/${identifier(recordId, 'CLOUDFLARE_DNS_RECORD_ID_INVALID')}`);
+      await this.#request('DELETE', `/zones/${zoneId}/dns_records/${identifier(recordId, 'CLOUDFLARE_DNS_RECORD_ID_INVALID')}`);
     } catch (cause) {
       if (!String(cause).includes(':DELETE:404:')) throw cause;
     }

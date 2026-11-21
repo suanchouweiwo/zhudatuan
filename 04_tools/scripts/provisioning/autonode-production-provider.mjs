@@ -483,12 +483,18 @@ export class ProductionNodeActivationProvider {
     const credentials = await readRequiredJson(join(context.plan.node_directory, 'tunnel', 'credentials.json'));
     const tunnelId = requiredText(credentials.TunnelID, 'tunnel credentials id');
     const target = `${tunnelId}.cfargotunnel.com`;
-    const client = cloudflareClient(profile, this.environment, this.fetcher);
     const journalFile = this.#journalFile(invocationId);
-    let journal = await readJson(journalFile) ?? {
+    const journal = await readJson(journalFile) ?? {
       schema_version: 'sfl.autonode-provider-dns-journal.v1',
       records: {},
     };
+    const baseDomain = zhudatuanActivationDomain(context.request);
+    if (baseDomain && journal.zone_id === undefined && Object.keys(journal.records).length === 0) {
+      const configuredClient = cloudflareClient(profile, this.environment, this.fetcher);
+      journal.zone_id = await configuredClient.zoneForDomain(baseDomain);
+      await writeJsonAtomic(journalFile, journal, 0o600);
+    }
+    const client = cloudflareClient(profile, this.environment, this.fetcher, journal.zone_id ?? profile.cloudflare.zone_id);
     const records = [];
     for (const host of context.plan.hosts) {
       journal.records[host] ??= { intended: true };
@@ -504,7 +510,7 @@ export class ProductionNodeActivationProvider {
       await writeJsonAtomic(journalFile, journal, 0o600);
       records.push({ ...record, owned });
     }
-    return { cname_target: target, records };
+    return { cname_target: target, records, ...(journal.zone_id ? { zone_id: journal.zone_id } : {}) };
   }
 
   async #prepareSystemd(context, profile, invocationId) {
@@ -685,7 +691,7 @@ export class ProductionNodeActivationProvider {
   }
 
   async #unbindDns(details, profile) {
-    const client = cloudflareClient(profile, this.environment, this.fetcher);
+    const client = cloudflareClient(profile, this.environment, this.fetcher, details.zone_id ?? profile.cloudflare.zone_id);
     const deleted = [];
     for (const record of [...(details.records ?? [])].reverse()) {
       if (!record.owned) continue;
@@ -791,7 +797,9 @@ export function parseRuntimeProfile(value, request) {
     }),
     cloudflare: Object.freeze({
       account_id: requiredText(cloudflare.account_id, 'cloudflare account id'),
-      zone_id: requiredText(cloudflare.zone_id, 'cloudflare zone id'),
+      zone_id: zhudatuanActivationDomain(request) && cloudflare.zone_id === undefined
+        ? undefined
+        : requiredText(cloudflare.zone_id, 'cloudflare zone id'),
       api_token_env: requiredText(cloudflare.api_token_env, 'cloudflare api token env'),
     }),
     identity_registry: Object.freeze({
@@ -859,10 +867,17 @@ export class PgNodeIdentityRegistry {
   }
 }
 
-function cloudflareClient(profile, environment, fetcher) {
+function zhudatuanActivationDomain(request) {
+  const provisioning = request.provisioning_request;
+  const baseDomain = provisioning?.binding_sources?.domains?.base_domain;
+  // Previously submitted activation requests keep their original DNS zone.
+  if (provisioning?.parent_node_id === 'node:zhudatuan:l0' && baseDomain !== 'hbbtzn.com') return baseDomain;
+}
+
+function cloudflareClient(profile, environment, fetcher, zoneId) {
   return new AutoNodeCloudflareClient({
     accountId: profile.cloudflare.account_id,
-    zoneId: profile.cloudflare.zone_id,
+    zoneId,
     apiToken: requiredEnvironmentValue(environment, profile.cloudflare.api_token_env),
     fetcher,
   });

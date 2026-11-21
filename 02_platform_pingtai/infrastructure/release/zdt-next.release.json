@@ -93,7 +93,7 @@
         {"name":"console-typecheck","argv":["npm","run","typecheck","--workspace","@shop/console","--","--incremental","--tsBuildInfoFile","{{typecheckCacheDirectory}}/console.tsbuildinfo"],"timeoutMs":300000}
       ],
       "build": [
-        {"name":"console-production-build","argv":["npm","run","build:console"],"environment":{"VITE_API_BASE_URL":"https://api.hbbtzn.com","VITE_AUTH_BASE_URL":"https://accounts.hbbtzn.com","VITE_CLIENT_VERSION":"0.0.0-g{{sourceSha}}"},"timeoutMs":300000}
+        {"name":"console-production-build","argv":["npm","run","build:console"],"environment":{"VITE_API_BASE_URL":"https://api.zhudatuan.com","VITE_AUTH_BASE_URL":"https://accounts.zhudatuan.com","VITE_CLIENT_VERSION":"0.0.0-g{{sourceSha}}"},"timeoutMs":300000}
       ],
       "artifactInputs": [
         {"source":"01_core_hexin/apps/console/dist","destination":"static"}
@@ -413,6 +413,7 @@
         "04_tools/scripts/provisioning/autonode-task-executor.mjs",
         "04_tools/scripts/provisioning/autonode-activate.mjs",
         "04_tools/scripts/provisioning/autonode-production-provider.mjs",
+        "04_tools/scripts/provisioning/autonode-cloudflare.mjs",
         "04_tools/scripts/release/sfl-autonode-control.service",
         "04_tools/release-engine/adapters/zdt-next/build-node-operations.mjs"
       ],
