@@ -2396,7 +2396,7 @@ const definitions = [
     "writePath": "none",
     "stateMachine": "none",
     "businessNumber": "none",
-    "operationHash": "999e526201564ba41401621e696568924fedb40b38b44c88c73f53fb907476a8",
+    "operationHash": "7c6859d444d5204f76f114a7c96156c62294f410e7a6255a6dc1caa35ea10184",
     "requirements": [
       "MVP06",
       "MVP15"
@@ -2457,7 +2457,7 @@ const definitions = [
     "writePath": "transactional",
     "stateMachine": "provisioning.instances.manage.execution.v1",
     "businessNumber": "SFL-PROVISIONING-{sha256:16}",
-    "operationHash": "9dd6c9dddce458e701eaefc837cfae960c34526739f38e2fe9f2e79695e6b3c0",
+    "operationHash": "b35dfa2d247deaf4bd1c27ae746e3b38dad8517b0418914e25f89782f2c840f6",
     "requirements": [
       "MVP06",
       "MVP15"

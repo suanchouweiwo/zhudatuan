@@ -5,7 +5,7 @@ import { bodyRecord, secretField, textField } from '../../../../foundation/inter
 import { requireAccessNodeContext, requireGovernanceContext } from '../../../../foundation/security/AccessContext';
 import { LoginRejection, LoginSystem, sessionExpiresIn } from '@shop/l-kernel/login';
 import { AuthTransaction } from '../../02_domain_yewu/models_moxing/AuthTransaction';
-import { publishIdentityEvent, tokenHash } from '../../04_adapters_shixian/persistence_cunchu/IdentityPersistence';
+import { atomicIdentityMutation, publishIdentityEvent, tokenHash } from '../../04_adapters_shixian/persistence_cunchu/IdentityPersistence';
 import { authMembershipTarget, authTarget, SESSION_MAX_AGE_SECONDS, sessionCookies } from './IdentitySecurity';
 import { requestCsrfCookie, requestSessionCookieCandidates } from '../../../../foundation/security/AuthSessionCookies';
 import { memberPort } from '../../../member';
@@ -73,7 +73,7 @@ export function sessionTicketOperations(runtime: RealmOperationContext): Operati
             issueTicket: (sessionId, realmId, accountId, target: typeof realm.target, transaction) =>
               tickets.issue(database, sessionId, realmId, accountId, target, transaction),
             consumeTicket: (value, token, entryRealmId) => tickets.consume(database, value, token, entryRealmId),
-          });
+          }, loginIntent === undefined ? undefined : (action) => atomicIdentityMutation(database, action));
           const result = await login.createSession({
             realm,
             credential: provider === 'password'

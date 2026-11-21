@@ -8,7 +8,7 @@ import { PgUnitOfWork } from '../infrastructure/PgUnitOfWork';
 import type { OperationRequest, OperationResult, OperationUsecase } from './OperationHandler';
 import { TransactionRunner } from './TransactionRunner';
 import type { AuditSink } from './AuditSink';
-import { ExecutionKernel, operationRequestHash } from './ExecutionKernel';
+import { ExecutionKernel, inheritEnforcedWriteResult, operationRequestHash } from './ExecutionKernel';
 
 export { operationRequestHash } from './ExecutionKernel';
 
@@ -112,7 +112,9 @@ export class ModuleOperations implements OperationUsecase {
           ? await this.kernel.execute(request, this.module, this.command, transactionContext(request, this.module, 'command'), execute,
             idempotencyReplayResponse)
           : await this.write(request, execute);
-      return lifecycle?.finalize ? lifecycle.finalize(request, result, preparation) : result;
+      return lifecycle?.finalize
+        ? lifecycle.finalize(request, result, preparation).then((finalized) => inheritEnforcedWriteResult(result, finalized))
+        : result;
     } catch (cause) {
       await lifecycle?.discard?.(request, preparation, cause);
       throw cause;
