@@ -1,4 +1,5 @@
 import type { NodeManifest, SignedLevel } from '@shop/config/sfl-node-kernel';
+import zhudatuanL0 from '../../../../../../../02_platform_pingtai/config/release-inputs/zhudatuan-l0/sfl-node-registry.declaration.json' with { type: 'json' };
 import { token } from '../../../bootstrap/Container';
 import type { AccessContext } from '../../../foundation/security/AccessContext';
 import { requireAccessNodeContext } from '../../../foundation/security/AccessContext';
@@ -136,6 +137,12 @@ function activationRequest(
 ): Readonly<Record<string, unknown>> {
   if (!/^[0-9a-f]{40}$/.test(sourceSha)) throw new Error('AUTONODE_SOURCE_SHA_INVALID');
   const slug = mall.publicSlug.toLowerCase();
+  const mainStorefront = zhudatuanStorefrontDomain(parent.node_id);
+  const baseDomain = mainStorefront ?? 'hbbtzn.com';
+  const storefrontHost = `${slug}.${baseDomain}`;
+  const serviceHost = (service: string) => mainStorefront
+    ? `${service}-${storefrontHost}`
+    : `${service}.${storefrontHost}`;
   const parentPayment = parent.payment_binding_refs[0];
   return Object.freeze({
     schema_version: 'sfl.autonode-activation-request.v1',
@@ -152,10 +159,10 @@ function activationRequest(
       node_slug: slug,
       display_name: mall.name,
       domains: {
-        api: `api.${slug}.hbbtzn.com`,
-        console: `console.${slug}.hbbtzn.com`,
-        identity: `accounts.${slug}.hbbtzn.com`,
-        storefront: `${slug}.hbbtzn.com`,
+        api: serviceHost('api'),
+        console: serviceHost('console'),
+        identity: serviceHost('accounts'),
+        storefront: storefrontHost,
       },
       business: {
         scope_id: mall.scopeId,
@@ -188,7 +195,7 @@ function activationRequest(
       binding_sources: {
         domains: {
           mode: 'OWN',
-          base_domain: 'hbbtzn.com',
+          base_domain: baseDomain,
           source_binding_ref: `domain-set:node:${slug}:${level.toLowerCase()}`,
         },
         wechat_identity: {
@@ -211,6 +218,15 @@ function activationRequest(
       systemd_unit_root: '/etc/systemd/system',
     },
   });
+}
+
+function zhudatuanStorefrontDomain(parentNodeId: string): string | undefined {
+  if (parentNodeId !== 'node:zhudatuan:l0') return undefined;
+  const parent = zhudatuanL0.manifests.find((manifest) => manifest.node_id === parentNodeId);
+  const bindingRef = zhudatuanL0.node_bindings.find((binding) => binding.node_id === parentNodeId)?.primary_storefront_binding_ref;
+  const storefront = parent?.domain_bindings.find((binding) => binding.binding_ref.ref === bindingRef);
+  if (!storefront) throw new Error('AUTONODE_STOREFRONT_DOMAIN_MISSING');
+  return storefront.host;
 }
 
 function nextLevel(level: SignedLevel): SignedLevel {

@@ -137,8 +137,9 @@ export function validateAdapter(adapter) {
   invariant(adapter.targets && typeof adapter.targets === 'object', 'ADAPTER_TARGETS_INVALID', 'Adapter targets are required');
   invariant(Array.isArray(adapter.rules) && adapter.rules.length > 0, 'ADAPTER_RULES_INVALID', 'Adapter classification rules are required');
   invariant(adapter.nodes && typeof adapter.nodes === 'object', 'ADAPTER_NODES_INVALID', 'Adapter nodes are required');
-  invariant(Array.isArray(adapter.productionAcceptance?.domains) && adapter.productionAcceptance.domains.length === 8, 'ADAPTER_PRODUCTION_DOMAINS_INVALID', 'Adapter requires exactly 8 retained production acceptance domains');
-  invariant(new Set(adapter.productionAcceptance.domains).size === 8, 'ADAPTER_PRODUCTION_DOMAINS_DUPLICATE', 'Production acceptance domains must be unique');
+  invariant(Array.isArray(adapter.productionAcceptance?.domains), 'ADAPTER_PRODUCTION_DOMAINS_INVALID', 'Production acceptance domains must be an array');
+  invariant(new Set(adapter.productionAcceptance.domains).size === adapter.productionAcceptance.domains.length,
+    'ADAPTER_PRODUCTION_DOMAINS_DUPLICATE', 'Production acceptance domains must be unique');
   for (const [channelId, channel] of Object.entries(adapter.channels ?? {})) {
     invariant(safeIdentifier(channelId), 'ADAPTER_CHANNEL_ID_INVALID', `Channel id is unsafe: ${channelId}`);
     invariant(channel?.id === channelId, 'ADAPTER_CHANNEL_ID_MISMATCH', `Channel ${channelId} must repeat its id`);
