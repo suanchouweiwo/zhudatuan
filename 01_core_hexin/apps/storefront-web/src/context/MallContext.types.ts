@@ -91,6 +91,7 @@ export interface MallContextType {
   presentationCategories: FrontendCategory[];
   accountLogs: AccountLog[];
   sessionStatus: SessionStatus;
+  isShowcase: boolean;
   catalogSyncStatus: CatalogSyncStatus;
   sessionError: string | null;
   login: (credentials: LoginCredentials) => Promise<boolean>;
@@ -101,6 +102,7 @@ export interface MallContextType {
   activePaymentSession: PaymentRecoveryRecord | null;
   closePaymentResult: () => void;
   continueActivePayment: () => Promise<void>;
+  continueOrderPayment: (orderId: string) => Promise<void>;
   recordPaymentResult: (result: ApiPaymentResult) => void;
   checkoutSelectedCart: () => Promise<boolean>;
   cart: CartItem[];

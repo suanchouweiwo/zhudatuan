@@ -52,7 +52,7 @@ export class QuoteReader {
       ? await this.cart(database, membership, selection)
       : await this.context.read(database, membership, selection);
     const [lines, policies, purchases, tags, campaigns, priceRules, vouchers, benefits] = await Promise.all([
-      this.lines(database, cart), this.policies(database, cart.mall_id),
+      this.lines(database, cart, selection.items), this.policies(database, cart.mall_id),
       this.purchases(database, { mall_id: cart.mall_id, member_id: cart.member_id }), this.tags(database, cart.member_id),
       this.campaigns(database, cart.mall_id), this.priceRules(database, cart.mall_id), this.vouchers(database, cart, selection), this.benefits(database, cart, selection),
     ]);
@@ -100,7 +100,7 @@ export class QuoteReader {
     return row;
   }
 
-  private async lines(database: OperationDatabase, cart: QuoteCartContext): Promise<readonly LineRow[]> {
+  private async lines(database: OperationDatabase, cart: QuoteCartContext, items: CheckoutSelection['items']): Promise<readonly LineRow[]> {
     const result = await database.query<LineRow>(`select item.listing_id,item.sku_id,item.quantity::float8 quantity,item.listing_version cart_listing_version,
       listing.title listing_title,listing.version::float8 listing_version,listing.status listing_status,product.id product_id,product.product_type,
       product.category_id,product.version::float8 product_version,sku.version::float8 sku_version,price.amount_minor::float8 unit_minor,
@@ -151,7 +151,12 @@ export class QuoteReader {
         from partner.agreement agreement where agreement.partner_id=product.owner_partner_id and agreement.mall_id=$2 and agreement.status='active'
           and agreement.effective_at<=clock_timestamp() and (agreement.expires_at is null or agreement.expires_at>clock_timestamp())
         order by agreement.effective_at desc,agreement.id limit 1) agreement on true
-      where item.cart_id=$1 order by item.sku_id,item.listing_id`, [cart.id, cart.mall_id]);
+      where item.cart_id=$1 and ($3::text[] is null or item.listing_id=any($3::text[]))
+      order by item.sku_id,item.listing_id`, [cart.id, cart.mall_id, items?.map(({ listingId }) => listingId) ?? null]);
+    if (items !== undefined) {
+      const quantities = new Map(result.rows.map(({ listing_id, quantity }) => [listing_id, quantity]));
+      if (items.some(({ listingId, quantity }) => quantities.get(listingId) !== quantity)) throw new Error('CHECKOUT_VERSION_CONFLICT:cart');
+    }
     return result.rows;
   }
 

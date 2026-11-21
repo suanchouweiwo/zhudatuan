@@ -18,6 +18,7 @@ export interface MobileMerchantPackage {
 }
 
 export function mobileOrderPayableAmount(order: FrontendOrder): number {
+  if (order.payment.wechatPayableMinor !== undefined) return order.payment.wechatPayableMinor / 100;
   if (order.payment.wechatPaid > 0) return order.payment.wechatPaid;
   const payableTotal = order.payment.totalGoodsAmount + order.payment.shippingFee;
   const orderTotal = payableTotal > 0 ? payableTotal : order.totalAmount;

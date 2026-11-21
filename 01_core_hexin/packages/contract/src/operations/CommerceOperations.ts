@@ -8677,7 +8677,7 @@ const definitions = [
     "writePath": "transactional",
     "stateMachine": "order.aftersales.apply.execution.v1",
     "businessNumber": "SFL-ORDER-{sha256:16}",
-    "operationHash": "368520eaf3001b5319e7234dbf432fbd933a8335431c667b710ed683d6cabdd5",
+    "operationHash": "ad5f65bd9243cb68380668adf573b898bb7db1dbf5339fa5a02b3743d67996a9",
     "requirements": [
       "MVP08",
       "MVP17",

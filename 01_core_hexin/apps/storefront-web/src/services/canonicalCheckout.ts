@@ -43,7 +43,7 @@ export async function checkoutWithCanonicalPayment(input: CanonicalCheckoutInput
   assertCartMatches(records(cart.items ?? [], 'cart.current.items'), input.items);
   const benefits = benefitChoices(accountValue);
   const quoteValue = await canonicalCall(() => client.checkout.quoteCreate({
-    body: { address: input.addressId, invoice: null, delivery: {}, vouchers: [], benefits },
+    body: { address: input.addressId, invoice: null, delivery: {}, vouchers: [], benefits, items: input.items },
   }, sessionContext({ write: true, idempotencyKey: `${input.idempotencyKey}:quote`, expectedVersion: version(cart.version ?? 0, 'cart.current.version') })));
   const quoteEnvelope = record(quoteValue, 'checkout.quote');
   const quote = record(quoteEnvelope.quote, 'checkout.quote.quote');
@@ -51,6 +51,7 @@ export async function checkoutWithCanonicalPayment(input: CanonicalCheckoutInput
   if (rejections.length > 0) {
     throw new ProductionApiError('购物车中存在后端拒绝结算的商品，请刷新后重试', 409, 'CHECKOUT_REJECTED');
   }
+  assertCartMatches(records(quote.lines, 'checkout.quote.lines'), input.items, true);
   const personalMinor = nonNegativeInteger(quote.personalMinor, 'checkout.quote.personalMinor');
 
   const orderValue = await canonicalCall(() => client.order.ordersCreate({ body: { quote: text(quote.id, 'checkout.quote.id') } }, sessionContext({
@@ -121,10 +122,15 @@ async function notify(
   await listener?.(Object.freeze(progress));
 }
 
-function assertCartMatches(serverItems: readonly Record<string, unknown>[], expectedItems: CanonicalCheckoutInput['items']): void {
-  const server = serverItems.map((item) => `${text(item.listing, 'cart.item.listing')}:${nonNegativeInteger(item.quantity, 'cart.item.quantity')}`).sort();
-  const expected = expectedItems.map((item) => `${item.listingId}:${item.quantity}`).sort();
-  if (server.length !== expected.length || server.some((value, index) => value !== expected[index])) {
+function assertCartMatches(
+  serverItems: readonly Record<string, unknown>[],
+  expectedItems: CanonicalCheckoutInput['items'],
+  exact = false,
+): void {
+  const quantities = new Map(serverItems.map((item) => [
+    text(item.listing, 'cart.item.listing'), nonNegativeInteger(item.quantity, 'cart.item.quantity'),
+  ]));
+  if ((exact && serverItems.length !== expectedItems.length) || expectedItems.some(({ listingId, quantity }) => quantities.get(listingId) !== quantity)) {
     throw new ProductionApiError('购物车已发生变化，请刷新后重新结算', 409, 'CART_CHANGED');
   }
 }
