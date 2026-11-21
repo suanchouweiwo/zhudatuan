@@ -107,7 +107,7 @@ https://:4430 {
 	@mallProvisioning {
 		host api.hbbtzn.com
 		method GET POST OPTIONS
-		path /api/v1/provisioning/malls /api/v1/provisioning/malls/* /api/v1/provisioning/node-tasks/*
+		path /api/v1/provisioning/malls /api/v1/provisioning/malls/* /api/v1/provisioning/node-tasks/* /api/v1/provisioning/instances /api/v1/provisioning/instances/*
 	}
 	handle @mallProvisioning {
 		reverse_proxy 127.0.0.1:4325 {
