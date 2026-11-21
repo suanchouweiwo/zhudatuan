@@ -2,7 +2,8 @@ import type { OperationId } from '@shop/contract';
 import type { ModuleContext } from '../../../bootstrap/ModuleRegistry';
 import { AUDIT_SINK } from '../../../foundation/application/AuditSink';
 import { ModuleOperations, operationLifecycle, reject, requireAccess } from '../../../foundation/application/ModuleOperations';
-import { bodyRecord, optionalText, textField } from '../../../foundation/interface/Validation';
+import { bodyRecord, optionalText, secretField, textField } from '../../../foundation/interface/Validation';
+import { PasswordPolicy } from '../../identity';
 import { DATABASE_POOL } from '../../../foundation/persistence/Pool';
 import { CreateMall } from './CreateMall';
 import { AUTONODE_CONTROL_CLIENT } from '../04_adapters_shixian/AutoNodeControlClient';
@@ -12,6 +13,8 @@ export const MALL_PROVISIONING_OPERATION_IDS = Object.freeze([
   'provisioning.malls.read',
   'provisioning.nodetasks.read',
   'provisioning.nodetasks.retry',
+  'provisioning.instances.read',
+  'provisioning.instances.manage',
 ] as const satisfies readonly OperationId[]);
 
 export function provisioningOperations(context: ModuleContext): ModuleOperations {
@@ -19,6 +22,22 @@ export function provisioningOperations(context: ModuleContext): ModuleOperations
   const createMall = new CreateMall();
   const nodeControl = context.container.get(AUTONODE_CONTROL_CLIENT);
   return new ModuleOperations('provisioning', pool, context.container.get(AUDIT_SINK), {
+    'provisioning.instances.read': async (request) => {
+      requireAccess(request);
+      return { status: 200, body: await nodeControl.instances() };
+    },
+    'provisioning.instances.manage': async (request) => {
+      const access = requireAccess(request);
+      const action = textField(bodyRecord(request), 'action');
+      if (!['CREATE', 'DELETE', 'INITIALIZE'].includes(action)) reject(422, 'VALIDATION_FAILED');
+      const body = bodyRecord(request);
+      const administrator = action !== 'DELETE' && typeof body.username === 'string' ? {
+        username: textField(body, 'username', 128).trim(),
+        displayName: textField(body, 'displayName', 128),
+        passwordHash: await new PasswordPolicy().hash(secretField(body, 'password', 128)),
+      } : undefined;
+      return { status: 202, body: await nodeControl.lifecycle(request.input.path.instanceid!, action as 'CREATE' | 'DELETE' | 'INITIALIZE', access, request.input.idempotency!, administrator) };
+    },
     'provisioning.malls.create': operationLifecycle({
       async execute(request, database) {
         const access = requireAccess(request);
