@@ -1,43 +1,50 @@
 #!/usr/bin/env node
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { readFile, stat } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { loadAdapter, resolveDeployment } from './src/adapter.mjs';
+import { L0_TARGETS, snapshotInputsChanged, snapshotInstanceRoot, splitSnapshotChanges } from './adapters/zdt-next/instance-snapshot-impact.mjs';
+import { bindInstance, loadAdapter, resolveDeployment } from './src/adapter.mjs';
 import { buildRelease, createReleasePlan, packageRelease } from './src/build-core-1-6.mjs';
 import { asDeliveryError, DeliveryError, invariant } from './src/errors.mjs';
 import { exactPlacements, runExactBatch } from './src/exact-batch.mjs';
 import { artifactClientFromEnvironment, artifactDownloadClientFromEnvironment } from './src/artifact-client-1-6.mjs';
+import { changedFiles } from './src/git.mjs';
+import { createPlan } from './src/planner.mjs';
 import { runCommand } from './src/runner.mjs';
 import { runIndependent } from './src/run-independent.mjs';
-import { inspectSimpleArtifact, publishSimpleArtifacts, resolveSimpleArtifact } from './src/simple-artifact-store.mjs';
+import { inspectSimpleArtifact, installedReleaseDescriptor, publishSimpleArtifacts, recoverArchivedArtifact, resolveInstalledArtifact, resolveSimpleArtifact } from './src/simple-artifact-store.mjs';
+import { prettyStableJson, sha256 } from './src/stable.mjs';
 
 const SHA = /^[a-f0-9]{40}$/;
 const RELEASE_ID = /^r16-([a-f0-9]{40})$/;
+const L0_NODE = 'zhudatuan-l0';
 const context = { stage: 'startup', operation: null, target: null, node: null, sourceSha: null, completedTargets: [] };
 const coreStartedAt = performance.now();
-const L0_TARGETS = ['identity-api', 'web-api', 'purchase-api', 'storefront', 'auth-web', 'console'];
-
 async function main() {
   try {
     const options = parse(process.argv.slice(2));
     context.operation = options.operation;
     const controlRoot = resolve(options.controlRoot ?? process.cwd());
+    const projectRoot = options.sourceRoot ? resolve(options.sourceRoot) : controlRoot;
     const sourceSha = sourceFromIdentifier(options.identifier ?? options.sourceSha);
     context.sourceSha = sourceSha;
-    const loaded = await loadAdapter(join(controlRoot, '02_platform_pingtai/infrastructure/release/zdt-next.release.json'), controlRoot, { observationOrRecovery: ['status', 'rollback'].includes(options.operation) });
+    const isRelease = options.operation === 'release' || options.operation === 'retry';
+    const observationOrRecovery = options.operation === 'status' || options.operation === 'rollback';
+    const loaded = await loadAdapter(join(controlRoot, '02_platform_pingtai/infrastructure/release/zdt-next.release.json'), controlRoot, { observationOrRecovery });
     const adapter = Object.freeze({
-      ...(['status', 'rollback'].includes(options.operation) ? loaded : bindControlPlaneModules(loaded, controlRoot)),
-      projectRoot: options.sourceRoot ? resolve(options.sourceRoot) : controlRoot,
+      ...(observationOrRecovery ? loaded : bindControlPlaneModules(loaded, controlRoot)),
+      projectRoot,
       stateDirectory: resolve(process.env.RUNNER_TEMP ?? '/tmp', `zdt-runner-1-6-${process.env.GITHUB_RUN_ID ?? process.pid}`),
     });
     let result;
-    if (options.operation === 'release' || options.operation === 'retry') {
+    if (isRelease) {
       invariant(sourceSha, 'SOURCE_SHA_REQUIRED', 'release and retry require a full Source SHA or r16 release id');
+      const exactRetry = options.operation === 'retry' && Boolean(options.target && options.node);
       result = await release(adapter, controlRoot, sourceSha, options.target, options.node);
-      if (process.env.ZDT_SYNC_INSTANCES === 'true' && result.targets?.some((entry) => entry.node === 'zhudatuan-l0')) {
-        const deployment = resolveDeployment(adapter, 'zhudatuan-l0', 'console');
+      if (!exactRetry && process.env.ZDT_SYNC_INSTANCES === 'true' && result.targets?.some((entry) => entry.node === L0_NODE)) {
+        const deployment = resolveDeployment(adapter, L0_NODE, 'console');
         const transport = deployment.node.transport ?? adapter.transport;
         const host = process.env[transport.hostEnv ?? 'AI_DELIVERY_SSH_HOST'] ?? transport.host;
         const synchronized = await runCommand({
@@ -49,7 +56,7 @@ async function main() {
       }
     } else if (options.operation === 'status') {
       invariant(!(options.identifier ?? options.sourceSha) || sourceSha, 'SOURCE_SHA_INVALID', 'status accepts an optional full Source SHA or r16 release id');
-      result = await status(adapter, sourceSha);
+      result = await status(adapter, controlRoot, sourceSha);
     } else if (options.operation === 'rollback') {
       result = await rollback(adapter, controlRoot, options.target, options.node);
     } else throw new DeliveryError('OPERATION_UNKNOWN', `Unknown Runner 1.7 operation: ${options.operation}`);
@@ -84,6 +91,19 @@ export function runnerFailureReceipt(unknown, context) {
     serviceStatus: evidence.serviceStatus ?? nested(evidence, ['candidateFailure', 'details', 'readiness']) ?? nested(evidence, ['receipt', 'readiness']) ?? null,
     current: evidence.current ?? evidence.rollback?.finalCurrent ?? evidence.pointerRecovery?.finalCurrent ?? evidence.rollbackPoint?.pointers?.current ?? null,
     previous: evidence.previous ?? evidence.rollbackPoint?.pointers?.previous ?? null,
+    ...(error.code === 'ARTIFACT_PIN_UNRESOLVED' || remoteFailure?.code === 'ARTIFACT_PIN_UNRESOLVED' ? {
+      pointerAction: evidence.pointerAction ?? 'not-performed',
+      reason: evidence.reason ?? 'The original artifact could not be identified for this placement.',
+    } : {}),
+    ...(['deploy', 'remote-sync'].includes(context.stage) && context.selectedArtifact ? { selectedArtifact: context.selectedArtifact } : {}),
+    ...(context.operation === 'rollback' ? {
+      requestId: context.rollbackRequestId ?? null,
+      currentArtifact: observedArtifact(evidence.currentArtifact),
+      previousArtifact: observedArtifact(evidence.previousArtifact),
+      restart: evidence.restart ?? nested(evidence, ['rollbackFailure', 'details', 'restart']) ?? null,
+      pointerAction: evidence.pointerAction ?? null,
+      reason: evidence.reason ?? null,
+    } : {}),
     recovery: evidence.rollback ?? evidence.pointerRecovery ?? (remoteFailure?.code === 'ROLLBACK_FAILED' ? evidence.rollbackFailure : null),
     completedTargets: context.completedTargets,
     nextAction: evidence.nextAction ?? (context.sourceSha ? `zdt-delivery status ${context.sourceSha}` : ['release', 'retry'].includes(context.operation) ? 'Provide the original full Source SHA or release id.' : 'Inspect target status and use rollback or manual recovery if needed.'),
@@ -93,45 +113,77 @@ export function runnerFailureReceipt(unknown, context) {
 async function release(adapter, controlRoot, sourceSha, target, node) {
   const exactScope = Boolean(target || node);
   invariant(!exactScope || (target && node), 'EXACT_SCOPE_INCOMPLETE', 'Fast production deployment requires both target and physical node');
+  const refs = { from: `${sourceSha}^`, to: sourceSha };
   if (exactScope) {
-    const placements = exactPlacements(target, node);
-    if (placements.length === 1) return deployExact(adapter, controlRoot, sourceSha, placements[0].target, placements[0].node);
+    const placements = await bindExactPlacements(adapter, refs, exactPlacements(target, node));
+    if (placements.length === 1) return deployExact(adapter, controlRoot, sourceSha, placements[0]);
     return deployExactBatch(adapter, controlRoot, sourceSha, placements);
   }
   context.stage = 'plan';
   progress('plan', { sourceSha });
-  const plan = await createReleasePlan(adapter, { from: `${sourceSha}^`, to: sourceSha });
+  let businessChanges;
+  let snapshotAdapter;
+  let snapshotPlacements = [];
+  if (!adapter.instanceRoot) {
+    const changes = await changedFiles(adapter.projectRoot, refs.from, refs.to);
+    const { business, snapshot } = splitSnapshotChanges(changes);
+    businessChanges = business;
+    snapshotAdapter = await bindSourceSnapshot(adapter, snapshot);
+    if (snapshotAdapter) {
+      const snapshotPlan = await createPlan(snapshotAdapter, { ...refs, changes: snapshot });
+      snapshotPlacements = plannedPhysicalPlacements(snapshotAdapter, snapshotPlan)
+        .filter(({ node }) => node === L0_NODE)
+        .map((placement) => ({ ...placement, artifactAdapter: snapshotAdapter }));
+    }
+  }
+
+  const plan = await createReleasePlan(adapter, { ...refs, changes: businessChanges });
+  const plannedPlacements = plannedPhysicalPlacements(adapter, plan).map((placement) =>
+    bindSnapshotPlacement(placement, placement.node, snapshotAdapter));
+  const usesExactBatch = plannedPlacements.some(({ node, target }) => node === L0_NODE && L0_TARGETS.includes(target));
+  if (snapshotPlacements.length > 0) {
+    const placements = new Map(plannedPlacements.map((placement) => [placementKey(placement), placement]));
+    for (const placement of snapshotPlacements) placements.set(placementKey(placement), placement);
+    const businessPlan = plan.deployRequired && !usesExactBatch ? plan : undefined;
+    return deployExactBatch(adapter, controlRoot, sourceSha, [...placements.values()], businessPlan);
+  }
   const releaseId = `r16-${sourceSha}`;
   if (!plan.deployRequired) return { state: 'NO_CHANGE', releaseId, sourceSha, executor: executor(), targets: [], message: 'No runtime target changed.' };
-  const plannedPlacements = plan.deploymentOrder.flatMap((target) => physicalPlacements(adapter, target).map((node) => ({ target, node })));
-  if (plannedPlacements.some((entry) => entry.node === 'zhudatuan-l0' && L0_TARGETS.includes(entry.target))) {
-    return deployExactBatch(adapter, controlRoot, sourceSha, plannedPlacements);
-  }
-  const client = await artifactClientFromEnvironment();
-  const cache = [];
+  if (usesExactBatch) return deployExactBatch(adapter, controlRoot, sourceSha, plannedPlacements);
+  const getClient = releaseArtifactClient();
+  const selections = await artifactSelections(adapter, controlRoot, sourceSha, getClient, plannedPlacements);
+  const cache = new Map();
   progress('artifact-lookup', { sourceSha, targets: plan.deploymentOrder });
-  for (const target of plan.deploymentOrder) cache.push(await inspectSimpleArtifact(adapter, { target, sourceSha }, client));
-  const needsBuild = cache.some((item) => !item.exists);
+  for (const target of plan.deploymentOrder) {
+    if (plannedPlacements.some((placement) => placement.target === target && !selections.selected(placement))) {
+      cache.set(target, await inspectSimpleArtifact(adapter, { target, sourceSha }, await getClient()));
+    }
+  }
+  const missingTargets = [...cache].filter(([, item]) => !item.exists).map(([target]) => target);
   let cacheStatus = 'reused';
   let preparationTimings = null;
-  if (needsBuild) {
-    preparationTimings = await buildAndPublish(adapter, controlRoot, plan, client, { sourceSha, targets: plan.deploymentOrder });
+  if (missingTargets.length) {
+    const prepared = await buildAndPublish(adapter, controlRoot, plan, await getClient(), { sourceSha, targets: plan.deploymentOrder }, { artifactTargets: missingTargets });
+    preparationTimings = prepared.timings;
+    for (const artifact of prepared.artifacts) cache.set(artifact.target, { ...artifact, exists: true });
     cacheStatus = 'built';
   }
 
+  await selections.pin((placement) => cache.get(placement.target));
   const deployments = [];
-  const totalPlacements = plan.deploymentOrder.reduce((count, deploymentTarget) => count + physicalPlacements(adapter, deploymentTarget).length, 0);
+  const totalPlacements = plannedPlacements.length;
   const productionStarted = performance.now();
-  const runtimeAgent = await syncRemoteRuntime(adapter, controlRoot);
-  for (const deploymentTarget of plan.deploymentOrder) {
-    for (const physicalNode of physicalPlacements(adapter, deploymentTarget)) {
-      context.stage = 'deploy';
-      context.target = deploymentTarget;
-      context.node = physicalNode;
-      progress('deploy', { sourceSha, target: deploymentTarget, node: physicalNode, completed: deployments.length, total: totalPlacements });
-      const deployed = await deployTarget(adapter, client, { target: deploymentTarget, node: physicalNode, sourceSha, runtimeAgent });
-      deployments.push(deployed);
-    }
+  for (const placement of plannedPlacements) {
+    const { target, node } = placement;
+    context.stage = 'deploy';
+    context.target = target;
+    context.node = node;
+    progress('deploy', { sourceSha, target, node, completed: deployments.length, total: totalPlacements });
+    const deployed = await deployTarget(adapter, getClient, {
+      ...placement, sourceSha, runtimeAgentFor: selections.runtimeAgentFor, preparedArtifact: selections.selected(placement),
+    });
+    deployments.push(deployed);
+    context.completedTargets.push(deployed);
   }
   const coreDurationMs = Math.round(performance.now() - productionStarted);
   progress('complete', { sourceSha, coreDurationMs });
@@ -149,7 +201,36 @@ async function release(adapter, controlRoot, sourceSha, target, node) {
   };
 }
 
-async function buildAndPublish(adapter, controlRoot, plan, client, details, { dependenciesReady = false } = {}) {
+async function bindSourceSnapshot(adapter, snapshotChanges) {
+  if (!snapshotInputsChanged(snapshotChanges)) return null;
+  const instanceRoot = await snapshotInstanceRoot(adapter.projectRoot);
+  return instanceRoot ? bindInstance(adapter, instanceRoot, L0_NODE) : null;
+}
+
+function bindSnapshotPlacement(placement, executionNode, snapshotAdapter) {
+  return executionNode === L0_NODE && L0_TARGETS.includes(placement.target) &&
+    snapshotAdapter?.nodes[L0_NODE]?.deployments[placement.target]
+    ? { ...placement, artifactAdapter: snapshotAdapter } : placement;
+}
+
+async function bindExactPlacements(adapter, refs, placements) {
+  const candidates = new Map();
+  for (const placement of placements) {
+    const { executionNode } = resolveDeployment(adapter, placement.node, placement.target);
+    const key = placementKey({ target: placement.target, node: executionNode });
+    if (!candidates.has(key)) candidates.set(key, { placement, executionNode });
+  }
+  const exact = [...candidates.values()];
+  let snapshotAdapter;
+  if (!adapter.instanceRoot && exact.some(({ placement, executionNode }) => executionNode === L0_NODE && L0_TARGETS.includes(placement.target))) {
+    context.stage = 'plan';
+    const { snapshot } = splitSnapshotChanges(await changedFiles(adapter.projectRoot, refs.from, refs.to));
+    snapshotAdapter = await bindSourceSnapshot(adapter, snapshot);
+  }
+  return exact.map(({ placement, executionNode }) => bindSnapshotPlacement(placement, executionNode, snapshotAdapter));
+}
+
+async function buildAndPublish(adapter, controlRoot, plan, client, details, { dependenciesReady = false, artifactTargets } = {}) {
   let dependenciesMs = 0;
   if (plan.dependencyInstallRequired && !dependenciesReady) {
     context.stage = 'dependencies';
@@ -171,10 +252,10 @@ async function buildAndPublish(adapter, controlRoot, plan, client, details, { de
   context.stage = 'upload';
   progress('upload', details);
   const uploadStarted = performance.now();
-  await publishSimpleArtifacts(adapter, packaged.packagePath, client);
+  const artifacts = await publishSimpleArtifacts(adapter, packaged.packagePath, client, artifactTargets);
   const uploadMs = Math.round(performance.now() - uploadStarted);
   progress('upload-complete', { ...details, durationMs: uploadMs });
-  return { dependenciesMs, testsMs: built.timings.tests, typecheckMs: built.timings.typecheck, buildMs: built.timings.build, buildCoreMs: built.timings.total, packageMs, uploadMs };
+  return { artifacts, timings: { dependenciesMs, testsMs: built.timings.tests, typecheckMs: built.timings.typecheck, buildMs: built.timings.build, buildCoreMs: built.timings.total, packageMs, uploadMs } };
 }
 
 async function installDependencies(adapter, controlRoot, targets) {
@@ -204,28 +285,35 @@ export function sourceInstallArguments(base, workspaces) {
   return [...base, ...workspaces.flatMap((workspace) => ['--workspace', workspace]), ...(workspaces.some((workspace) => workspace !== '@shop/console') ? ['--include-workspace-root'] : [])];
 }
 
-async function deployExact(adapter, controlRoot, sourceSha, target, node) {
+async function deployExact(adapter, controlRoot, sourceSha, placement) {
+  const { target, node, artifactAdapter = adapter } = placement;
   context.stage = 'artifact-lookup';
   context.target = target;
   context.node = node;
   resolveDeployment(adapter, node, target);
-  const client = await artifactClientFromEnvironment();
+  const getClient = releaseArtifactClient();
+  const selections = await artifactSelections(adapter, controlRoot, sourceSha, getClient, [placement]);
   progress('artifact-lookup', { sourceSha, target, node });
-  const cached = await inspectSimpleArtifact(adapter, { target, sourceSha }, client);
+  const cached = selections.selected(placement) ?? await inspectSimpleArtifact(artifactAdapter, { target, sourceSha }, await getClient());
+  let preparedArtifact = cached.exists ? cached : null;
   let cacheStatus = 'reused';
   let preparationTimings = null;
   if (!cached.exists) {
     context.stage = 'plan';
     progress('plan', { sourceSha, target, node, cacheReason: cached.reason });
-    const plan = await createReleasePlan(adapter, { from: `${sourceSha}^`, to: sourceSha, target, prepare: true });
-    preparationTimings = await buildAndPublish(adapter, controlRoot, plan, client, { sourceSha, target, node });
+    const plan = await createReleasePlan(artifactAdapter, { from: `${sourceSha}^`, to: sourceSha, target, prepare: true });
+    const prepared = await buildAndPublish(artifactAdapter, controlRoot, plan, await getClient(), { sourceSha, target, node });
+    preparationTimings = prepared.timings;
+    preparedArtifact = prepared.artifacts.find((artifact) => artifact.target === target);
     cacheStatus = 'built';
   }
+  await selections.pin(() => preparedArtifact);
   const productionStarted = performance.now();
-  const runtimeAgent = await syncRemoteRuntime(adapter, controlRoot);
   context.stage = 'deploy';
   progress('deploy', { sourceSha, target, node, completed: 0, total: 1 });
-  const deployed = await deployTarget(adapter, client, { target, node, sourceSha, runtimeAgent });
+  const deployed = await deployTarget(adapter, getClient, {
+    ...placement, sourceSha, runtimeAgentFor: selections.runtimeAgentFor, preparedArtifact: selections.selected(placement),
+  });
   const coreDurationMs = Math.round(performance.now() - productionStarted);
   progress('complete', { sourceSha, target, node, coreDurationMs });
   return {
@@ -242,53 +330,90 @@ async function deployExact(adapter, controlRoot, sourceSha, target, node) {
   };
 }
 
-async function deployExactBatch(adapter, controlRoot, sourceSha, placements) {
-  for (const { target, node } of placements) resolveDeployment(adapter, node, target);
-  const client = await artifactClientFromEnvironment();
+async function deployExactBatch(adapter, controlRoot, sourceSha, placements, businessPlan) {
+  const getClient = releaseArtifactClient();
+  const selections = await artifactSelections(adapter, controlRoot, sourceSha, getClient, placements);
+  const variantsByTarget = new Map();
+  for (const placement of placements) {
+    const { target, node, artifactAdapter = adapter } = placement;
+    if (selections.selected(placement)) continue;
+    resolveDeployment(adapter, node, target);
+    const variants = variantsByTarget.get(target) ?? new Map();
+    const cacheKey = artifactAdapter.instanceCacheKey ?? '';
+    if (!variants.has(cacheKey)) variants.set(cacheKey, { target, node, artifactAdapter });
+    variantsByTarget.set(target, variants);
+  }
+  const missingVariants = new Map();
   let productionStarted = 0;
   const { deployments, cacheStatus, preparationTimings } = await runExactBatch(adapter, placements, {
     inspect: async (target) => {
       context.stage = 'artifact-lookup';
       context.target = target;
-      context.node = placements.find((placement) => placement.target === target)?.node ?? null;
-      progress('artifact-lookup', { sourceSha, target, node: context.node });
-      return inspectSimpleArtifact(adapter, { target, sourceSha }, client);
+      const missing = [];
+      for (const variant of variantsByTarget.get(target)?.values() ?? []) {
+        context.node = variant.node;
+        progress('artifact-lookup', { sourceSha, target, node: variant.node });
+        const cached = await inspectSimpleArtifact(variant.artifactAdapter, { target, sourceSha }, await getClient());
+        if (cached.exists) variant.preparedArtifact = cached;
+        else missing.push(variant);
+      }
+      missingVariants.set(target, missing);
+      return { exists: missing.length === 0 };
     },
     prepare: async (missingTargets) => {
       const plans = [];
-      for (const target of missingTargets) {
+      const missing = missingTargets.flatMap((target) => missingVariants.get(target));
+      if (businessPlan && missing.some((variant) => variant.artifactAdapter === adapter)) {
+        plans.push({ artifactAdapter: adapter, plan: businessPlan, details: { sourceSha, targets: businessPlan.deploymentOrder } });
+      }
+      for (const { target, node, artifactAdapter } of missing) {
+        if (businessPlan && artifactAdapter === adapter) continue;
         context.stage = 'plan';
         context.target = target;
-        context.node = placements.find((placement) => placement.target === target)?.node ?? null;
-        progress('plan', { sourceSha, target, node: context.node });
-        plans.push({ target, plan: await createReleasePlan(adapter, { from: `${sourceSha}^`, to: sourceSha, target, prepare: true }) });
+        context.node = node;
+        const details = { sourceSha, target, node };
+        progress('plan', details);
+        const plan = await createReleasePlan(artifactAdapter, { from: `${sourceSha}^`, to: sourceSha, target, prepare: true });
+        plans.push({ artifactAdapter, plan, details });
       }
       let dependenciesMs = 0;
       const sharedDependenciesReady = plans.some(({ plan }) => plan.dependencyInstallRequired);
       if (sharedDependenciesReady) {
+        const targets = [...new Set(plans.flatMap(({ plan }) => plan.deploymentOrder))];
         context.stage = 'dependencies';
-        progress('dependencies', { sourceSha, targets: missingTargets });
-        dependenciesMs = await installDependencies(adapter, controlRoot, missingTargets);
+        progress('dependencies', { sourceSha, targets });
+        dependenciesMs = await installDependencies(adapter, controlRoot, targets);
       }
       const targets = [];
-      for (const { target, plan } of plans) {
-        context.target = target;
-        context.node = placements.find((placement) => placement.target === target)?.node ?? null;
-        const timings = await buildAndPublish(adapter, controlRoot, plan, client, { sourceSha, target, node: context.node }, { dependenciesReady: sharedDependenciesReady });
-        targets.push({ target, ...timings });
+      // Instance and ordinary builds can share output directories in the Source checkout.
+      for (const { artifactAdapter, plan, details } of plans) {
+        context.target = details.target ?? null;
+        context.node = details.node ?? null;
+        const artifactTargets = missing.filter((variant) => variant.artifactAdapter === artifactAdapter &&
+          plan.deploymentOrder.includes(variant.target)).map(({ target }) => target);
+        const { artifacts, timings } = await buildAndPublish(artifactAdapter, controlRoot, plan, await getClient(), details, { dependenciesReady: sharedDependenciesReady, artifactTargets });
+        for (const artifact of artifacts) {
+          variantsByTarget.get(artifact.target).get(artifactAdapter.instanceCacheKey ?? '').preparedArtifact = artifact;
+        }
+        const scope = details.target ? { target: details.target } : { targets: details.targets };
+        targets.push({ ...scope, ...timings });
       }
       return { dependenciesMs, targets };
     },
     sync: async () => {
+      await selections.pin(({ target, artifactAdapter = adapter }) =>
+        variantsByTarget.get(target)?.get(artifactAdapter.instanceCacheKey ?? '')?.preparedArtifact);
       productionStarted = performance.now();
-      return syncRemoteRuntime(adapter, controlRoot);
+      return selections.runtimeAgentFor;
     },
-    deploy: async ({ target, node }, runtimeAgent, completed, total) => {
+    deploy: async ({ target, node, artifactAdapter = adapter }, runtimeAgentFor, completed, total) => {
       context.stage = 'deploy';
       context.target = target;
       context.node = node;
+      context.selectedArtifact = null;
       progress('deploy', { sourceSha, target, node, completed, total });
-      const deployed = await deployTarget(adapter, client, { target, node, sourceSha, runtimeAgent });
+      const preparedArtifact = selections.selected({ target, node });
+      const deployed = await deployTarget(adapter, getClient, { target, node, sourceSha, runtimeAgentFor, artifactAdapter, preparedArtifact });
       context.completedTargets.push(deployed);
       return deployed;
     },
@@ -309,15 +434,125 @@ async function deployExactBatch(adapter, controlRoot, sourceSha, placements) {
   };
 }
 
-async function deployTarget(adapter, publicClient, { target, node, sourceSha, runtimeAgent }) {
-  const resolved = await resolveSimpleArtifact(adapter, { target, sourceSha }, publicClient);
+function deploymentAgents(adapter, controlRoot) {
+  const byHost = new Map();
+  return async (host, transport) => {
+    if (!byHost.has(host)) byHost.set(host, syncRemoteRuntime(adapter, controlRoot, { transport }));
+    return byHost.get(host);
+  };
+}
+
+function releaseArtifactClient() {
+  let client;
+  return () => client ??= artifactClientFromEnvironment();
+}
+
+async function artifactSelections(adapter, controlRoot, sourceSha, getClient, placements) {
+  const runtimeAgentFor = deploymentAgents(adapter, controlRoot);
+  const readSource = memoryAgentSource(await readControlRuntime(controlRoot));
+  const selected = new Map();
+  const ready = new Set();
+  const readOrPin = async (placement, artifact) => {
+    const { target, node, artifactAdapter = adapter } = placement;
+    context.stage = 'artifact-lookup';
+    context.target = target;
+    context.node = node;
+    const deployment = resolveDeployment(adapter, node, target);
+    const transport = deployment.node.transport ?? adapter.transport;
+    const host = process.env[transport.hostEnv ?? 'AI_DELIVERY_SSH_HOST'] ?? transport.host;
+    invariant(host, 'DEPLOY_SSH_HOST_MISSING', `SSH host missing for ${node}`);
+    const pinArgs = ['artifact-pin', '--project', adapter.project, '--node', deployment.executionNode,
+      '--target', target, '--source-sha', sourceSha, '--instance-key', artifactAdapter.instanceCacheKey ?? 'ordinary',
+      ...(artifactAdapter.legacyInstanceCacheKey ? ['--legacy-instance-key', artifactAdapter.legacyInstanceCacheKey] : []),
+      ...(target === 'storefront' && artifactAdapter.storefrontEnvironmentDigest
+        ? ['--storefront-environment-digest', artifactAdapter.storefrontEnvironmentDigest,
+          '--storefront-environment-file-digest', `sha256:${sha256(prettyStableJson(artifactAdapter.storefrontEnvironment ?? {}))}`] : [])];
+    const resolveSelected = async (release) => {
+      let localIssue;
+      if (context.operation === 'retry') {
+        const local = await runCommand({
+          name: `artifact-local:${deployment.executionNode}:${target}`,
+          argv: sshArgv(host, ['node', '--input-type=module', '-', ...pinArgs, '--local-only', 'true',
+            '--sha256', release.artifact.sha256.slice(7), '--tree-digest', release.artifact.treeDigest,
+            '--manifest-digest', release.runtimeManifest.manifestDigest]),
+          input: readSource,
+          timeoutMs: transport.deployTimeoutMs ?? 10 * 60_000,
+        }, commandContext(adapter));
+        const { localManifest, localDamage } = parseRemote(local.output).result ?? {};
+        if (localManifest) return resolveInstalledArtifact(artifactAdapter, { target, sourceSha }, release, localManifest);
+        localIssue = localDamage;
+      }
+      try {
+        return await resolveSimpleArtifact(artifactAdapter, { target, sourceSha }, await getClient(), release);
+      } catch (error) {
+        if (!localIssue) throw error;
+        throw new DeliveryError(error.code ?? 'ARTIFACT_STORE_UNAVAILABLE', error.message, { ...error.details, localDamage: localIssue });
+      }
+    };
+    const launcher = artifact ? [await runtimeAgentFor(host, transport)] : ['node', '--input-type=module', '-'];
+    context.stage = artifact ? 'artifact-pin' : 'artifact-lookup';
+    const result = await runCommand({
+      name: `artifact-pin:${deployment.executionNode}:${target}`,
+      argv: sshArgv(host, [...launcher, ...pinArgs,
+        ...(artifact ? ['--write', 'true'] : context.operation === 'retry' ? ['--recover', 'true'] : [])]),
+      input: artifact ? JSON.stringify({ release: artifact.release,
+        ...(target === 'storefront' ? { storefrontEnvironment: artifactAdapter.storefrontEnvironment } : {}),
+      }) : readSource,
+      timeoutMs: transport.deployTimeoutMs ?? 10 * 60_000,
+    }, commandContext(adapter));
+    const { pin, needsRuntimeCapture, needsPin, recoveryCandidates } = parseRemote(result.output).result ?? {};
+    if (!pin && recoveryCandidates?.length) {
+      for (const [index, { installedManifest, installedInstanceKey, originalDigests }] of recoveryCandidates.entries()) {
+        const resolved = installedManifest
+          ? await resolveSelected(installedReleaseDescriptor({ ...artifactAdapter, instanceCacheKey: installedInstanceKey }, installedManifest))
+          : await recoverArchivedArtifact(artifactAdapter, { target, sourceSha }, await getClient(), originalDigests,
+            { classifyOtherVariant: index + 1 < recoveryCandidates.length });
+        if (!resolved) continue;
+        selected.set(placementKey(placement), { ...resolved, exists: true });
+        return;
+      }
+      throw new DeliveryError('ARTIFACT_PIN_UNRESOLVED', 'No receipt identified the original artifact for this placement and variant',
+        { target, node, sourceSha, pointerAction: 'not-performed' });
+    }
+    if (!pin) return;
+    const resolved = artifact?.release.releaseDigest === pin.release.releaseDigest
+      ? artifact : await resolveSelected(pin.release);
+    selected.set(placementKey(placement), { ...resolved, exists: true });
+    if (!needsRuntimeCapture && !needsPin) ready.add(placementKey(placement));
+  };
+  for (const placement of placements) await readOrPin(placement);
+  return {
+    runtimeAgentFor,
+    selected: (placement) => selected.get(placementKey(placement)),
+    async pin(getPrepared) {
+      for (const placement of placements) {
+        if (ready.has(placementKey(placement))) continue;
+        const { artifactAdapter = adapter, target } = placement;
+        const prepared = selected.get(placementKey(placement)) ?? getPrepared(placement)
+          ?? await resolveSimpleArtifact(artifactAdapter, { target, sourceSha }, await getClient());
+        await readOrPin(placement, prepared);
+      }
+    },
+  };
+}
+
+async function deployTarget(adapter, getClient, { target, node, sourceSha, runtimeAgentFor, artifactAdapter = adapter, preparedArtifact }) {
+  context.selectedArtifact = null;
+  const resolved = preparedArtifact ?? await resolveSimpleArtifact(artifactAdapter, { target, sourceSha }, await getClient());
+  context.selectedArtifact = observedArtifact(resolved.runtimeManifest);
   const deployment = resolveDeployment(adapter, node, target);
   const transport = deployment.node.transport ?? adapter.transport;
   const host = process.env[transport.hostEnv ?? 'AI_DELIVERY_SSH_HOST'] ?? transport.host;
   invariant(host, 'DEPLOY_SSH_HOST_MISSING', `SSH host missing for ${node}`);
-  const downloadClient = artifactDownloadClientFromEnvironment(publicClient);
+  const runtimeAgent = await runtimeAgentFor(host, transport);
+  context.stage = 'deploy';
+  const downloadClient = resolved.localOnly ? null : artifactDownloadClientFromEnvironment(await getClient());
   const artifact = resolved.release.artifact;
   const runtimeManifest = resolved.release.runtimeManifest;
+  const download = resolved.localOnly ? {} : {
+    artifactUrl: await downloadClient.signGet(artifact.object),
+    manifestUrl: await downloadClient.signGet(runtimeManifest.object),
+  };
   const result = await runCommand(
     {
       name: `deploy:${node}:${target}`,
@@ -344,8 +579,10 @@ async function deployTarget(adapter, publicClient, { target, node, sourceSha, ru
         requiredEnv('GITHUB_RUN_ID'),
         '--github-run-attempt',
         requiredEnv('GITHUB_RUN_ATTEMPT'),
+        ...(resolved.localOnly ? ['--local-only', 'true'] : []),
+        ...(context.operation === 'retry' ? ['--repair', 'true'] : []),
       ]),
-      input: `${JSON.stringify({ artifactUrl: await downloadClient.signGet(artifact.object), manifestUrl: await downloadClient.signGet(runtimeManifest.object), ...(deployment.node.ingress && target === 'database-migration' ? { cloudflare: { apiToken: process.env.CLOUDFLARE_API_TOKEN, zoneId: process.env.CLOUDFLARE_ZONE_ID }, domainSwitch: process.env.ZDT_DOMAIN_SWITCH === 'true' } : {}) })}\n`,
+      input: `${JSON.stringify({ ...download, ...(deployment.node.ingress && target === 'database-migration' ? { cloudflare: { apiToken: process.env.CLOUDFLARE_API_TOKEN, zoneId: process.env.CLOUDFLARE_ZONE_ID }, domainSwitch: process.env.ZDT_DOMAIN_SWITCH === 'true' } : {}) })}\n`,
       timeoutMs: transport.deployTimeoutMs ?? 10 * 60_000,
     },
     commandContext(adapter)
@@ -355,8 +592,14 @@ async function deployTarget(adapter, publicClient, { target, node, sourceSha, ru
     target,
     node: deployment.executionNode,
     requestedNode: node,
+    activationMode: remote.result?.activation?.mode ?? null,
+    artifactRecovery: remote.result?.staged?.cacheStatus === 'repaired' ? 'repaired-from-original' :
+      resolved.localOnly ? 'reused-local' : null,
+    selectedArtifact: context.selectedArtifact,
     current: remote.result?.activation?.current ?? null,
     previous: remote.result?.activation?.previous ?? null,
+    currentArtifact: observedArtifact(remote.result?.activation?.currentArtifact),
+    previousArtifact: observedArtifact(remote.result?.activation?.previousArtifact),
     health: normalizeReadiness(remote.result?.activation?.readiness),
     recovery: remote.result?.activation?.rollback ?? null,
     serviceStatus: remote.result?.activation?.serviceStatus ?? null,
@@ -377,23 +620,26 @@ function normalizeReadiness(reported) {
     : reported ?? null;
 }
 
-async function syncRemoteRuntime(adapter, controlRoot) {
-  context.stage = 'remote-sync';
-  const transport = adapter.transport;
-  const host = process.env[transport.hostEnv ?? 'AI_DELIVERY_SSH_HOST'] ?? transport.host;
-  invariant(host, 'DEPLOY_SSH_HOST_MISSING', 'SSH host missing for remote runtime sync');
+async function readControlRuntime(controlRoot) {
   const agentPath = join(controlRoot, '04_tools/release-engine/remote/agent.mjs');
   const policyPath = join(controlRoot, '02_platform_pingtai/infrastructure/release/zdt-next.remote-policy.json');
   const [agent, policy] = await Promise.all([readFile(agentPath), readFile(policyPath)]);
-  const agentSha256 = createHash('sha256').update(agent).digest('hex');
-  const policySha256 = createHash('sha256').update(policy).digest('hex');
-  progress('remote-sync', { controlSha: process.env.CONTROL_SHA, host });
-  const script = remoteRuntimeSyncScript({
+  return {
     agent: agent.toString('base64'),
     policy: policy.toString('base64'),
-    agentSha256,
-    policySha256,
-  });
+    agentSha256: createHash('sha256').update(agent).digest('hex'),
+    policySha256: createHash('sha256').update(policy).digest('hex'),
+  };
+}
+
+async function syncRemoteRuntime(adapter, controlRoot, { transport = adapter.transport, activateDefault = true } = {}) {
+  context.stage = 'remote-sync';
+  const host = process.env[transport.hostEnv ?? 'AI_DELIVERY_SSH_HOST'] ?? transport.host;
+  invariant(host, 'DEPLOY_SSH_HOST_MISSING', 'SSH host missing for remote runtime sync');
+  const runtime = await readControlRuntime(controlRoot);
+  const { agentSha256, policySha256 } = runtime;
+  progress('remote-sync', { controlSha: process.env.CONTROL_SHA, host });
+  const script = remoteRuntimeSyncScript({ ...runtime, activateDefault });
   const result = await runCommand(
     {
       name: 'remote-sync',
@@ -412,13 +658,21 @@ async function syncRemoteRuntime(adapter, controlRoot) {
   return `/usr/local/lib/ai-delivery/versions/${agentSha256}-${policySha256}/agent.mjs`;
 }
 
-export function remoteRuntimeSyncScript({ agent, policy, agentSha256, policySha256 }) {
+export function remoteRuntimeSyncScript({ agent, policy, agentSha256, policySha256, activateDefault = true }) {
+  const defaultLink = activateDefault ? '$(mktemp /usr/local/lib/ai-delivery/.agent-link.XXXXXX)' : '';
+  const beforeActivation = activateDefault ? `node --check "$stage_dir/agent.mjs"
+node -e 'const fs=require("fs");const p=JSON.parse(fs.readFileSync(process.argv[1]));if(p.schema!=="ai.delivery.remote-policy.v1"||p.project!=="zdt-next")process.exit(1)' "$stage_dir/zdt-next.json"
+` : '';
+  const switchDefault = activateDefault ? `rm -f -- "$agent_link"
+ln -s "$version_dir/agent.mjs" "$agent_link"
+mv -Tf "$agent_link" /usr/local/lib/ai-delivery/agent.mjs
+` : '';
   return `set -euo pipefail
 install -d -m 0755 /usr/local/lib/ai-delivery/versions
 version_dir="/usr/local/lib/ai-delivery/versions/${agentSha256}-${policySha256}"
 stage_dir="$(mktemp -d /usr/local/lib/ai-delivery/versions/.stage.XXXXXX)"
-agent_link="$(mktemp /usr/local/lib/ai-delivery/.agent-link.XXXXXX)"
-cleanup() { rm -rf -- "$stage_dir"; rm -f -- "$agent_link"; }
+agent_link="${defaultLink}"
+cleanup() { rm -rf -- "$stage_dir"; if [ -n "$agent_link" ]; then rm -f -- "$agent_link"; fi; }
 trap cleanup EXIT
 base64 -d > "$stage_dir/agent.mjs" <<'RUNNER_1_6_AGENT'
 ${agent}
@@ -429,35 +683,32 @@ RUNNER_1_6_POLICY
 chmod 0755 "$stage_dir/agent.mjs"
 chmod 0644 "$stage_dir/zdt-next.json"
 chmod 0755 "$stage_dir"
-node --check "$stage_dir/agent.mjs"
-node -e 'const fs=require("fs");const p=JSON.parse(fs.readFileSync(process.argv[1]));if(p.schema!=="ai.delivery.remote-policy.v1"||p.project!=="zdt-next")process.exit(1)' "$stage_dir/zdt-next.json"
-[ "$(sha256sum "$stage_dir/agent.mjs" | cut -d' ' -f1)" = "${agentSha256}" ]
+${beforeActivation}[ "$(sha256sum "$stage_dir/agent.mjs" | cut -d' ' -f1)" = "${agentSha256}" ]
 [ "$(sha256sum "$stage_dir/zdt-next.json" | cut -d' ' -f1)" = "${policySha256}" ]
 if [ ! -d "$version_dir" ]; then
   mv -T "$stage_dir" "$version_dir" || [ -d "$version_dir" ]
 fi
 [ "$(sha256sum "$version_dir/agent.mjs" | cut -d' ' -f1)" = "${agentSha256}" ]
 [ "$(sha256sum "$version_dir/zdt-next.json" | cut -d' ' -f1)" = "${policySha256}" ]
-rm -f -- "$agent_link"
-ln -s "$version_dir/agent.mjs" "$agent_link"
-mv -Tf "$agent_link" /usr/local/lib/ai-delivery/agent.mjs
-cleanup
+${switchDefault}cleanup
 trap - EXIT
 printf 'REMOTE_RUNTIME_SYNCED agent=sha256:${agentSha256} policy=sha256:${policySha256}\\n'
 `;
 }
 
-async function status(adapter, sourceSha) {
+async function status(adapter, controlRoot, sourceSha) {
   const startedAt = performance.now();
   // Status observes the physical nodes, not a plan reconstructed from source code.
   const placements = Object.keys(adapter.targets).flatMap((target) => physicalPlacements(adapter, target).map((node) => ({ target, node })));
   context.stage = 'status';
   const nodeTargets = Map.groupBy(placements, ({ node }) => node);
+  const { agent, policy, agentSha256, policySha256 } = await readControlRuntime(controlRoot);
+  const observationSource = memoryAgentSource({ agent, policy });
   progress('status', { sourceSha, total: placements.length, mode: 'one-connection-per-node', connections: nodeTargets.size });
   const observations = new Map();
   await Promise.all([...nodeTargets].map(async ([node, entries]) => {
     try {
-      const remote = await remoteObserveNode(adapter, node, entries.map(({ target }) => target));
+      const remote = await remoteObserveNode(adapter, node, entries.map(({ target }) => target), observationSource);
       for (const observation of remote.result?.targets ?? []) observations.set(`${node}:${observation.target}`, observation);
     } catch (error) {
       for (const { target } of entries) observations.set(`${node}:${target}`, { error: observationDiagnostic(error) });
@@ -468,7 +719,12 @@ async function status(adapter, sourceSha) {
   const cloudflare = process.env.ZDT_CLOUDFLARE_DOMAIN?.trim() ? await observeCloudflareDomain() : undefined;
   const durationMs = Math.round(performance.now() - startedAt);
   progress('complete', { sourceSha, operation: 'status', state: 'OBSERVED', durationMs });
-  return { state: 'OBSERVED', scope: 'all-configured-placements', releaseId: sourceSha ? `r16-${sourceSha}` : null, sourceSha, controlSha: process.env.CONTROL_SHA, executor: executor(), durationMs, currentTargetCount: currentTargets.length, targets, cloudflare };
+  return { state: 'OBSERVED', scope: 'all-configured-placements', releaseId: sourceSha ? `r16-${sourceSha}` : null, sourceSha, controlSha: process.env.CONTROL_SHA, remoteAgentSha256: `sha256:${agentSha256}`, remotePolicySha256: `sha256:${policySha256}`, executor: executor(), durationMs, currentTargetCount: currentTargets.length, targets, cloudflare };
+}
+
+function memoryAgentSource({ agent, policy }) {
+  const moduleUrl = `data:text/javascript;base64,${agent}#${policy}`;
+  return `await import(${JSON.stringify(moduleUrl)});\n`;
 }
 
 async function observeCloudflareDomain() {
@@ -499,17 +755,60 @@ async function observeCloudflareDomain() {
 }
 
 export function observedTarget(sourceSha, target, node, observation) {
-  if (!observation) return { target, node, state: 'UNKNOWN', currentSourceSha: null, previousSourceSha: null, health: null, diagnostic: { code: 'OBSERVATION_MISSING' } };
-  const currentSha = observation.status?.currentArtifact?.sourceSha ?? null;
-  const previousSha = observation.status?.previousArtifact?.sourceSha ?? null;
-  const health = normalizeReadiness(observation.verification?.readiness);
-  if (observation.error?.code === 'CURRENT_POINTER_MISSING' && !currentSha) return { target, node, state: 'EMPTY', currentSourceSha: null, previousSourceSha: previousSha, health, diagnostic: observation.error };
-  if (observation.error) return { target, node, state: 'FAILED', currentSourceSha: currentSha, previousSourceSha: previousSha, health, diagnostic: observation.error };
-  if (!sourceSha) return { target, node, state: currentSha ? (health?.status === 'ready' ? 'HEALTHY' : 'CURRENT') : 'EMPTY', currentSourceSha: currentSha, previousSourceSha: previousSha, health };
-  if (currentSha !== sourceSha) {
-    return { target, node, state: previousSha === sourceSha ? 'PREVIOUS' : currentSha ? 'OTHER' : 'EMPTY', currentSourceSha: currentSha, previousSourceSha: previousSha, health };
+  const currentArtifact = observedArtifact(observation?.status?.currentArtifact);
+  const previousArtifact = observedArtifact(observation?.status?.previousArtifact);
+  const currentSourceSha = currentArtifact?.sourceSha ?? null;
+  const previousSourceSha = previousArtifact?.sourceSha ?? null;
+  const health = normalizeReadiness(observation?.verification?.readiness);
+  const receipt = {
+    target,
+    node,
+    current: observation?.status?.current ?? null,
+    previous: observation?.status?.previous ?? null,
+    runtime: observation?.status?.runtime ?? null,
+    previousRuntime: observation?.status?.previousRuntime ?? null,
+    process: observation?.process ?? null,
+    currentSourceSha,
+    previousSourceSha,
+    currentArtifact,
+    previousArtifact,
+    health,
+  };
+  if (!observation) return { ...receipt, state: 'UNKNOWN', diagnostic: { code: 'OBSERVATION_MISSING' } };
+  if (observation.error?.code === 'OBSERVATION_CHANGED') return { ...receipt, state: 'CHANGING', diagnostic: observation.error };
+  if (['CUTOVER_INCOMPLETE', 'RUNNING_RELEASE_MISMATCH'].includes(observation.error?.code)) {
+    return { ...receipt, state: 'INCOMPLETE', diagnostic: observation.error };
   }
-  return { target, node, state: health?.status === 'ready' ? 'HEALTHY' : 'CURRENT', currentSourceSha: currentSha, previousSourceSha: previousSha, health };
+  if (observation.error?.code === 'RUNNING_RELEASE_UNCONFIRMED') {
+    return { ...receipt, state: 'UNCONFIRMED', diagnostic: observation.error };
+  }
+  if (observation.error?.code === 'CURRENT_POINTER_MISSING' && !currentSourceSha) return { ...receipt, state: 'EMPTY', diagnostic: observation.error };
+  if (observation.error) return { ...receipt, state: 'FAILED', diagnostic: observation.error };
+  if (sourceSha && currentSourceSha !== sourceSha) {
+    return { ...receipt, state: previousSourceSha === sourceSha ? 'PREVIOUS' : currentSourceSha ? 'OTHER' : 'EMPTY' };
+  }
+  return { ...receipt, state: currentSourceSha ? (health?.status === 'ready' ? 'HEALTHY' : 'CURRENT') : 'EMPTY' };
+}
+
+function observedArtifact(manifest) {
+  if (!manifest) return null;
+  const entries = Array.isArray(manifest.entries) ? manifest.entries : null;
+  const nodeRuntime = entries?.find(({ path, type }) => path === 'node-runtime/manifest.json' && type === 'file');
+  // Older artifacts recorded the packaged runtime file without storing the instance cache key.
+  const legacyVariant = nodeRuntime ? 'instance-snapshot' : entries && L0_TARGETS.includes(manifest.target) ? 'ordinary' : 'unknown';
+  const variant = Object.hasOwn(manifest, 'instanceCacheKey')
+    ? (manifest.instanceCacheKey ? 'instance-snapshot' : 'ordinary')
+    : legacyVariant;
+  return {
+    sourceSha: manifest.sourceSha ?? null,
+    artifactId: manifest.artifactId ?? null,
+    treeDigest: manifest.treeDigest ?? null,
+    manifestDigest: manifest.manifestDigest ?? null,
+    archiveSha256: manifest.archive?.sha256 ?? null,
+    variant,
+    instanceCacheKey: manifest.instanceCacheKey ?? null,
+    nodeRuntimeManifestSha256: nodeRuntime?.sha256 ?? null,
+  };
 }
 
 async function rollback(adapter, controlRoot, target, node) {
@@ -517,36 +816,50 @@ async function rollback(adapter, controlRoot, target, node) {
   context.stage = 'rollback';
   context.target = target;
   context.node = node;
-  const remote = await remoteControl(adapter, target, node, 'rollback');
+  const requestId = process.env.ZDT_DELIVERY_REQUEST_ID?.trim() ||
+    (process.env.GITHUB_RUN_ID ? `gh-${process.env.GITHUB_RUN_ID}` : randomUUID());
+  invariant(/^[a-zA-Z0-9._-]{1,128}$/.test(requestId), 'ROLLBACK_REQUEST_ID_INVALID', 'Invalid rollback request ID');
+  context.rollbackRequestId = requestId;
+  const deployment = resolveDeployment(adapter, node, target);
+  const transport = deployment.node.transport ?? adapter.transport;
+  const host = process.env[transport.hostEnv ?? 'AI_DELIVERY_SSH_HOST'] ?? transport.host;
+  invariant(host, 'DEPLOY_SSH_HOST_MISSING', `SSH host missing for ${node}`);
+  const remoteAgent = await syncRemoteRuntime(adapter, controlRoot, { transport, activateDefault: false });
+  context.stage = 'rollback';
+  const result = await runCommand(
+    {
+      name: `rollback:${node}:${target}`,
+      argv: sshArgv(host, [remoteAgent, 'rollback', '--project', adapter.project, '--node', deployment.executionNode, '--target', target,
+        '--request-id', requestId, ...(process.env.CONTROL_SHA ? ['--control-sha', process.env.CONTROL_SHA] : [])]),
+      timeoutMs: transport.deployTimeoutMs ?? 10 * 60_000,
+    },
+    commandContext(adapter)
+  );
+  const remote = parseRemote(result.output);
   return {
     state: 'ROLLED_BACK',
+    requestId,
+    replayed: remote.result?.replayed ?? false,
+    resumed: remote.result?.resumed ?? false,
     target,
     node,
+    executionNode: deployment.executionNode,
+    controlSha: remote.result?.controlSha ?? process.env.CONTROL_SHA ?? null,
+    remoteAgent: remote.result?.remoteAgent ?? remoteAgent,
     executor: executor(),
     current: remote.result?.current ?? null,
     previous: remote.result?.previous ?? null,
+    runtime: remote.result?.runtime ?? null,
+    previousRuntime: remote.result?.previousRuntime ?? null,
+    currentArtifact: observedArtifact(remote.result?.currentArtifact),
+    previousArtifact: observedArtifact(remote.result?.previousArtifact),
+    restart: remote.result?.restart ?? null,
     serviceStatus: normalizeReadiness(remote.result?.readiness),
     durationMs: remote.result?.timings?.total ?? null,
   };
 }
 
-async function remoteControl(adapter, target, node, action) {
-  const deployment = resolveDeployment(adapter, node, target);
-  const transport = deployment.node.transport ?? adapter.transport;
-  const host = process.env[transport.hostEnv ?? 'AI_DELIVERY_SSH_HOST'] ?? transport.host;
-  invariant(host, 'DEPLOY_SSH_HOST_MISSING', `SSH host missing for ${node}`);
-  const result = await runCommand(
-    {
-      name: `${action}:${node}:${target}`,
-      argv: sshArgv(host, [transport.agent ?? '/usr/local/lib/ai-delivery/agent.mjs', action, '--project', adapter.project, '--node', deployment.executionNode, '--target', target]),
-      timeoutMs: transport.deployTimeoutMs ?? 10 * 60_000,
-    },
-    commandContext(adapter)
-  );
-  return parseRemote(result.output);
-}
-
-async function remoteObserveNode(adapter, node, targets) {
+async function remoteObserveNode(adapter, node, targets, observationSource) {
   invariant(targets.length > 0, 'STATUS_TARGETS_REQUIRED', `status targets missing for ${node}`);
   const deployment = resolveDeployment(adapter, node, targets[0]);
   const transport = deployment.node.transport ?? adapter.transport;
@@ -555,12 +868,21 @@ async function remoteObserveNode(adapter, node, targets) {
   const result = await runCommand(
     {
       name: `observe:${node}`,
-      argv: sshArgv(host, [transport.agent ?? '/usr/local/lib/ai-delivery/agent.mjs', 'observe', '--project', adapter.project, '--node', deployment.executionNode, '--targets', targets.join(',')]),
+      argv: sshArgv(host, ['node', '--input-type=module', '-', 'observe', '--project', adapter.project, '--node', deployment.executionNode, '--targets', targets.join(',')]),
+      input: observationSource,
       timeoutMs: transport.deployTimeoutMs ?? 10 * 60_000,
     },
     commandContext(adapter)
   );
   return parseRemote(result.output);
+}
+
+function plannedPhysicalPlacements(adapter, plan) {
+  return plan.deploymentOrder.flatMap((target) => physicalPlacements(adapter, target).map((node) => ({ target, node })));
+}
+
+function placementKey({ node, target }) {
+  return `${node}:${target}`;
 }
 
 function physicalPlacements(adapter, target) {

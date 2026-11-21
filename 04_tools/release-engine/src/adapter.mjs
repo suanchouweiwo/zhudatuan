@@ -1,8 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import { dirname, isAbsolute, resolve } from 'node:path';
+import { parseEnv } from 'node:util';
 
 import { invariant } from './errors.mjs';
-import { sha256 } from './stable.mjs';
+import { digest, sha256, stableJson } from './stable.mjs';
 
 export const ADAPTER_SCHEMA = 'ai.delivery.project.v1';
 
@@ -25,14 +26,14 @@ export async function loadAdapter(adapterPath, invocationRoot = process.cwd(), {
   return Object.freeze({ ...(await bindInstance(adapter)), adapterPath: absolutePath, projectRoot });
 }
 
-async function bindInstance(adapter) {
-  const configuredInstance = process.env.LK_INSTANCE_ROOT?.trim();
+export async function bindInstance(adapter, configuredInstance = process.env.LK_INSTANCE_ROOT?.trim(), instanceNode) {
   if (!configuredInstance) return adapter;
   const instanceRoot = resolve(configuredInstance);
   const declaration = JSON.parse(await readFile(resolve(instanceRoot, 'sfl-node-registry.declaration.json'), 'utf8'));
   const manifests = declaration.manifests ?? [];
   const nodeIds = new Set(manifests.map((manifest) => manifest.node_id));
-  const selected = Object.entries(adapter.nodes).filter(([, node]) => nodeIds.has(node.nodeId));
+  const selected = Object.entries(adapter.nodes).filter(([key, node]) => (!instanceNode || key === instanceNode) && nodeIds.has(node.nodeId));
+  const selectedKeys = new Set(selected.map(([key]) => key));
   const nodes = Object.fromEntries(selected);
   for (const [, node] of selected) {
     for (const deployment of Object.values(node.deployments)) {
@@ -43,12 +44,15 @@ async function bindInstance(adapter) {
   }
   for (const [, node] of selected) {
     for (const [target, deployment] of Object.entries(node.deployments)) {
-      if (!deployment.hostedBy || nodeIds.has(nodes[deployment.hostedBy]?.nodeId)) continue;
+      if (!deployment.hostedBy || selectedKeys.has(deployment.hostedBy)) continue;
       const hostDeployment = adapter.nodes[deployment.hostedBy]?.deployments[target];
       if (hostDeployment) nodes[deployment.hostedBy].deployments[target] = hostDeployment;
     }
   }
-  const publicEnvironment = await instanceFrontendEnvironment(instanceRoot);
+  const hostedAliases = Object.fromEntries(Object.entries(adapter.nodes).filter(([key]) => !nodes[key]).map(([key, node]) =>
+    [key, Object.fromEntries(Object.entries(node.deployments).filter(([target, deployment]) =>
+      deployment.hostedBy && nodes[deployment.hostedBy]?.deployments[target]))]));
+  const { publicEnvironment, storefrontEnvironment } = await instanceFrontendEnvironment(instanceRoot);
   const primaryBindings = manifests[0]?.domain_bindings ?? [];
   const origin = (surface) => {
     const binding = primaryBindings.find((candidate) => candidate.surface_ref === surface);
@@ -68,6 +72,10 @@ async function bindInstance(adapter) {
         for (const [name, value] of Object.entries(frontendOrigin)) if (value) environment[name] = value;
       }
       if (id === 'storefront' && command.argv[0] === 'npm' && command.argv[1] === 'run' && command.argv[2] === 'build:storefront') {
+        Object.assign(environment, storefrontEnvironment);
+        if (Object.hasOwn(storefrontEnvironment, 'NEXT_PUBLIC_STOREFRONT_HOSTNAME')) {
+          environment.SFL_STOREFRONT_HOSTNAME = storefrontEnvironment.NEXT_PUBLIC_STOREFRONT_HOSTNAME;
+        }
         return [
           { ...command, argv: ['npm', 'exec', '--workspace', '@smart-wing/storefront-web', '--', 'vinext', 'build'], environment },
           { ...command, name: `${command.name}-runtime`, argv: ['node', '01_core_hexin/apps/storefront-web/scripts/build-production-runtime.mjs'], environment },
@@ -85,29 +93,41 @@ async function bindInstance(adapter) {
   return {
     ...adapter,
     instanceRoot,
-    instanceCacheKey: sha256(JSON.stringify({ declaration, publicEnvironment })),
+    instanceCacheKey: sha256(stableJson({ declaration, publicEnvironment, storefrontEnvironment })),
+    legacyInstanceCacheKey: sha256(JSON.stringify({ declaration, publicEnvironment })),
+    storefrontEnvironmentDigest: digest(storefrontEnvironment),
+    storefrontEnvironment,
     targets,
     nodes,
+    hostedAliases,
     channels: Object.fromEntries(Object.entries(adapter.channels ?? {}).filter(([, channel]) => Boolean(nodes[channel.node]))),
     productionAcceptance: { ...adapter.productionAcceptance, domains: (adapter.productionAcceptance?.domains ?? []).filter((host) => hosts.has(host)) },
   };
 }
 
 async function instanceFrontendEnvironment(instanceRoot) {
-  const environment = {};
+  const publicEnvironment = {};
+  const snapshot = {};
   for (const name of ['.env', '.env.local', '.env.production', '.env.production.local']) {
     const contents = await readFile(resolve(instanceRoot, name), 'utf8').catch((error) => {
       if (error.code === 'ENOENT') return '';
       throw error;
     });
+    Object.assign(snapshot, parseEnv(contents));
     for (const line of contents.split(/\r?\n/)) {
       const matched = /^\s*(?:export\s+)?(VITE_API_BASE_URL|VITE_AUTH_BASE_URL)\s*=\s*(.*?)\s*$/.exec(line);
       if (!matched) continue;
       const value = matched[2];
-      environment[matched[1]] = /^(['"]).*\1$/.test(value) ? value.slice(1, -1) : value.replace(/\s+#.*$/, '').trim();
+      publicEnvironment[matched[1]] = /^(['"]).*\1$/.test(value) ? value.slice(1, -1) : value.replace(/\s+#.*$/, '').trim();
     }
   }
-  return environment;
+  const storefrontEnvironment = Object.fromEntries(Object.entries({
+    NEXT_PUBLIC_API_BASE_URL: snapshot.NEXT_PUBLIC_API_BASE_URL ?? snapshot.VITE_API_BASE_URL,
+    NEXT_PUBLIC_AUTH_ORIGIN: snapshot.NEXT_PUBLIC_AUTH_ORIGIN ?? snapshot.VITE_AUTH_BASE_URL,
+    NEXT_PUBLIC_CLIENT_VERSION: snapshot.NEXT_PUBLIC_CLIENT_VERSION ?? snapshot.VITE_CLIENT_VERSION,
+    NEXT_PUBLIC_STOREFRONT_HOSTNAME: snapshot.NEXT_PUBLIC_STOREFRONT_HOSTNAME,
+  }).filter(([, value]) => value !== undefined));
+  return { publicEnvironment, storefrontEnvironment };
 }
 
 export function validateAdapter(adapter) {
@@ -186,7 +206,7 @@ export function validateAdapter(adapter) {
 }
 
 export function resolveDeployment(adapter, nodeKey, targetId) {
-  const requested = adapter.nodes[nodeKey]?.deployments?.[targetId];
+  const requested = adapter.nodes[nodeKey]?.deployments?.[targetId] ?? adapter.hostedAliases?.[nodeKey]?.[targetId];
   invariant(Boolean(requested), 'ADAPTER_NODE_TARGET_UNKNOWN', `${nodeKey} does not deploy ${targetId}`);
   const executionNode = requested.hostedBy ?? nodeKey;
   return Object.freeze({

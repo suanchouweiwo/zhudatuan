@@ -35,6 +35,21 @@ export function createSimpleOssClient(configuration, dependencies = {}) {
       await assertResponse(response, response.status === 404 ? missingCode : 'OSS_GET_FAILED');
       return Buffer.from(await response.arrayBuffer());
     },
+    async *listObjects(prefix) {
+      let marker;
+      do {
+        const query = { prefix, 'encoding-type': 'url', ...(marker ? { marker } : {}) };
+        const response = await request('GET', '', { query });
+        await assertResponse(response, 'OSS_LIST_FAILED');
+        const xml = await response.text();
+        for (const [, key] of xml.matchAll(/<Key>([^<]+)<\/Key>/g)) yield decodeURIComponent(key);
+        if (!/<IsTruncated>true<\/IsTruncated>/.test(xml)) return;
+        const next = xml.match(/<NextMarker>([^<]+)<\/NextMarker>/)?.[1];
+        const decoded = next ? decodeURIComponent(next) : undefined;
+        invariant(decoded && decoded !== marker, 'OSS_LIST_CONTINUATION_MISSING', 'Artifact listing did not return the next marker');
+        marker = decoded;
+      } while (marker);
+    },
     async putContent(object, body, contentType = 'application/octet-stream') {
       const bytes = Buffer.isBuffer(body) ? body : Buffer.from(body);
       const contentSha256 = sha256(bytes);
@@ -73,6 +88,7 @@ export function createSimpleOssClient(configuration, dependencies = {}) {
   async function request(method, object, options = {}) {
     const date = now().toUTCString();
     const url = objectUrl(auth, object);
+    for (const [key, value] of Object.entries(options.query ?? {})) url.searchParams.set(key, value);
     const ossHeaders = { ...(auth.securityToken ? { 'x-oss-security-token': auth.securityToken } : {}), ...(options.ossHeaders ?? {}) };
     const headers = { Date: date, ...ossHeaders };
     if (options.contentMd5) headers['Content-MD5'] = options.contentMd5;
