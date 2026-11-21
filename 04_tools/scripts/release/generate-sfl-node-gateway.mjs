@@ -92,11 +92,12 @@ export function gatewayConfiguration(manifest, nodeRoot, ports, options = {}) {
   const apiHost = apiHosts[0];
   const allHosts = [...apiHosts, ...identityHosts, ...consoleHosts, ...storefrontHosts];
   if (new Set(allHosts).size !== allHosts.length) throw new Error('SFL_GATEWAY_DOMAIN_BINDINGS_AMBIGUOUS');
-  const proxy = (port) => `\t\treverse_proxy 127.0.0.1:${port} {\n\t\t\theader_up Host {http.request.host}\n\t\t\theader_up X-Real-IP {http.request.header.CF-Connecting-IP}\n\t\t\theader_up -X-Sfl-Node-Id\n\t\t\theader_up -X-Sfl-Node-Manifest-Id\n\t\t\theader_up -X-Sfl-Node-Surface\n\t\t\theader_up -X-Zdt-Identity-Entry-Host\n\t\t}`;
+  const loopback = options.httpLoopback === true;
+  const proxy = (port) => `\t\treverse_proxy 127.0.0.1:${port} {\n\t\t\theader_up Host {http.request.host}\n${loopback ? '\t\t\theader_up X-Forwarded-Proto https\n' : ''}\t\t\theader_up X-Real-IP {http.request.header.CF-Connecting-IP}\n\t\t\theader_up -X-Sfl-Node-Id\n\t\t\theader_up -X-Sfl-Node-Manifest-Id\n\t\t\theader_up -X-Sfl-Node-Surface\n\t\t\theader_up -X-Zdt-Identity-Entry-Host\n\t\t}`;
   return `# Generated from ${manifest.manifest_id} (${manifest.manifest_digest}). Do not hand edit.\n` +
 `{\n\tadmin off\n\tauto_https off\n}\n\n` +
-`https://:${ports.gateway} {\n` +
-`\ttls ${nodeRoot}/runtime/tls/origin.crt ${nodeRoot}/runtime/tls/origin.key\n\tencode gzip\n\n` +
+`${loopback ? 'http' : 'https'}://:${ports.gateway} {\n${loopback ? '\tbind 127.0.0.1\n' : ''}` +
+`${loopback ? '' : `\ttls ${nodeRoot}/runtime/tls/origin.crt ${nodeRoot}/runtime/tls/origin.key\n`}\tencode gzip\n\n` +
 `\t@ordersReadPreflight {\n\t\thost ${apiHost}\n\t\tmethod OPTIONS\n\t\tpath /api/v1/orders /api/v1/orders/*\n\t\theader Access-Control-Request-Method GET\n\t}\n` +
 `\thandle @ordersReadPreflight {\n${proxy(ports.web)}\n\t}\n\n` +
 `\t@purchaseWrite {\n\t\thost ${apiHost}\n\t\tmethod POST OPTIONS\n\t\tpath /api/v1/checkouts/quotes /api/v1/orders /api/v1/payments/intents\n\t}\n` +
@@ -109,7 +110,7 @@ export function gatewayConfiguration(manifest, nodeRoot, ports, options = {}) {
 `\thandle @storefrontPublicCatalog {\n${proxy(ports.web)}\n\t}\n\n` +
 `\t@webBusiness {\n\t\thost ${apiHost}\n\t\tpath /api/v1/members/me* /api/v1/organizations/layers* /api/v1/reports/dashboard* /api/v1/catalog/listings /api/v1/catalog/public/products* /api/v1/pricing/offers* /api/v1/inventory/availability* /api/v1/carts/current* /api/v1/benefits/accounts* /api/v1/benefits/ledgers*\n\t}\n` +
 `\thandle @webBusiness {\n${proxy(ports.web)}\n\t}\n\n` +
-`${ports.provisioning ? `\t@mallProvisioning {\n\t\thost ${apiHost}\n\t\tmethod GET POST OPTIONS\n\t\tpath /api/v1/provisioning/malls /api/v1/provisioning/malls/* /api/v1/provisioning/node-tasks/*\n\t}\n` +
+`${ports.provisioning ? `\t@mallProvisioning {\n\t\thost ${apiHost}\n\t\tmethod GET POST OPTIONS\n\t\tpath /api/v1/provisioning/malls /api/v1/provisioning/malls/* /api/v1/provisioning/node-tasks/* /api/v1/provisioning/instances /api/v1/provisioning/instances/*\n\t}\n` +
 `\thandle @mallProvisioning {\n${proxy(ports.provisioning)}\n\t}\n\n` : ''}` +
 `\t@catalogImports {\n\t\thost ${apiHost}\n\t\tpath /api/v1/catalog/imports*\n\t}\n` +
 `\thandle @catalogImports {\n${proxy(ports.catalog)}\n\t}\n\n` +

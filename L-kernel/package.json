@@ -5,7 +5,11 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
-    "./arch": "./src/arch/ArchBoard.ts"
+    "./arch": "./src/arch/ArchBoard.ts",
+    "./login": "./src/login/index.ts"
+  },
+  "dependencies": {
+    "@shop/contract": "1.0.0"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

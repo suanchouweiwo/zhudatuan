@@ -6,6 +6,8 @@ import type { CreatedMall } from '../01_public_gongkai/MallOwnerProvisioningPort
 
 export const AUTONODE_CONTROL_CLIENT = token<AutoNodeControlPort>('provisioning.autonode-control-client');
 
+export interface InstanceAdministrator { readonly username: string; readonly displayName: string; readonly passwordHash: string; }
+
 export type AutoNodeTaskStatus = 'QUEUED' | 'RUNNING' | 'WAITING_EXTERNAL' | 'FAILED_RETRYABLE' | 'SUCCEEDED';
 
 export interface AutoNodeTaskPlatform {
@@ -23,7 +25,7 @@ export interface AutoNodeTaskResult {
 export interface AutoNodeTaskReceipt {
   readonly schema_version: 'sfl.autonode-control-task-receipt.v1';
   readonly task_id: string;
-  readonly action: 'ACTIVATE';
+  readonly action: 'ACTIVATE' | 'CREATE' | 'DELETE' | 'INITIALIZE';
   readonly node_id: string;
   readonly status: AutoNodeTaskStatus;
   readonly phase: string;
@@ -42,6 +44,8 @@ export interface AutoNodeTaskReceipt {
 }
 
 export interface AutoNodeControlPort {
+  instances(): Promise<unknown>;
+  lifecycle(nodeId: string, action: 'CREATE' | 'DELETE' | 'INITIALIZE', access: AccessContext, idempotencyKey: string, administrator?: InstanceAdministrator): Promise<AutoNodeTaskReceipt>;
   submitMall(mall: CreatedMall, createdAt: string, access: AccessContext, idempotencyKey: string): Promise<AutoNodeTaskReceipt>;
   read(taskId: string): Promise<AutoNodeTaskReceipt>;
   retry(taskId: string): Promise<AutoNodeTaskReceipt>;
@@ -53,6 +57,21 @@ export class AutoNodeControlClient implements AutoNodeControlPort {
     private readonly endpoint = 'http://127.0.0.1:4370',
     private readonly request: typeof fetch = fetch,
   ) {}
+
+  async instances(): Promise<unknown> {
+    const response = await this.request(new URL('/v1/instances', this.endpoint), { signal: AbortSignal.timeout(5000) });
+    if (!response.ok) throw new Error(`AUTONODE_CONTROL_REQUEST_FAILED:HTTP_${response.status}`);
+    return await response.json();
+  }
+
+  async lifecycle(nodeId: string, action: 'CREATE' | 'DELETE' | 'INITIALIZE', access: AccessContext, idempotencyKey: string, administrator?: InstanceAdministrator): Promise<AutoNodeTaskReceipt> {
+    return await this.send('/v1/tasks', 'POST', {
+      schema_version: 'sfl.autonode-control-task-request.v1',
+      task_id: `instance:${idempotencyKey}`, idempotency_key: idempotencyKey, action, node_id: nodeId,
+      requested_by: { actor_id: access.actor.id, membership_id: access.membership.id },
+      ...(administrator ? { administrator } : {}),
+    });
+  }
 
   async submitMall(mall: CreatedMall, createdAt: string, access: AccessContext, idempotencyKey: string): Promise<AutoNodeTaskReceipt> {
     const node = requireAccessNodeContext(access).manifest;

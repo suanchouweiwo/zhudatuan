@@ -3,23 +3,16 @@ import type { OperationId } from '@shop/contract';
 import { operationLifecycle, pageResult, reject, requireAccess, type OperationActions } from '../../../../foundation/application/ModuleOperations';
 import { bodyRecord, secretField, textField } from '../../../../foundation/interface/Validation';
 import { requireAccessNodeContext, requireGovernanceContext } from '../../../../foundation/security/AccessContext';
-import { PasswordPolicy } from '../../02_domain_yewu/policies_guize/PasswordPolicy';
+import { LoginRejection, LoginSystem, sessionExpiresIn } from '@shop/l-kernel/login';
 import { AuthTransaction } from '../../02_domain_yewu/models_moxing/AuthTransaction';
 import { publishIdentityEvent, tokenHash } from '../../04_adapters_shixian/persistence_cunchu/IdentityPersistence';
 import { authMembershipTarget, authTarget, SESSION_MAX_AGE_SECONDS, sessionCookies } from './IdentitySecurity';
 import { requestCsrfCookie, requestSessionCookieCandidates } from '../../../../foundation/security/AuthSessionCookies';
 import { memberPort } from '../../../member';
 import { canonicalIdentitySubject, canonicalMobile } from '../../02_domain_yewu/models_moxing/IdentitySubject';
-import {
-  consumeSmsLoginChallenge,
-  recordInvalidSmsLoginChallenge,
-  resolveMembershipAccount,
-  resolvePasswordLoginCredential,
-  verifySmsLoginChallenge,
-  type SmsLoginPrincipal,
-} from '../../03_application_yingyong/services_fuwu/SmsLogin';
+import { PgLoginStore } from '../../04_adapters_shixian/persistence_cunchu/PgLoginStore';
 import { currentRealmAccount, resolveActiveMembershipContext, resolveRealmContext, resolveRealmNode } from '../../03_application_yingyong/services_fuwu/RealmAccount';
-import { requireValidStorefront, type RealmOperationContext } from './RealmOperationContext';
+import type { RealmOperationContext } from './RealmOperationContext';
 
 export const SESSION_TICKET_OPERATION_IDS = Object.freeze([
   'identity.sessions.create',
@@ -75,151 +68,44 @@ export function sessionTicketOperations(runtime: RealmOperationContext): Operati
             resolveRealmContext(database, host, requestedTarget, application),
             mobileTokens,
           ]);
-          let found: Readonly<{ account_id: string; realm_id: string; principal_id: string; credential_version: number }> | undefined;
-          let challengeAccount: SmsLoginPrincipal | undefined;
-          let loginChallenge: string | undefined;
-          let loginCode: string | undefined;
-          if (provider === 'password') {
-            const credentialFound = await resolvePasswordLoginCredential(database,
-              resolvedMobileTokens === undefined
-                ? { realmId: realm.realmId, subjectHash: subject, membershipClient: realm.membershipClient,
-                    membershipOrganizationId: realm.membershipOrganizationId }
-                : { realmId: realm.realmId, subjectHash: subject, mobileTokens: resolvedMobileTokens,
-                    membershipClient: realm.membershipClient,
-                    membershipOrganizationId: realm.membershipOrganizationId });
-            if (!(await passwords.verify(secretField(body, 'password', 128), credentialFound?.secret_hash ?? null))) {
-              reject(401, 'CREDENTIAL_INVALID');
-            }
-            if (credentialFound) found = credentialFound;
-          } else {
-            loginChallenge = textField(body, 'challenge', 128);
-            loginCode = textField(body, 'code', 16);
-            challengeAccount = await verifySmsLoginChallenge(database, {
-              realmId: realm.realmId,
-              id: loginChallenge,
-              codeHash: codeDigest(loginChallenge, loginCode),
-              destinationHash: subject,
-            });
-            if (!challengeAccount) {
-              await recordInvalidSmsLoginChallenge(database, loginChallenge, subject);
-              reject(401, 'CREDENTIAL_INVALID');
-            }
-            found = await resolveMembershipAccount(database, {
-              entryRealmId: realm.realmId,
-              principalId: challengeAccount.principal_id,
-              membershipClient: realm.membershipClient,
-              membershipOrganizationId: realm.membershipOrganizationId,
-            });
-          }
-          if (!found) reject(401, 'CREDENTIAL_INVALID');
-          const memberships = await database.query<{ id: string; access_version: number; client: string; organization_id: string }>(
-            `select membership.id,membership.access_version,membership.client,membership.organization_id from access.membership membership
-          where membership.account_id=$1 and membership.realm_id=$2 and membership.status='active'
-            and membership.client=$3 and membership.organization_id=$4
-          order by membership.id`,
-            [found.account_id, found.realm_id, realm.membershipClient, realm.membershipOrganizationId]
-          );
-          const candidates = memberships.rows.filter((item) => item.client === realm.membershipClient
-            && item.organization_id === realm.membershipOrganizationId);
-          if (realm.surface === 'consumer') {
-            const storefront = await requireValidStorefront(memberPort.storefrontRegistration(database, realm.application!));
-            if (storefront.application_slug !== realm.application
-              || storefront.organization_id !== realm.membershipOrganizationId) reject(400, 'AUTH_REALM_MISMATCH');
-          }
-          if (candidates.length === 0) reject(403, 'REALM_MEMBERSHIP_NOT_FOUND');
-          const requested = typeof body.membership === 'string' ? body.membership : undefined;
-          const membership = requested ? candidates.find((item) => item.id === requested) : candidates.length === 1 ? candidates[0] : undefined;
-          if (requested !== undefined && membership === undefined) reject(403, 'MEMBERSHIP_INACTIVE');
-          if (!membership) {
-            return {
-              status: 200,
-              body: {
-                principal: found.principal_id,
-                memberships: candidates.map(({ id, client }) => ({ id, client: authTarget(client) })),
-              },
-            };
-          }
-          const activeContext = await resolveActiveMembershipContext(
-            database, realm.realmId, found.account_id, membership.id,
-          );
-          if (provider === 'phone_otp') {
-            const consumed = await consumeSmsLoginChallenge(database, {
-              id: loginChallenge!,
-              codeHash: codeDigest(loginChallenge!, loginCode!),
-              account: challengeAccount!.account_id,
-              realmId: challengeAccount!.realm_id,
-              destinationHash: subject,
-            });
-            if (!consumed) reject(401, 'CREDENTIAL_INVALID');
-          }
-          const token = randomBytes(48).toString('base64url');
-          const id = `session:${randomUUID()}`;
-          const assurance = provider === 'phone_otp' ? 2 : 1;
-          await database.query(
-            `insert into identity.session(id,principal_id,membership_id,token_hash,credential_version,access_version,client,ip_hash,user_agent,device_label,
-              assurance_level,realm_id,account_id,auth_target,expires_at,last_seen_at,created_at)
-          values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,clock_timestamp()+interval '30 days',clock_timestamp(),clock_timestamp())`,
-            [
-              id,
-              found.principal_id,
-              membership.id,
-              tokenHash(token),
-              found.credential_version,
-              membership.access_version,
-              membership.client,
-              digest(request.input.headers['x-peer-address'] ?? 'unknown'),
-              String(request.input.headers['user-agent'] ?? 'unknown').slice(0, 512),
-              String(request.input.headers['x-device-id'] ?? 'browser').slice(0, 128),
-              assurance,
-              found.realm_id,
-              found.account_id,
-              realm.target,
-            ]
-          );
-          if (provider === 'phone_otp') {
-            await database.query(
-              `insert into identity.assurance(id,principal_id,session_id,method,level,evidence_hash,verified_at,expires_at,realm_id,account_id)
-              values($1,$2,$3,'phone_otp',2,$4,clock_timestamp(),clock_timestamp()+interval '12 hours',$5,$6)`,
-              [`assurance:${randomUUID()}`, found.principal_id, id, createHash('sha256').update(loginChallenge!).digest('hex'), found.realm_id, found.account_id]
-            );
-          }
-          const consumedIntent = loginIntent === undefined ? undefined : (await database.query<{
-            login_intent_id: string;
-            source_realm_id: string;
-            source_node_id: string;
-            source_account_id: string;
-            source_session_id: string;
-            target_node_id: string;
-          }>(`select * from identity.consume_login_intent($1,$2,$3,$4,$5,$6)`, [
-            tokenHash(loginIntent), realm.realmId, realm.target, realm.application ?? null, found.account_id, id,
-          ])).rows[0];
-          if (loginIntent !== undefined && consumedIntent === undefined) reject(403, 'LOGIN_INTENT_INVALID');
-          await publishIdentityEvent(database, 'identity.session.created', id, membership.id, request.input.idempotency!, {
-            principal: found.principal_id,
-            account: found.account_id,
-            membership: membership.id,
-            realm: { entryRealmId: realm.realmId, currentRealmId: found.realm_id, nodeId: activeContext.node_id, surface: realm.surface },
-            assurance,
-            loginMethod: provider,
-            ...(consumedIntent === undefined ? {} : {
-              loginIntent: consumedIntent.login_intent_id,
-              sourceRealm: consumedIntent.source_realm_id,
-              sourceNode: consumedIntent.source_node_id,
-            }),
+          const login = new LoginSystem(new PgLoginStore(database, realm, request.input.idempotency!), {
+            passwords, digest, codeDigest,
+            issueTicket: (sessionId, realmId, accountId, target: typeof realm.target, transaction) =>
+              tickets.issue(database, sessionId, realmId, accountId, target, transaction),
+            consumeTicket: (value, token, entryRealmId) => tickets.consume(database, value, token, entryRealmId),
           });
-          const csrf = randomBytes(32).toString('base64url');
-          const target = authMembershipTarget(realm.target);
-          const callback = await tickets.issue(database, id, found.realm_id, found.account_id, realm.target, authorization);
-          const direct = directExchange === undefined
+          const result = await login.createSession({
+            realm,
+            credential: provider === 'password'
+              ? { provider, password: () => secretField(body, 'password', 128) }
+              : { provider: 'phone_otp', challenge: () => ({
+                  id: textField(body, 'challenge', 128), code: textField(body, 'code', 16),
+                }) },
+            subjectHash: subject,
+            ...(resolvedMobileTokens === undefined ? {} : { mobileTokens: resolvedMobileTokens }),
+            ...(typeof body.membership === 'string' ? { requestedMembership: body.membership } : {}),
+            authorization,
+            ...(loginIntent === undefined ? {} : { loginIntent }),
+            ...(directExchange === undefined ? {} : { directExchange }),
+            peerAddress: request.input.headers['x-peer-address'] ?? 'unknown',
+            userAgent: String(request.input.headers['user-agent'] ?? 'unknown'),
+            deviceLabel: String(request.input.headers['x-device-id'] ?? 'browser'),
+          }).catch((cause: unknown) => {
+            if (cause instanceof LoginRejection) reject(cause.status, cause.message);
+            throw cause;
+          });
+          if (result.kind === 'membership_selection') {
+            return { status: 200, body: { principal: result.principal,
+              memberships: result.memberships.map(({ id, client }) => ({ id, client: authTarget(client) })) } };
+          }
+          const target = authMembershipTarget(result.target);
+          const directExpiresIn = result.direct === undefined
             ? undefined
-            : await tickets.consume(database, { ...directExchange, ...callback }, token, realm.realmId);
-          const directExpiresIn = direct === undefined
-            ? undefined
-            : Math.max(1, Math.min(SESSION_MAX_AGE_SECONDS, Math.floor((direct.sessionExpiresAt.getTime() - Date.now()) / 1_000)));
-          return { status: 201, body: { session: id, csrf, expiresIn: SESSION_MAX_AGE_SECONDS, membership: membership.id,
-            target, callback, active_context: activeContext,
-            ...(direct === undefined ? {} : { exchange: { returnTarget: direct.returnTarget, expiresIn: directExpiresIn } }) },
-          headers: sessionCookies(token, csrf, SESSION_MAX_AGE_SECONDS, target) };
+            : sessionExpiresIn(result.direct.sessionExpiresAt);
+          return { status: 201, body: { session: result.id, csrf: result.csrf, expiresIn: SESSION_MAX_AGE_SECONDS,
+            membership: result.membership.id, target, callback: result.callback, active_context: result.activeContext,
+            ...(result.direct === undefined ? {} : { exchange: { returnTarget: result.direct.returnTarget, expiresIn: directExpiresIn } }) },
+          headers: sessionCookies(result.token, result.csrf, SESSION_MAX_AGE_SECONDS, target) };
         },
       }),
       'identity.loginintents.create': async (request, database) => {
@@ -277,7 +163,7 @@ export function sessionTicketOperations(runtime: RealmOperationContext): Operati
         if (currentTokens.length === 0) reject(401, 'AUTHENTICATION_REQUIRED');
         const realm = await resolveRealmNode(database, request.input.headers.host);
         const exchanged = await tickets.consume(database, request.input.body, currentTokens, realm.realmId);
-        const expiresIn = Math.max(1, Math.min(SESSION_MAX_AGE_SECONDS, Math.floor((exchanged.sessionExpiresAt.getTime() - Date.now()) / 1_000)));
+        const expiresIn = sessionExpiresIn(exchanged.sessionExpiresAt);
         return {
           status: 200,
           body: { returnTarget: exchanged.returnTarget, expiresIn },

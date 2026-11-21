@@ -15,20 +15,21 @@ export function parseAutoNodeTaskRequest(value) {
   if (record.schema_version !== AUTONODE_TASK_REQUEST_SCHEMA_VERSION) {
     throw new Error('AUTONODE_TASK_REQUEST_SCHEMA_INVALID');
   }
-  if (record.action !== 'ACTIVATE') throw new Error('AUTONODE_TASK_ACTION_INVALID');
+  if (!['ACTIVATE', 'DELETE', 'CREATE', 'INITIALIZE'].includes(record.action)) throw new Error('AUTONODE_TASK_ACTION_INVALID');
   const requestedBy = requiredRecord(record.requested_by, 'requested_by');
-  const activationRequest = requiredRecord(record.activation_request, 'activation_request');
+  const activationRequest = record.action === 'ACTIVATE' ? requiredRecord(record.activation_request, 'activation_request') : {};
   return Object.freeze({
     schema_version: AUTONODE_TASK_REQUEST_SCHEMA_VERSION,
     task_id: requiredText(record.task_id, 'task_id'),
     idempotency_key: requiredText(record.idempotency_key, 'idempotency_key'),
-    action: 'ACTIVATE',
+    action: record.action,
     node_id: requiredText(record.node_id, 'node_id'),
     requested_by: Object.freeze({
       actor_id: requiredText(requestedBy.actor_id, 'requested_by.actor_id'),
       membership_id: requiredText(requestedBy.membership_id, 'requested_by.membership_id'),
     }),
     activation_request: Object.freeze(structuredClone(activationRequest)),
+    ...(record.administrator ? { administrator: Object.freeze(structuredClone(record.administrator)) } : {}),
   });
 }
 
@@ -105,6 +106,13 @@ export class AutoNodeTaskEngine {
     });
     if (RECOVERABLE_STATUSES.has(task.receipt.status)) this.#schedule(task.request.task_id, task.request.node_id);
     return publicReceipt(task);
+  }
+
+  async instances() {
+    const [instances, tasks] = await Promise.all([this.executor.instances(), this.list()]);
+    return instances.map((instance) => ({ ...instance, task: tasks
+      .filter((task) => task.node_id === instance.node_id && task.action !== 'ACTIVATE')
+      .sort((left, right) => right.created_at.localeCompare(left.created_at))[0] ?? null }));
   }
 
   async read(taskId) {
@@ -195,6 +203,18 @@ export class AutoNodeTaskEngine {
     if (task?.receipt.status !== 'RUNNING') return;
 
     try {
+      if (task.request.action !== 'ACTIVATE') {
+        const result = await this.executor.lifecycle(task.request, async (phase, progress, message) => {
+          await this.#progress(taskId, { phase, progress, message });
+        });
+        await this.#complete(taskId, {
+          status: 'SUCCEEDED', phase: 'SUCCEEDED', progress: 100,
+          activation_status: task.request.action === 'DELETE' ? 'DELETED' : 'ACTIVE',
+          waiting_external: [], result, last_error: null,
+          message: task.request.action === 'DELETE' ? '实例资源已删除' : task.request.action === 'INITIALIZE' ? '管理员已初始化' : '空库商城已生成',
+        });
+        return;
+      }
       const planned = normalizePlanResult(await this.executor.plan(task.request.activation_request));
       if (planned.waiting_external.length > 0) {
         await this.#complete(taskId, {
