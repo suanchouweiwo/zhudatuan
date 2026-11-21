@@ -8,6 +8,7 @@ import {
   mkdir,
   readFile,
   readlink,
+  realpath,
   rename,
   rm,
   stat,
@@ -15,6 +16,7 @@ import {
   writeFile,
 } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { catalogOperatorApiEnvironment } from '../../../01_core_hexin/packages/config/src/CatalogOperatorApiEnvironment.ts';
 import { identityRegistrationApiEnvironment } from '../../../01_core_hexin/packages/config/src/IdentityRegistrationApiEnvironment.ts';
@@ -30,6 +32,14 @@ import {
 import { AutoNodeCloudflareClient } from './autonode-cloudflare.mjs';
 import { nodeActivationTunnelName } from './autonode-activation-engine.mjs';
 import { activateCandidateNodeManifest } from './autonode-engine.mjs';
+import {
+  isZhudatuanL0Opening,
+  openingArtifacts,
+  openingInheritedSecrets,
+  openingPaymentSecret,
+  openingSecretUnitFile,
+  zhudatuanOpeningSecretUnit,
+} from './autonode-zhudatuan-opening.mjs';
 
 export const AUTONODE_RUNTIME_PROFILE_SCHEMA_VERSION = 'sfl.autonode-runtime-profile.v1';
 export const AUTONODE_PROVIDER_RECEIPT_SCHEMA_VERSION = 'sfl.autonode-provider-receipt.v1';
@@ -63,6 +73,7 @@ const SERVICE_SECRET_REFERENCES = Object.freeze({
 });
 
 const PROCESS_ORDER = Object.freeze([
+  'secret-store',
   'object-store',
   'catalog-api',
   'web-api',
@@ -74,6 +85,10 @@ const PROCESS_ORDER = Object.freeze([
   'storefront',
   'api-gateway',
   'cloudflared',
+]);
+
+const OPENING_SECRET_CLIENTS = new Set([
+  ...Object.keys(SERVICE_SECRET_REFERENCES), 'payment-webhook-api', 'payment-jobs',
 ]);
 
 export class ProductionNodeActivationProvider {
@@ -126,6 +141,16 @@ export class ProductionNodeActivationProvider {
       if (!await exists(binary)) waiting.push(`command:${binary}`);
     }
     const systemd = await readJson(join(context.candidate.nodeDirectory, 'runtime', 'systemd-instances.json'));
+    if (isZhudatuanL0Opening(request)) {
+      const runtime = join(context.plan.node_directory, 'runtime');
+      const artifacts = await readJson(join(runtime, 'opening-artifacts.json'));
+      const { missing } = await openingArtifacts(request, artifacts);
+      waiting.push(...missing.map((target) => `${artifacts ? 'pinned' : 'parent'}-artifact:${target}`));
+      if (!await exists(join(runtime, 'secrets.json'))) {
+        const { missing } = await openingInheritedSecrets(request, this.environment);
+        waiting.push(...missing.map((reference) => `parent-secret-binding:${reference}`));
+      }
+    }
     const interpolation = interpolationValues(context, context.candidate.manifest);
     const secretBinding = context.candidate.manifest.secret_binding_set_ref.ref;
     const secretPrefix = secretBinding.endsWith('/secrets')
@@ -213,6 +238,14 @@ export class ProductionNodeActivationProvider {
     if (['RUNTIME_CONFIGURED', 'TLS_BOUND', 'HEALTH_VERIFIED'].includes(step)) {
       return await this.rollback(step, context, { details: {} }, rollbackInvocationId);
     }
+    if (isZhudatuanL0Opening(context.request) && step === 'RELEASE_BOUND') {
+      return await this.rollback(step, context, { details: {} }, rollbackInvocationId);
+    }
+    if (isZhudatuanL0Opening(context.request) && step === 'SYSTEMD_READY') {
+      const journal = await readJson(this.#journalFile(interruptedInvocationId));
+      const units = Object.entries(journal?.initial_enabled ?? {}).map(([unit, enabled_before]) => ({ unit, enabled_before }));
+      return await this.rollback(step, context, { details: { units } }, rollbackInvocationId);
+    }
     if (step !== 'PROCESSES_READY') {
       throw new Error(`AUTONODE_PRODUCTION_INTERRUPTED_ROLLBACK_UNSUPPORTED:${step}`);
     }
@@ -254,7 +287,7 @@ export class ProductionNodeActivationProvider {
       case 'ACTIVE': return await this.#unmarkActive(context);
       case 'HEALTH_VERIFIED': return { checked_only: true };
       case 'PROCESSES_READY': return await this.#stopProcesses(details, profile);
-      case 'SYSTEMD_READY': return await this.#rollbackSystemd(details, profile);
+      case 'SYSTEMD_READY': return await this.#rollbackSystemd(context, details, profile);
       case 'DNS_BOUND': return await this.#unbindDns(details, profile);
       case 'TUNNEL_BOUND': return await this.#unbindTunnel(context, details, profile);
       case 'TLS_BOUND': return await this.#unbindTls(context, details);
@@ -307,10 +340,30 @@ export class ProductionNodeActivationProvider {
       await symlink(desired, next);
       await rename(next, current);
     }
+    let applicationPointers;
+    if (isZhudatuanL0Opening(context.request)) {
+      const snapshot = join(context.plan.node_directory, 'runtime', 'opening-artifacts.json');
+      applicationPointers = await readJson(snapshot);
+      if (applicationPointers === null) {
+        const { artifacts, missing } = await openingArtifacts(context.request);
+        if (missing.length) throw new Error(`AUTONODE_L0_PARENT_ARTIFACT_MISSING:${missing.join(',')}`);
+        applicationPointers = artifacts;
+        await writeJsonAtomic(snapshot, applicationPointers);
+      }
+      for (const [target, release] of Object.entries(applicationPointers)) {
+        const pointer = join(context.plan.node_directory, 'targets', target, 'current');
+        const actual = await symlinkTarget(pointer);
+        if (actual === release) continue;
+        if (actual !== null) throw new Error(`AUTONODE_RELEASE_POINTER_CONFLICT:${pointer}`);
+        await mkdir(dirname(pointer), { recursive: true });
+        await symlink(release, pointer);
+      }
+    }
     return {
       release_pointer: current,
       release_directory: desired,
-      previous_target: previous,
+      previous_target: applicationPointers ? null : previous,
+      ...(applicationPointers ? { application_pointers: applicationPointers } : {}),
       source_sha: context.plan.source_sha,
       immutable_artifact_digest: context.plan.immutable_artifact_digest,
     };
@@ -329,6 +382,16 @@ export class ProductionNodeActivationProvider {
 
     const generatedSystemd = await readRequiredJson(join(runtimeDirectory, 'systemd-instances.json'));
     const systemd = replaceDeep(generatedSystemd, candidateDirectory, nodeDirectory);
+    const opening = isZhudatuanL0Opening(context.request)
+      ? await this.#configureOpeningSecrets(context, profile, activeManifest, runtimeDirectory, resources, systemd.instances)
+      : null;
+    if (opening && !systemd.instances.some(({ service }) => service === 'secret-store')) {
+      systemd.instances.unshift({
+        service: 'secret-store',
+        unit: zhudatuanOpeningSecretUnit(nodeInstance(context)),
+        environment_file: null,
+      });
+    }
     await writeJsonAtomic(join(runtimeDirectory, 'systemd-instances.json'), systemd, 0o640);
 
     const configuredServices = [];
@@ -336,7 +399,16 @@ export class ProductionNodeActivationProvider {
       if (environmentFile === null) continue;
       const candidateFile = join(candidateDirectory, 'runtime', `${service}.env`);
       const generated = await readEnvironment(candidateFile);
-      const overrides = interpolateRecord(profile.services[service], interpolationValues(context, activeManifest));
+      const overrides = { ...interpolateRecord(profile.services[service], {
+        ...interpolationValues(context, activeManifest),
+        object_store_port: String(resources.ports.object_store),
+        ...opening,
+      }, this.environment) };
+      if (opening && service === 'purchase-api' && !context.request.provisioning_request.resources.payment) {
+        for (const key of ['KMS_ENDPOINT', 'KMS_BEARER_TOKEN', 'WECHAT_APPLICATION_CONFIG_REF', 'WECHAT_PAYMENT_CONFIG_REF']) {
+          delete overrides[key];
+        }
+      }
       const environment = {
         ...replaceDeep(generated, candidateDirectory, nodeDirectory),
         ...(SERVICE_CONSTANTS[service] ?? {}),
@@ -393,6 +465,49 @@ export class ProductionNodeActivationProvider {
       cloudflared_digest: await digestFile(cloudflaredFile),
       console_runtime_digest: await digestFile(join(runtimeDirectory, 'console-runtime.json')),
       identity_runtime_digest: await digestFile(join(runtimeDirectory, 'identity-runtime.json')),
+    };
+  }
+
+  async #configureOpeningSecrets(context, profile, manifest, runtime, resources, instances) {
+    const secretFile = join(runtime, 'secrets.json');
+    if (!await exists(secretFile)) {
+      const { entries, missing } = await openingInheritedSecrets(context.request, this.environment);
+      if (missing.length) throw new Error(`AUTONODE_L0_PARENT_SECRET_MISSING:${missing.join(',')}`);
+      for (const reference of ['identity/session', 'identity/index', 'purchase/checkout/quote']) {
+        entries[reference] = randomBytes(36).toString('base64url');
+      }
+      if (context.request.provisioning_request.resources.payment) {
+        entries['payment/wechat'] = openingPaymentSecret(entries['payment/wechat'],
+          context.request.provisioning_request.domains.api, manifest.data_scope_ref.ref);
+      }
+      const prefix = interpolationValues(context, manifest).node_token;
+      await writeJsonAtomic(secretFile, Object.fromEntries(Object.entries(entries).map(([reference, value]) => [
+        `${prefix}/${reference}`, value,
+      ])));
+    }
+    const credentialFile = join(runtime, 'opening-credentials.json');
+    let credentials = await readJson(credentialFile);
+    if (credentials === null) {
+      credentials = { secret_store: randomBytes(36).toString('base64url'), object_store: randomBytes(36).toString('base64url') };
+      await writeJsonAtomic(credentialFile, credentials, 0o600);
+    }
+    const port = resources.ports.secret_store;
+    await writeEnvironment(join(runtime, 'secret-store.env'), {
+      LOCAL_SECRETS_FILE: secretFile,
+      LOCAL_SECRETS_PORT: port,
+      LOCAL_SECRET_STORE_BEARER_TOKEN: credentials.secret_store,
+      LOCAL_TLS_CERT_FILE: profile.services['object-store'].LOCAL_TLS_CERT_FILE,
+      LOCAL_TLS_KEY_FILE: profile.services['object-store'].LOCAL_TLS_KEY_FILE,
+    });
+    const controlEntry = await realpath(fileURLToPath(import.meta.url));
+    const dependents = instances.filter(({ service }) => OPENING_SECRET_CLIENTS.has(service)).map(({ unit }) => unit);
+    await writeFile(join(runtime, 'secret-store.service'),
+      openingSecretUnitFile(context.plan.node_directory, process.execPath, controlEntry, port, dependents), { mode: 0o644 });
+    return {
+      secret_store_port: String(port),
+      secret_store_token: credentials.secret_store,
+      object_store_token: credentials.object_store,
+      child_secrets_file: secretFile,
     };
   }
 
@@ -521,7 +636,8 @@ export class ProductionNodeActivationProvider {
       initial_enabled: {},
     };
     const templates = [];
-    for (const template of [...new Set(systemd.instances.map(({ unit }) => unitTemplateName(unit)))]) {
+    const sharedUnits = systemd.instances.filter(({ service }) => service !== 'secret-store');
+    for (const template of [...new Set(sharedUnits.map(({ unit }) => unitTemplateName(unit)))]) {
       const source = join(context.request.target.release_directory,
         '02_platform_pingtai/infrastructure/zhudatuan/aliyun/systemd', template);
       const destination = join(context.request.target.systemd_unit_root, template);
@@ -535,6 +651,18 @@ export class ProductionNodeActivationProvider {
         throw new Error(`AUTONODE_SYSTEMD_TEMPLATE_CONFLICT:${template}`);
       }
       templates.push({ template, destination, installed: !destinationExists });
+    }
+    if (isZhudatuanL0Opening(context.request)) {
+      const unit = zhudatuanOpeningSecretUnit(nodeInstance(context));
+      const source = join(context.plan.node_directory, 'runtime', 'secret-store.service');
+      const destination = join(context.request.target.systemd_unit_root, unit);
+      if (!await exists(destination)) {
+        const temporary = `${destination}.tmp-${digestText(invocationId).slice(0, 12)}`;
+        await cp(source, temporary);
+        await rename(temporary, destination);
+      } else if (await digestFile(source) !== await digestFile(destination)) {
+        throw new Error(`AUTONODE_SYSTEMD_UNIT_CONFLICT:${unit}`);
+      }
     }
     await this.runner(profile.commands.systemctl, ['daemon-reload']);
     for (const { unit } of systemd.instances) {
@@ -678,12 +806,19 @@ export class ProductionNodeActivationProvider {
     return { stopped_units: stopped };
   }
 
-  async #rollbackSystemd(details, profile) {
+  async #rollbackSystemd(context, details, profile) {
     const disabled = [];
     for (const { unit, enabled_before: enabledBefore } of [...(details.units ?? [])].reverse()) {
       if (!enabledBefore) {
         await this.runner(profile.commands.systemctl, ['disable', unit], { allowFailure: true });
         disabled.push(unit);
+      }
+    }
+    if (isZhudatuanL0Opening(context.request)) {
+      const source = join(context.plan.node_directory, 'runtime', 'secret-store.service');
+      const destination = join(context.request.target.systemd_unit_root, zhudatuanOpeningSecretUnit(nodeInstance(context)));
+      if (await exists(destination) && await digestFile(source) === await digestFile(destination)) {
+        await rm(destination);
       }
     }
     await this.runner(profile.commands.systemctl, ['daemon-reload']);
@@ -731,6 +866,13 @@ export class ProductionNodeActivationProvider {
   }
 
   async #unbindRelease(context, details, invocationId) {
+    if (isZhudatuanL0Opening(context.request)) {
+      const artifacts = await readJson(join(context.plan.node_directory, 'runtime', 'opening-artifacts.json'));
+      for (const [target, release] of Object.entries(artifacts ?? {})) {
+        const pointer = join(context.plan.node_directory, 'targets', target, 'current');
+        if (await symlinkTarget(pointer) === release) await rm(pointer);
+      }
+    }
     const current = join(context.plan.node_directory, 'current');
     const actual = await symlinkTarget(current);
     if (actual !== null && resolve(dirname(current), actual) === context.request.target.release_directory) {
@@ -935,11 +1077,13 @@ function interpolationValues(context, manifest) {
   });
 }
 
-function interpolateRecord(record, values) {
-  return Object.freeze(Object.fromEntries(Object.entries(record).map(([key, value]) => [
-    key,
-    value.replace(/\{([a-z_]+)\}/g, (match, name) => Object.hasOwn(values, name) ? values[name] : match),
-  ])));
+function interpolateRecord(record, values, environment) {
+  return Object.freeze(Object.fromEntries(Object.entries(record).map(([key, value]) => {
+    // Only explicit, whole-value references read from the AutoNode service environment.
+    const reference = environment && /^\{env:([A-Z][A-Z0-9_]*)\}$/.exec(value);
+    if (reference) return [key, requiredEnvironmentValue(environment, reference[1])];
+    return [key, value.replace(/\{([a-z_]+)\}/g, (match, name) => Object.hasOwn(values, name) ? values[name] : match)];
+  })));
 }
 
 function replaceDeep(value, from, to) {

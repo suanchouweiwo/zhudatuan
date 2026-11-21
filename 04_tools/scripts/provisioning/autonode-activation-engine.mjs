@@ -13,6 +13,7 @@ import {
   FileNodeProvisioningEngine,
   parseNodeProvisioningRequest,
 } from './autonode-engine.mjs';
+import { isZhudatuanL0Opening, zhudatuanOpeningSecretUnit } from './autonode-zhudatuan-opening.mjs';
 
 export const AUTONODE_ACTIVATION_REQUEST_SCHEMA_VERSION = 'sfl.autonode-activation-request.v1';
 export const AUTONODE_ACTIVATION_LEDGER_SCHEMA_VERSION = 'sfl.autonode-activation-ledger.v1';
@@ -60,7 +61,9 @@ export class NodeActivationEngine {
   async plan(input) {
     const request = normalizeActivationRequest(input);
     await this.#prepare();
-    const candidate = await new FileNodeProvisioningEngine(this.candidateRoot)
+    const candidate = await new FileNodeProvisioningEngine(this.candidateRoot, {
+      allocateSecretStorePort: isZhudatuanL0Opening(request),
+    })
       .provision(request.provisioning_request);
     const identity = activationIdentity(request);
     return await withLock(this.activationRoot, 'engine', async () => {
@@ -261,7 +264,9 @@ export class NodeActivationEngine {
     const ledger = await readJson(this.#ledgerFile(identity));
     if (ledger === null) return null;
     assertReplayMatches(ledger, request, identity);
-    const candidate = await new FileNodeProvisioningEngine(this.candidateRoot)
+    const candidate = await new FileNodeProvisioningEngine(this.candidateRoot, {
+      allocateSecretStorePort: isZhudatuanL0Opening(request),
+    })
       .provision(request.provisioning_request);
     return await this.#result(ledger, candidate);
   }
@@ -292,6 +297,8 @@ async function activationPlan(request, candidate) {
   const systemd = await readRequiredJson(join(candidate.nodeDirectory, 'runtime', 'systemd-instances.json'));
   const systemdTemplates = [...new Set(systemd.instances.map(({ unit }) =>
     join(request.target.systemd_unit_root, `${unit.split('@')[0]}@.service`)))].sort();
+  const units = systemd.instances.map(({ unit }) => unit);
+  if (isZhudatuanL0Opening(request)) units.unshift(zhudatuanOpeningSecretUnit(instance));
   const artifact = request.provisioning_request.artifact;
   const operations = [
     operation('FILES_MATERIALIZED', [nodeDirectory], [`remove owned node directory ${nodeDirectory}`]),
@@ -311,9 +318,9 @@ async function activationPlan(request, candidate) {
       [`delete owned tunnel tunnel:${nodeActivationTunnelName(request, candidate.manifest)}`]),
     operation('DNS_BOUND', Object.values(hosts).sort(),
       [`delete only DNS record IDs recorded for ${candidate.manifest.node_id}`]),
-    operation('SYSTEMD_READY', [...systemdTemplates, ...systemd.instances.map(({ unit }) => unit)],
+    operation('SYSTEMD_READY', [...systemdTemplates, ...units],
       [`disable only ${instance} systemd instances`]),
-    operation('PROCESSES_READY', systemd.instances.map(({ unit }) => unit),
+    operation('PROCESSES_READY', units,
       [`stop only ${instance} systemd instances`]),
     operation('HEALTH_VERIFIED', healthTargets(hosts), []),
     operation('ACTIVE', [join(nodeDirectory, 'manifest.json'), join(nodeDirectory, 'receipts', 'activation.json')],

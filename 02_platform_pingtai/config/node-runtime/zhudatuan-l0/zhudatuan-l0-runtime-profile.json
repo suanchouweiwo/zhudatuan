@@ -1,0 +1,110 @@
+{
+  "schema_version": "sfl.autonode-runtime-profile.v1",
+  "profile_id": "zhudatuan-l0-opening",
+  "environment": "production",
+  "services": {
+    "storefront": {},
+    "catalog-api": {
+      "DATABASE_API_CONNECTION_REF": "{node_token}/database/catalog-api",
+      "DATABASE_API_ROLE": "zhudatuanidentityapi",
+      "OBJECT_STORE_ENDPOINT": "https://127.0.0.1:{object_store_port}",
+      "OBJECT_STORE_BEARER_TOKEN": "{object_store_token}",
+      "SECRET_STORE_ENDPOINT": "https://127.0.0.1:{secret_store_port}",
+      "SECRET_STORE_BEARER_TOKEN": "{secret_store_token}",
+      "NODE_EXTRA_CA_CERTS": "/opt/zhudatuan/shared/tls/internal-ca.crt"
+    },
+    "web-api": {
+      "PUBLIC_MALL_SLUG": "{public_slug}",
+      "DATABASE_API_CONNECTION_REF": "{node_token}/database/web-api",
+      "DATABASE_API_ROLE": "zhudatuanwebapi",
+      "KMS_ENDPOINT": "https://127.0.0.1:8544",
+      "KMS_BEARER_TOKEN": "{env:AUTONODE_ZHUDUATUAN_WEB_KMS_TOKEN}",
+      "SECRET_STORE_ENDPOINT": "https://127.0.0.1:{secret_store_port}",
+      "SECRET_STORE_BEARER_TOKEN": "{secret_store_token}",
+      "NODE_EXTRA_CA_CERTS": "/opt/zhudatuan/shared/tls/internal-ca.crt"
+    },
+    "identity-api": {
+      "DATABASE_API_CONNECTION_REF": "{node_token}/database/identity-api",
+      "DATABASE_API_ROLE": "zhudatuanidentityapi",
+      "SESSION_KEY_REF": "{node_token}/identity/session",
+      "IDENTITY_KEY_REF": "{node_token}/identity/index",
+      "WECHAT_APPLICATION_CONFIG_REF": "{node_token}/identity/wechat-applications",
+      "WECHAT_IDENTITY_CONFIG_REF": "{node_token}/identity/wechat",
+      "KMS_ENDPOINT": "https://127.0.0.1:8544",
+      "KMS_BEARER_TOKEN": "{env:AUTONODE_ZHUDUATUAN_IDENTITY_KMS_TOKEN}",
+      "OBJECT_STORE_ENDPOINT": "https://127.0.0.1:{object_store_port}",
+      "OBJECT_STORE_BEARER_TOKEN": "{object_store_token}",
+      "SECRET_STORE_ENDPOINT": "https://127.0.0.1:{secret_store_port}",
+      "SECRET_STORE_BEARER_TOKEN": "{secret_store_token}",
+      "NODE_EXTRA_CA_CERTS": "/opt/zhudatuan/shared/tls/internal-ca.crt"
+    },
+    "purchase-api": {
+      "DATABASE_API_CONNECTION_REF": "{node_token}/database/purchase-api",
+      "DATABASE_API_ROLE": "zhudatuanpurchaseapi",
+      "QUOTE_KEY_REF": "{node_token}/purchase/checkout/quote",
+      "SECRET_STORE_ENDPOINT": "https://127.0.0.1:{secret_store_port}",
+      "SECRET_STORE_BEARER_TOKEN": "{secret_store_token}",
+      "KMS_ENDPOINT": "https://127.0.0.1:8544",
+      "KMS_BEARER_TOKEN": "{env:AUTONODE_ZHUDUATUAN_PURCHASE_KMS_TOKEN}",
+      "WECHAT_APPLICATION_CONFIG_REF": "{node_token}/payment/wechat-applications",
+      "WECHAT_PAYMENT_CONFIG_REF": "{node_token}/payment/wechat",
+      "NODE_EXTRA_CA_CERTS": "/opt/zhudatuan/shared/tls/internal-ca.crt"
+    },
+    "payment-webhook-api": {
+      "DATABASE_API_CONNECTION_REF": "{node_token}/database/payment-webhook-api",
+      "DATABASE_API_ROLE": "zhudatuanpaymentwebhookapi",
+      "SECRET_STORE_ENDPOINT": "https://127.0.0.1:{secret_store_port}",
+      "SECRET_STORE_BEARER_TOKEN": "{secret_store_token}",
+      "WECHAT_APPLICATION_CONFIG_REF": "{node_token}/payment/wechat-applications",
+      "WECHAT_PAYMENT_CONFIG_REF": "{node_token}/payment/wechat",
+      "NODE_EXTRA_CA_CERTS": "/opt/zhudatuan/shared/tls/internal-ca.crt"
+    },
+    "catalog-jobs": {
+      "DATABASE_JOB_CONNECTION_REF": "{node_token}/database/catalog-jobs",
+      "DATABASE_JOB_ROLE": "shopjob",
+      "JOB_WORKER_ID": "{node_slug}-catalog-1",
+      "OBJECT_STORE_ENDPOINT": "https://127.0.0.1:{object_store_port}",
+      "OBJECT_STORE_BEARER_TOKEN": "{object_store_token}",
+      "SECRET_STORE_ENDPOINT": "https://127.0.0.1:{secret_store_port}",
+      "SECRET_STORE_BEARER_TOKEN": "{secret_store_token}",
+      "NODE_EXTRA_CA_CERTS": "/opt/zhudatuan/shared/tls/internal-ca.crt"
+    },
+    "payment-jobs": {
+      "DATABASE_JOB_CONNECTION_REF": "{node_token}/database/payment-jobs",
+      "DATABASE_JOB_ROLE": "shopjob",
+      "JOB_WORKER_ID": "{node_slug}-payment-1",
+      "SECRET_STORE_ENDPOINT": "https://127.0.0.1:{secret_store_port}",
+      "SECRET_STORE_BEARER_TOKEN": "{secret_store_token}",
+      "WECHAT_APPLICATION_CONFIG_REF": "{node_token}/payment/wechat-applications",
+      "WECHAT_PAYMENT_CONFIG_REF": "{node_token}/payment/wechat",
+      "NODE_EXTRA_CA_CERTS": "/opt/zhudatuan/shared/tls/internal-ca.crt"
+    },
+    "object-store": {
+      "LOCAL_TLS_KEY_FILE": "/opt/zhudatuan/shared/tls/internal.key",
+      "LOCAL_TLS_CERT_FILE": "/opt/zhudatuan/shared/tls/internal.crt",
+      "LOCAL_SECRETS_FILE": "{child_secrets_file}",
+      "LOCAL_SECRETS_PORT": "8543",
+      "LOCAL_KMS_PORT": "8544",
+      "LOCAL_KMS_MASTER_KEY": "{env:AUTONODE_ZHUDUATUAN_LOCAL_KMS_MASTER_KEY}",
+      "LOCAL_KMS_BEARER_TOKEN": "{env:AUTONODE_ZHUDUATUAN_LOCAL_KMS_TOKEN}",
+      "LOCAL_SECRET_STORE_BEARER_TOKEN": "{secret_store_token}",
+      "LOCAL_OBJECTS_TOKEN": "{object_store_token}",
+      "NODE_EXTRA_CA_CERTS": "/opt/zhudatuan/shared/tls/internal-ca.crt"
+    }
+  },
+  "tls": {
+    "binding_ref": "tls:zhudatuan-l0:new-store-origin",
+    "certificate_file": "/opt/sfl/control/autonode/zhudatuan-l0-tls/origin.crt",
+    "private_key_file": "/opt/sfl/control/autonode/zhudatuan-l0-tls/origin.key",
+    "ca_file": "/opt/sfl/control/autonode/zhudatuan-l0-tls/origin-ca.crt"
+  },
+  "cloudflare": {
+    "account_id": "4dceba8f9d03d121208467416a73c948",
+    "api_token_env": "AUTONODE_ZHUDUATUAN_CLOUDFLARE_TOKEN"
+  },
+  "identity_registry": {
+    "binding_ref": "identity-registry:zhudatuan-l0",
+    "connection_string_env": "AUTONODE_ZHUDUATUAN_IDENTITY_DATABASE_URL"
+  },
+  "commands": {}
+}

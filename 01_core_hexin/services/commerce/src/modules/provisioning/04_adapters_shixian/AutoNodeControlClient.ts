@@ -214,7 +214,9 @@ function activationRequest(
       environment: 'production',
       node_root: '/opt/sfl/nodes',
       release_directory: parent.release_pointer_ref.ref,
-      runtime_profile_ref: '/opt/sfl/control/autonode/runtime-profile.json',
+      runtime_profile_ref: provisioningDomain
+        ? '/opt/sfl/control/autonode/zhudatuan-l0-runtime-profile.json'
+        : '/opt/sfl/control/autonode/runtime-profile.json',
       systemd_unit_root: '/etc/systemd/system',
     },
   });

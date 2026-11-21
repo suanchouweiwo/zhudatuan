@@ -413,6 +413,7 @@
         "04_tools/scripts/provisioning/autonode-task-executor.mjs",
         "04_tools/scripts/provisioning/autonode-activate.mjs",
         "04_tools/scripts/provisioning/autonode-production-provider.mjs",
+        "04_tools/scripts/provisioning/autonode-zhudatuan-opening.mjs",
         "04_tools/scripts/provisioning/autonode-cloudflare.mjs",
         "04_tools/scripts/release/sfl-autonode-control.service",
         "04_tools/release-engine/adapters/zdt-next/build-node-operations.mjs"

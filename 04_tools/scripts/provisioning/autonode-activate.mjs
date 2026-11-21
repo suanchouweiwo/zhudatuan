@@ -8,6 +8,9 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 
+import { startLocalHttps } from '../../tools/localinfra/src/Http.ts';
+import { secretStoreHandler } from '../../tools/localsecrets/src/Handler.ts';
+import { SecretCatalog } from '../../tools/localsecrets/src/SecretCatalog.ts';
 import {
   NodeActivationEngine,
   parseNodeActivationRequest,
@@ -27,34 +30,48 @@ const { positionals, values } = parseArgs({
 });
 
 const command = positionals[0];
-if (!['plan', 'status', 'apply', 'rollback', 'restore'].includes(command)
-  || !values['state-root'] || !values.request) throw new Error('AUTONODE_ACTIVATION_USAGE_INVALID');
-if ((command === 'apply' || command === 'restore') && !values['approved-plan-digest']) {
-  throw new Error('AUTONODE_APPROVED_PLAN_DIGEST_REQUIRED');
-}
-
-const request = parseNodeActivationRequest(JSON.parse(await readFile(values.request, 'utf8')));
-const providerStateRoot = values['provider-state-root'] ?? join(values['state-root'], 'provider');
-const provider = new ProductionNodeActivationProvider(providerStateRoot);
-const engine = new NodeActivationEngine(values['state-root'], provider);
-let result;
-if (command === 'plan') {
-  result = await engine.plan(request);
-  result = {
-    plan: result.plan,
-    waiting_external: await provider.preflight({ request, plan: result.plan, candidate: result.candidate }),
-  };
-} else if (command === 'status') {
-  result = await engine.read(request);
-} else if (command === 'apply') {
-  result = await engine.apply(request, values['approved-plan-digest']);
-} else if (command === 'rollback') {
-  result = await engine.rollback(request, values.reason ?? 'approved node rollback');
+if (command === 'serve-opening-secrets') {
+  const environment = process.env;
+  const catalog = await SecretCatalog.load(environment.LOCAL_SECRETS_FILE);
+  await startLocalHttps('localsecrets', Number(environment.LOCAL_SECRETS_PORT),
+    secretStoreHandler(catalog, environment.LOCAL_SECRET_STORE_BEARER_TOKEN), {
+      certificateFile: environment.LOCAL_TLS_CERT_FILE,
+      keyFile: environment.LOCAL_TLS_KEY_FILE,
+    }, 1024);
 } else {
-  result = await engine.restore(request, values['approved-plan-digest']);
+  await runActivation(command, values);
 }
 
-process.stdout.write(`${JSON.stringify(summary(command, result), null, 2)}\n`);
+async function runActivation(command, values) {
+  if (!['plan', 'status', 'apply', 'rollback', 'restore'].includes(command)
+    || !values['state-root'] || !values.request) throw new Error('AUTONODE_ACTIVATION_USAGE_INVALID');
+  if ((command === 'apply' || command === 'restore') && !values['approved-plan-digest']) {
+    throw new Error('AUTONODE_APPROVED_PLAN_DIGEST_REQUIRED');
+  }
+
+  const request = parseNodeActivationRequest(JSON.parse(await readFile(values.request, 'utf8')));
+  const providerStateRoot = values['provider-state-root'] ?? join(values['state-root'], 'provider');
+  const provider = new ProductionNodeActivationProvider(providerStateRoot);
+  const engine = new NodeActivationEngine(values['state-root'], provider);
+  let result;
+  if (command === 'plan') {
+    result = await engine.plan(request);
+    result = {
+      plan: result.plan,
+      waiting_external: await provider.preflight({ request, plan: result.plan, candidate: result.candidate }),
+    };
+  } else if (command === 'status') {
+    result = await engine.read(request);
+  } else if (command === 'apply') {
+    result = await engine.apply(request, values['approved-plan-digest']);
+  } else if (command === 'rollback') {
+    result = await engine.rollback(request, values.reason ?? 'approved node rollback');
+  } else {
+    result = await engine.restore(request, values['approved-plan-digest']);
+  }
+
+  process.stdout.write(`${JSON.stringify(summary(command, result), null, 2)}\n`);
+}
 
 function summary(selected, value) {
   if (selected === 'plan') return value;
