@@ -137,10 +137,10 @@ function activationRequest(
 ): Readonly<Record<string, unknown>> {
   if (!/^[0-9a-f]{40}$/.test(sourceSha)) throw new Error('AUTONODE_SOURCE_SHA_INVALID');
   const slug = mall.publicSlug.toLowerCase();
-  const mainStorefront = zhudatuanStorefrontDomain(parent.node_id);
-  const baseDomain = mainStorefront ?? 'hbbtzn.com';
+  const provisioningDomain = zhudatuanProvisioningDomain(parent.node_id);
+  const baseDomain = provisioningDomain ?? 'hbbtzn.com';
   const storefrontHost = `${slug}.${baseDomain}`;
-  const serviceHost = (service: string) => mainStorefront
+  const serviceHost = (service: string) => provisioningDomain
     ? `${service}-${storefrontHost}`
     : `${service}.${storefrontHost}`;
   const parentPayment = parent.payment_binding_refs[0];
@@ -220,13 +220,13 @@ function activationRequest(
   });
 }
 
-function zhudatuanStorefrontDomain(parentNodeId: string): string | undefined {
+function zhudatuanProvisioningDomain(parentNodeId: string): string | undefined {
   if (parentNodeId !== 'node:zhudatuan:l0') return undefined;
   const parent = zhudatuanL0.manifests.find((manifest) => manifest.node_id === parentNodeId);
-  const bindingRef = zhudatuanL0.node_bindings.find((binding) => binding.node_id === parentNodeId)?.primary_storefront_binding_ref;
-  const storefront = parent?.domain_bindings.find((binding) => binding.binding_ref.ref === bindingRef);
-  if (!storefront) throw new Error('AUTONODE_STOREFRONT_DOMAIN_MISSING');
-  return storefront.host;
+  // The apex binding supplies the DNS zone. The primary storefront binding is the www entry.
+  const apex = parent?.domain_bindings.find((binding) => binding.binding_ref.ref === 'domain:zhudatuan:l0:storefront');
+  if (!apex) throw new Error('AUTONODE_PROVISIONING_DOMAIN_MISSING');
+  return apex.host;
 }
 
 function nextLevel(level: SignedLevel): SignedLevel {
