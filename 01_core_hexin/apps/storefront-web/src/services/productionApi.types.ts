@@ -1,3 +1,5 @@
+import type { OrderAftersaleReceipt } from '../types';
+
 /** Public transport contracts for the browser-to-commerce API boundary. */
 export interface ApiProduct {
   id: string;
@@ -36,12 +38,22 @@ export interface ApiOrder {
   goodsAmountCents: number;
   discountCents: number;
   payableCents: number;
+  wechatPayableCents?: number;
+  paymentIntentId?: string;
   paidCents: number;
   welfarePaidCents?: number;
   mealPaidCents?: number;
   createdAt: string;
   updatedAt: string;
-  items?: Array<{ productId: string; productTitle: string; productImage: string | null; priceCents: number; quantity: number; specs: Record<string, string>; itemType: string }>;
+  items?: Array<{ orderLineId?: string; payableCents?: number; productId: string; productTitle: string; productImage: string | null; priceCents: number; quantity: number; specs: Record<string, string>; itemType: string }>;
+  aftersales?: OrderAftersaleReceipt[];
+}
+
+export interface OrderAftersaleInput {
+  readonly lines: readonly string[];
+  readonly kind: 'return' | 'refund';
+  readonly reason: string;
+  readonly returnMethod?: 'pickup' | 'self_send';
 }
 
 export type ApiPaymentResultState = 'preparing' | 'pending' | 'recovery' | 'captured' | 'failed' | 'expired';

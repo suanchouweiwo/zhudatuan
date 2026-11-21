@@ -3,12 +3,18 @@ export interface BenefitChoice {
   readonly amountMinor: number;
 }
 
+interface CheckoutItemSelection {
+  readonly listingId: string;
+  readonly quantity: number;
+}
+
 export interface CheckoutSelection {
   readonly address: string | null;
   readonly invoice: string | null;
   readonly delivery: Readonly<Record<string, unknown>>;
   readonly vouchers: readonly string[];
   readonly benefits: readonly BenefitChoice[];
+  readonly items?: readonly CheckoutItemSelection[];
 }
 
 export interface QuoteLine {
@@ -63,7 +69,22 @@ export function checkoutSelection(body: Readonly<Record<string, unknown>>): Chec
   const vouchers = textList(body.vouchers, 'vouchers', 20).sort();
   const benefits = benefitChoices(body.benefits).sort((left, right) => left.account.localeCompare(right.account));
   const delivery = record(body.delivery, 'delivery');
-  return Object.freeze({ address, invoice, delivery: Object.freeze(delivery), vouchers: Object.freeze(vouchers), benefits: Object.freeze(benefits) });
+  const items = body.items === undefined ? undefined : checkoutItems(body.items);
+  return Object.freeze({ address, invoice, delivery: Object.freeze(delivery), vouchers: Object.freeze(vouchers), benefits: Object.freeze(benefits),
+    ...(items === undefined ? {} : { items }) });
+}
+
+function checkoutItems(value: unknown): readonly CheckoutItemSelection[] {
+  if (!Array.isArray(value) || value.length === 0) throw new Error('VALIDATION_FAILED:items');
+  const items = value.map((entry) => {
+    const item = record(entry, 'items');
+    const listingId = requiredText(item.listingId, 'items.listingId');
+    const quantity = item.quantity;
+    if (typeof quantity !== 'number' || !Number.isSafeInteger(quantity) || quantity <= 0) throw new Error('VALIDATION_FAILED:items.quantity');
+    return Object.freeze({ listingId, quantity });
+  });
+  if (new Set(items.map(({ listingId }) => listingId)).size !== items.length) throw new Error('VALIDATION_FAILED:items.duplicate');
+  return Object.freeze(items.sort((left, right) => left.listingId.localeCompare(right.listingId)));
 }
 
 function benefitChoices(value: unknown): BenefitChoice[] {

@@ -4,11 +4,11 @@ import { createSecureId } from '@shop/sdk/context';
 import { checkoutWithCanonicalPayment, continueWithCanonicalPayment } from './canonicalCheckout';
 import { readCanonicalPaymentResult } from './canonicalPaymentResult';
 import { mapCanonicalProductPage } from './canonicalCatalogMapper';
-import { mapCanonicalAccounts, mapCanonicalCart, mapCanonicalLedgers, mapCanonicalOrders } from './canonicalCommerceMapper';
+import { mapCanonicalAccounts, mapCanonicalCart, mapCanonicalLedgers, mapCanonicalOrders, mapOrderAftersales } from './canonicalCommerceMapper';
 import { mapCanonicalAddresses, mapCanonicalBootstrap, mapCanonicalSession } from './canonicalIdentityMapper';
 import { boolean, nextCursor, nonNegativeInteger, optionalText, pageItems, record, text } from './canonicalShape';
 import { ProductionApiError } from './productionApi.error';
-import type { ApiAccount, ApiAccountLedger, ApiActor, ApiBootstrap, ApiCartItem, ApiDeliveryAddress, ApiHomeSnapshot, ApiOrder, ApiProduct, LoginRequest } from './productionApi.types';
+import type { ApiAccount, ApiAccountLedger, ApiActor, ApiBootstrap, ApiCartItem, ApiDeliveryAddress, ApiHomeSnapshot, ApiOrder, ApiProduct, LoginRequest, OrderAftersaleInput } from './productionApi.types';
 import { resolveStorefrontApplication, resolveStorefrontAuthTarget, resolveStorefrontPresentationIdentity } from '../config/storefrontIdentity';
 import { listPublicProducts } from './publicCatalogApi';
 
@@ -204,6 +204,20 @@ export const productionApi = {
 
   async listOrders(): Promise<{ items: ApiOrder[] }> {
     return { items: await orders() };
+  },
+
+  async readOrder(orderId: string): Promise<ApiOrder> {
+    const value = await canonicalCall(() => canonicalClient().order.ordersRead({ query: { order: orderId, limit: 1 } }, sessionContext()));
+    const order = mapCanonicalOrders(value).items.find(({ id }) => id === orderId);
+    if (!order) throw new ProductionApiError('订单不存在或已不可用', 404, 'RESOURCE_NOT_FOUND');
+    return order;
+  },
+
+  async applyOrderAftersale(orderId: string, input: OrderAftersaleInput, idempotencyKey: string) {
+    const value = await canonicalCall(() => canonicalClient().order.aftersalesApply({
+      path: { orderid: orderId }, body: { ...input },
+    }, sessionContext({ write: true, idempotencyKey })));
+    return mapOrderAftersales(record(value, 'order.aftersales.apply').items);
   },
 
   async listCart(): Promise<{ items: ApiCartItem[] }> {

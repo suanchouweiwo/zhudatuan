@@ -63,7 +63,7 @@ export function paymentResultReadFailure(cause: unknown): Readonly<{ message: st
 }
 
 export function selectPaymentResult(previous: ApiPaymentResult | null, next: ApiPaymentResult): ApiPaymentResult {
-  if (!previous) return next;
+  if (!previous || next.state === 'captured') return next;
   if (PAYMENT_PROGRESS[previous.state] === 3) return previous;
   return PAYMENT_PROGRESS[next.state] < PAYMENT_PROGRESS[previous.state] ? previous : next;
 }
@@ -98,7 +98,9 @@ export function PaymentResultPage({ paymentId, session }: PaymentResultPageProps
     setTabletPage,
   } = useMall();
   const resolvedPaymentId = session?.paymentId ?? paymentId ?? null;
-  const [result, setResult] = useState<ApiPaymentResult | null>(null);
+  const resultKey = `${resolvedPaymentId ?? ''}:${session?.retryCount ?? 0}`;
+  const [snapshot, setSnapshot] = useState<{ key: string; result: ApiPaymentResult } | null>(null);
+  const result = snapshot?.key === resultKey ? snapshot.result : null;
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(Boolean(resolvedPaymentId));
   const [cycle, setCycle] = useState(0);
@@ -114,7 +116,7 @@ export function PaymentResultPage({ paymentId, session }: PaymentResultPageProps
     setRefreshing(true);
     void productionApi.readPaymentResult(resolvedPaymentId).then((next) => {
       if (!active) return;
-      setResult((previous) => selectPaymentResult(previous, next));
+      setSnapshot((previous) => ({ key: resultKey, result: selectPaymentResult(previous?.key === resultKey ? previous.result : null, next) }));
       recordPaymentResult(next);
       setError(null);
       setRefreshing(false);
@@ -133,7 +135,7 @@ export function PaymentResultPage({ paymentId, session }: PaymentResultPageProps
       active = false;
       if (timer !== undefined) window.clearTimeout(timer);
     };
-  }, [cycle, recordPaymentResult, resolvedPaymentId]);
+  }, [cycle, recordPaymentResult, resolvedPaymentId, resultKey]);
 
   useEffect(() => {
     const reveal = window.setTimeout(() => setShowStatusAction(true), 8_000);
@@ -150,7 +152,7 @@ export function PaymentResultPage({ paymentId, session }: PaymentResultPageProps
   }, [resolvedPaymentId]);
 
   const stage = paymentDisplayStage(session, result);
-  const amountMinor = result?.amountMinor ?? session?.amountMinor ?? 0;
+  const amountMinor = session?.orderId ? session.amountMinor : result?.amountMinor ?? session?.amountMinor ?? 0;
   const currency = result?.currency ?? session?.currency ?? 'CNY';
   const amount = useMemo(() => formatPaymentAmount(amountMinor, currency), [amountMinor, currency]);
   const orderId = result?.orderId ?? session?.orderId ?? null;
