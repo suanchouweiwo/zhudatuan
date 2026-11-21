@@ -20,9 +20,9 @@ export async function createPlan(adapter, options = {}) {
   const requestedTargets = options.target === undefined ? [] : [options.target];
   for (const target of requestedTargets) invariant(Boolean(adapter.targets[target]), 'PLAN_TARGET_UNKNOWN', `Unknown target ${target}`);
   const [fromSha, toSha] = await Promise.all([resolveGitRef(adapter.projectRoot, fromRef), resolveGitRef(adapter.projectRoot, toRef)]);
-  const changes = await changedFiles(adapter.projectRoot, fromSha, toSha, options.files ?? []);
+  const changes = options.changes ?? await changedFiles(adapter.projectRoot, fromSha, toSha, options.files ?? []);
   const initial = classifyChanges(adapter, changes);
-  const refined = await refineDynamicImpact(adapter, initial, changes, { fromSha, toSha });
+  const refined = await refineDynamicImpact(adapter, initial, changes, { fromSha, toSha, forcedSingleTarget });
   const classification =
     requestedTargets.length > 0
       ? forcedSingleTarget

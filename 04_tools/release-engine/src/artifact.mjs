@@ -92,6 +92,7 @@ export async function packageTarget(adapter, plan, buildEvidence, runDirectory, 
     target: targetId,
     targetKind: target.kind,
     sourceSha: plan.to.sha,
+    instanceCacheKey: adapter.instanceCacheKey ?? null,
     contractTransition: {
       mode: 'contract-pool-pending',
       legacyRuntimeAuthority: 'disabled',
@@ -355,6 +356,9 @@ async function materializeInstanceRuntime(adapter, targetId, destination) {
   const runtimeDirectory = join(destination, 'node-runtime');
   await mkdir(runtimeDirectory, { recursive: true });
   await writeFile(join(runtimeDirectory, 'manifest.json'), manifest);
+  if (targetId === 'storefront' && adapter.storefrontEnvironment) {
+    await writeFile(join(runtimeDirectory, 'storefront-public.json'), prettyStableJson(adapter.storefrontEnvironment));
+  }
   const files = ['identity-node-projection.json', ...(targetId === 'console' ? ['console-runtime.json']
     : ['auth-web', 'identity-api', 'storefront'].includes(targetId) ? ['identity-runtime.json'] : [])];
   for (const name of files) {

@@ -4,7 +4,7 @@ import { setDefaultAutoSelectFamily } from 'node:net';
 import { setDefaultResultOrder } from 'node:dns';
 
 import { createReadStream } from 'node:fs';
-import { appendFile, chmod, chown, copyFile, cp, link, lstat, mkdir, readFile, readlink, readdir, realpath, rename, rm, statfs, symlink, writeFile } from 'node:fs/promises';
+import { appendFile, chmod, chown, copyFile, cp, link, lstat, mkdir, open, readFile, readlink, readdir, realpath, rename, rm, statfs, symlink, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { spawn } from 'node:child_process';
 import { performance } from 'node:perf_hooks';
@@ -18,10 +18,15 @@ setDefaultResultOrder('ipv4first');
 let actionName = 'unknown';
 let loadedPolicy = null;
 let loadedContext = null;
+let cutoverMarker = null;
+let releasePlacementTurn = null;
+let rollbackPlacementFd;
 
 const FORBIDDEN_DIRECTORIES = new Set(['.git', '.npm', '.nyc_output', '.turbo', '_cacache', 'coverage', 'logs', 'node_modules', 'playwright-report', 'releases', 'test-results', 'tmp', 'temp']);
 const MAX_ARTIFACT_BYTES = 150_000_000;
 const MAX_DEPENDENCY_LAYER_ARCHIVE_BYTES = 1_500_000_000;
+const ROLLBACK_POINTER_NAMES = ['current', 'previous', 'runtime', 'previous-runtime'];
+const RESTART_CLIENT_TIMEOUT_MS = 45_000;
 const DEFAULT_READINESS = Object.freeze({
   timeoutMs: 30_000,
   intervalMs: 500,
@@ -33,11 +38,8 @@ try {
   const [action, ...tokens] = process.argv.slice(2);
   actionName = action ?? 'unknown';
   const options = parseOptions(tokens);
-  const policyRoot = process.env.AI_DELIVERY_POLICY_ROOT ?? '/etc/ai-delivery/projects';
   const project = safeName(required(options.project, 'PROJECT_REQUIRED'));
-  const bundledPolicy = join(dirname(fileURLToPath(import.meta.url)), `${project}.json`);
-  const policyPath = await exists(bundledPolicy) ? bundledPolicy : join(policyRoot, `${project}.json`);
-  const policyBody = await readFile(policyPath);
+  const policyBody = await readAgentPolicy(action, project, options);
   const policy = JSON.parse(policyBody.toString('utf8'));
   loadedPolicy = policy;
   const nodeKey = safeName(required(options.node, 'NODE_REQUIRED'));
@@ -55,6 +57,12 @@ try {
   };
   const context = targetId ? makeContext(targetId) : null;
   loadedContext = context;
+  const placementWrites = [
+    'seed', 'baseline', 'stage', 'stage-direct', 'reuse', 'reuse-direct',
+    'validate-oss-candidate', 'validate-oss-candidate-v2', 'validate-oss-candidate-v3',
+    'deploy-oss-direct', 'deploy-oss-direct-v2', 'activate', 'activate-direct',
+  ];
+  if (placementWrites.includes(action)) releasePlacementTurn = await takePlacementTurn(context);
 
   let result;
   if (action === 'observe') {
@@ -65,6 +73,7 @@ try {
       return makeContext(target);
     });
   } else if (action === 'lookup') result = await lookup(context, options);
+  else if (action === 'artifact-pin') result = await artifactPin(context, options);
   else if (action === 'layer-lookup') result = await dependencyLayerLookup(context, options);
   else if (action === 'stage-layer') result = await stageDependencyLayer(context, options);
   else if (action === 'reuse') result = await reuse(context, options);
@@ -78,18 +87,25 @@ try {
   else if (action === 'seed') result = await seed(context, options);
   else if (action === 'activate') result = await activate(context, options);
   else if (action === 'activate-direct') result = await activateDirect(context, options);
-  else if (action === 'rollback') result = await rollback(context);
+  else if (action === 'rollback') {
+    const { receipt } = await rollbackRequestRecords(context, options.requestId);
+    if (receipt) result = { ...receipt, replayed: true };
+    else {
+      releasePlacementTurn = await takePlacementTurn(context, { holdForRestart: true });
+      result = await rollback(context, options);
+    }
+  }
   else if (action === 'verify') result = await verifyCurrent(context);
   else if (action === 'status') result = await status(context);
   else throw failure('ACTION_UNKNOWN', { action });
 
-  if (action !== 'status' && action !== 'observe') {
+  if (!['status', 'observe', 'artifact-pin'].includes(action) && !(action === 'rollback' && result.replayed)) {
     try { await audit(policy, { action, ...contextSummary(context), result, completedAt: new Date().toISOString() }); }
     catch (error) { process.stderr.write(`REMOTE_AUDIT_WARNING=${JSON.stringify(errorEvidence(error))}\n`); }
   }
   process.stdout.write(`${JSON.stringify({ ok: true, action, result }, null, 2)}\n`);
 } catch (error) {
-  if (actionName !== 'status' && actionName !== 'observe' && loadedPolicy && loadedContext) {
+  if (!['status', 'observe', 'artifact-pin'].includes(actionName) && loadedPolicy && loadedContext) {
     try {
       await audit(loadedPolicy, {
         action: actionName,
@@ -101,6 +117,58 @@ try {
   }
   process.stderr.write(`${JSON.stringify({ ok: false, error: { code: error.code ?? 'REMOTE_AGENT_FAILED', message: error.message, details: error.details ?? {} } })}\n`);
   process.exitCode = 1;
+} finally {
+  if (releasePlacementTurn) await releasePlacementTurn();
+}
+
+async function takePlacementTurn(context, { holdForRestart = false } = {}) {
+  const root = context.deployment.pointerRoot;
+  assertAllowedRoot(context.policy, root);
+  const directory = join(root, 'state');
+  await mkdir(directory, { recursive: true });
+  const turn = join(directory, 'cutover.turn');
+  if (holdForRestart) {
+    const handle = await open(turn, 'a', 0o600);
+    try {
+      await command(['flock', '3'], { inheritedFd: handle.fd, timeoutMs: null });
+    } catch (error) {
+      await handle.close();
+      throw error;
+    }
+    // The restart client inherits this same placement turn if the agent exits while dispatching.
+    rollbackPlacementFd = handle.fd;
+    return () => handle.close();
+  }
+  // Closing this pipe releases the placement turn, including when the agent exits.
+  const helper = spawn('flock', [turn, 'sh', '-c', 'printf acquired; cat >/dev/null'], {
+    stdio: ['pipe', 'pipe', 'inherit'],
+  });
+  const exited = new Promise((resolve) => helper.once('close', resolve));
+  helper.stdin.on('error', () => {});
+  try {
+    await new Promise((resolve, reject) => {
+      helper.stdout.once('data', resolve);
+      helper.once('error', reject);
+      helper.once('close', (exitCode) => reject(failure('PLACEMENT_TURN_FAILED', { exitCode })));
+    });
+  } catch (error) {
+    helper.stdin.end();
+    throw error;
+  }
+  return async () => {
+    helper.stdin.end();
+    await exited;
+  };
+}
+
+async function readAgentPolicy(action, project, options) {
+  const moduleUrl = new URL(import.meta.url);
+  if (moduleUrl.protocol === 'data:' && (action === 'observe' || (action === 'artifact-pin' && options.write !== 'true'))) {
+    return Buffer.from(moduleUrl.hash.slice(1), 'base64');
+  }
+  const policyRoot = process.env.AI_DELIVERY_POLICY_ROOT ?? '/etc/ai-delivery/projects';
+  const bundledPolicy = join(dirname(fileURLToPath(moduleUrl)), `${project}.json`);
+  return readFile(await exists(bundledPolicy) ? bundledPolicy : join(policyRoot, `${project}.json`));
 }
 
 async function seed(context, options) {
@@ -270,7 +338,7 @@ async function cloneTree(source, destination) {
   }
 }
 
-async function stage(context, options, direct = false) {
+async function stage(context, options, direct = false, repair = false) {
   const started = Date.now();
   const timings = { validation: 0, materialize: 0, candidateChecks: 0, pointer: 0, cleanup: 0 };
   const validationStarted = Date.now();
@@ -310,7 +378,9 @@ async function stage(context, options, direct = false) {
   await ensureTraversablePointerRoot(context);
   const releases = join(root, 'releases');
   const candidates = join(root, 'candidates');
-  const release = join(releases, `${manifest.sourceSha}-${manifest.treeDigest.slice(7)}-${claimedDigest.slice(7)}`);
+  const identity = artifactIdentity(context, { ...options, sourceSha: manifest.sourceSha, manifestDigest: claimedDigest });
+  const originalPath = releasePath(context, identity);
+  const release = repair ? `${originalPath}.repair-${randomBytes(8).toString('hex')}` : originalPath;
   await mkdir(releases, { recursive: true, mode: 0o755 });
   await mkdir(candidates, { recursive: true, mode: 0o700 });
   const materializeStarted = Date.now();
@@ -326,6 +396,7 @@ async function stage(context, options, direct = false) {
       await verifyCriticalFiles(temporary, manifest.criticalFiles ?? []);
       await writeFile(join(temporary, 'AI_DELIVERY_ARTIFACT.json'), `${JSON.stringify(manifest, null, 2)}\n`, { mode: 0o444 });
       await rename(temporary, release);
+      if (repair) await writeAtomicJson(repairRecordPath(context, identity), { release });
     } finally {
       await rm(temporary, { recursive: true, force: true });
     }
@@ -351,7 +422,7 @@ async function stage(context, options, direct = false) {
     sourceSha: manifest.sourceSha,
     treeDigest: manifest.treeDigest,
     dependencyLayer,
-    cacheStatus: 'miss',
+    cacheStatus: repair ? 'repaired' : 'miss',
     artifactBytes: manifest.archive.bytes,
     uploadedBytes: manifest.archive.bytes,
     reusedBytes: 0,
@@ -362,7 +433,9 @@ async function stage(context, options, direct = false) {
 async function deployOssDirect(context, options) {
   const started = Date.now();
   const prepared = await prepareOssCandidate(context, options, true);
-  const activation = await activateDirect(context, options);
+  const activation = await activateDirect(context, options, {
+    candidate: prepared.staged.candidate, pointers: prepared.current.pointers, replacesCurrent: prepared.replacesCurrent,
+  });
   return {
     ...prepared,
     schema: 'ai.delivery.oss-direct.v1',
@@ -372,14 +445,22 @@ async function deployOssDirect(context, options) {
 }
 
 async function validateOssCandidate(context, options) {
-  return prepareOssCandidate(context, options, false);
+  const prepared = await prepareOssCandidate(context, options, false);
+  const { identity } = prepared;
+  await claimRollbackRecord(join(acceptedCandidateDirectory(context, identity.sourceSha), `${identity.manifestDigest.slice(7)}.json`), identity);
+  return prepared;
 }
 
 async function prepareOssCandidate(context, options, direct) {
   const started = Date.now();
+  const root = context.deployment.pointerRoot;
+  const pointers = direct ? await observePointerPair(root) : null;
   const identity = artifactIdentity(context, options);
-  const found = await lookup(context, options);
-  const ingressPayload = context.deployment.databaseMigration?.initialize?.ingress ? await readStdinJson() : null;
+  const localOnly = options.localOnly === 'true';
+  const allowRepair = direct && options.repair === 'true';
+  const found = await lookup(context, options, allowRepair);
+  if (localOnly) assert(found.exists, 'ARTIFACT_REUSE_MISSING', { ...identity, release: found.release });
+  const ingressPayload = context.deployment.databaseMigration?.initialize?.ingress ? await readStdinJson(!localOnly) : null;
   if (ingressPayload) {
     context.cloudflare = ingressPayload.cloudflare;
     context.domainSwitch = ingressPayload.domainSwitch === true;
@@ -388,7 +469,7 @@ async function prepareOssCandidate(context, options, direct) {
   let downloadedBytes = 0;
   let downloadMs = 0;
   if (found.exists) {
-    staged = await reuse(context, options, direct);
+    staged = await reuse(context, options, direct, found);
   } else {
     const payload = ingressPayload ?? await readStdinJson();
     const incomingRoot = resolve(required(context.policy.incomingRoot, 'INCOMING_ROOT_REQUIRED'));
@@ -403,24 +484,28 @@ async function prepareOssCandidate(context, options, direct) {
       const artifactDownload = await downloadObject(payload.artifactUrl, archive, MAX_ARTIFACT_BYTES, 'artifact');
       downloadedBytes = manifestDownload.bytes + artifactDownload.bytes;
       downloadMs = Date.now() - downloadStarted;
-      staged = await stage(context, { ...options, archive, manifest }, direct);
+      staged = await stage(context, { ...options, archive, manifest }, direct, found.damage.length > 0);
     } finally {
       await Promise.all([rm(archive, { force: true }), rm(manifest, { force: true })]);
     }
   }
-  const currentAfter = await pointer(context.deployment.pointerRoot, 'current');
-  assert(currentAfter === found.current, 'CANDIDATE_VALIDATION_MOVED_CURRENT', { before: found.current, after: currentAfter });
-  const currentSourceSha = await releaseSourceSha(context, currentAfter);
+  const currentAfter = await pointer(root, 'current');
+  assert(currentAfter === found.current && (!pointers || stableJson(pointers) === stableJson(await observePointerPair(root))),
+    'CANDIDATE_VALIDATION_MOVED_CURRENT', { before: found.current, after: currentAfter });
+  const replacesCurrent = currentAfter && found.damage.some(({ release }) => release === resolve(root, currentAfter)) ? currentAfter : null;
+  const currentSourceSha = replacesCurrent ? identity.sourceSha : await releaseSourceSha(context, currentAfter);
   return {
     schema: 'ai.delivery.oss-candidate.v1',
+    identity,
     sourceSha: identity.sourceSha,
     artifactSha256: `sha256:${identity.archiveSha256}`,
     controlPlane: context.controlPlane,
-    cacheStatus: found.exists ? found.status : 'miss',
+    cacheStatus: found.exists ? found.status : staged.cacheStatus,
     downloadedBytes,
     reusedBytes: found.exists ? found.artifactBytes : 0,
     staged,
-    current: { before: found.current, after: currentAfter, sourceSha: currentSourceSha, unchanged: true },
+    replacesCurrent,
+    current: { before: found.current, after: currentAfter, sourceSha: currentSourceSha, unchanged: true, ...(pointers ? { pointers } : {}) },
     timings: {
       artifactLookup: found.artifactLookupMs,
       download: downloadMs,
@@ -487,7 +572,7 @@ async function verifyBaselineEvidence(context, release, baseline) {
   return baseline;
 }
 
-async function readStdinJson() {
+async function readStdinJson(requireDownloadUrls = true) {
   const chunks = [];
   let bytes = 0;
   for await (const chunk of process.stdin) {
@@ -501,7 +586,9 @@ async function readStdinJson() {
   } catch {
     throw failure('OSS_DOWNLOAD_PAYLOAD_INVALID');
   }
-  assert(typeof payload.artifactUrl === 'string' && typeof payload.manifestUrl === 'string', 'OSS_DOWNLOAD_URL_REQUIRED');
+  if (requireDownloadUrls) {
+    assert(typeof payload.artifactUrl === 'string' && typeof payload.manifestUrl === 'string', 'OSS_DOWNLOAD_URL_REQUIRED');
+  }
   return payload;
 }
 
@@ -530,23 +617,27 @@ async function verifyArchiveEntries(archive) {
   }
 }
 
-async function lookup(context, options) {
+async function lookup(context, options, allowRepair = false) {
   const started = Date.now();
   const identity = artifactIdentity(context, options);
-  const release = releasePath(context, identity);
-  const candidate = await pointer(context.deployment.pointerRoot, 'candidate');
-  const current = await pointer(context.deployment.pointerRoot, 'current');
-  if (!(await exists(release))) {
-    return { status: 'miss', exists: false, release, candidate, current, artifactLookupMs: Date.now() - started };
+  const pointers = await placementReleasePointers(context.deployment.pointerRoot);
+  const [current, , candidate] = pointers;
+  const stored = await locateStoredRelease(context, identity, pointers);
+  const { release, manifest, damage } = stored;
+  if (!manifest) {
+    if (damage.length && !allowRepair) throw damage[0].error;
+    return { status: damage.length ? 'damaged' : 'miss', exists: false, release, candidate, current, damage, artifactLookupMs: Date.now() - started };
   }
-  const manifest = await verifyStoredRelease(context, release, identity);
-  const status = candidate === release ? 'hit_candidate' : current === release ? 'hit_current' : 'hit_release';
+  const root = context.deployment.pointerRoot;
+  const status = candidate && resolve(root, candidate) === release ? 'hit_candidate'
+    : current && resolve(root, current) === release ? 'hit_current' : 'hit_release';
   return {
     status,
     exists: true,
     release,
     candidate,
     current,
+    damage,
     sourceSha: manifest.sourceSha,
     treeDigest: manifest.treeDigest,
     artifactBytes: manifest.archive.bytes,
@@ -556,9 +647,137 @@ async function lookup(context, options) {
   };
 }
 
-async function reuse(context, options, direct = false) {
+async function artifactPin(context, options) {
+  if (options.localOnly === 'true') {
+    const identity = artifactIdentity(context, options);
+    const { manifest, damage } = await locateStoredRelease(context, identity);
+    return { localManifest: manifest, localDamage: damage.length ? damage.map(({ release, error }) => ({
+      release, code: error.code, message: error.message,
+    })) : null };
+  }
+  const sourceSha = required(options.sourceSha, 'LOOKUP_SOURCE_SHA_REQUIRED');
+  const variant = options.instanceKey ?? 'ordinary';
+  const root = context.deployment.pointerRoot;
+  const pinPath = (instanceKey) => {
+    const key = createHash('sha256').update(stableJson({ ...contextSummary(context), sourceSha, variant: instanceKey })).digest('hex');
+    return join(root, 'state', 'artifact-pins', `${key}.json`);
+  };
+  const path = pinPath(variant);
+  let pin = await readRollbackRecord(path);
+  const write = options.write === 'true';
+  if (!pin && !write && options.recover === 'true') {
+    if (options.legacyInstanceKey && options.legacyInstanceKey !== variant) {
+      const legacy = await readRollbackRecord(pinPath(options.legacyInstanceKey));
+      if (legacy && (context.target !== 'storefront' ||
+          digest(legacy.storefrontEnvironment ?? {}) === options.storefrontEnvironmentDigest)) {
+        return { pin: legacy, needsPin: true };
+      }
+    }
+    const recoveryCandidates = await recoverInstalledArtifacts(context, sourceSha, variant, options);
+    if (!recoveryCandidates.length) {
+      const [current, previous] = await Promise.all([pointer(root, 'current'), pointer(root, 'previous')]);
+      throw failure('ARTIFACT_PIN_UNRESOLVED', { sourceSha, variant, current, previous, pointerAction: 'not-performed',
+        reason: 'The original artifact could not be identified from the surviving records for this source and placement.' });
+    }
+    return { recoveryCandidates };
+  }
+  if (write) {
+    const payload = await readStdinJson(false);
+    const release = payload.release;
+    assert(release?.project === context.project && release.target === context.target && release.sourceSha === sourceSha,
+      'ARTIFACT_PIN_SCOPE_MISMATCH');
+    pin ??= await claimRollbackRecord(path, { release, storefrontEnvironment: payload.storefrontEnvironment });
+  }
+  if (context.target === 'storefront' && variant !== 'ordinary' && Object.keys(pin?.storefrontEnvironment ?? {}).length > 0) {
+    const installed = releasePath(context, {
+      sourceSha,
+      treeDigest: pin.release.artifact.treeDigest,
+      manifestDigest: pin.release.runtimeManifest.manifestDigest,
+    });
+    const snapshotPath = join(nodeRuntimeRecoveryPath(context, installed), 'storefront-public.json');
+    if (!(await exists(snapshotPath))) {
+      if (!write) return { pin, needsRuntimeCapture: true };
+      await claimRollbackRecord(snapshotPath, pin.storefrontEnvironment);
+    }
+  }
+  return { pin };
+}
+
+async function recoverInstalledArtifacts(context, sourceSha, variant, options) {
+  const candidates = [];
+  for await (const original of originalDeploymentArtifacts(context, sourceSha)) {
+    if (Object.hasOwn(original, 'instanceCacheKey') &&
+        !matchesRetryVariant(original.instanceCacheKey ?? 'ordinary', variant, options.legacyInstanceKey)) continue;
+    const candidate = await inspectOriginalArtifact(context, original, variant, options);
+    if (!candidate) continue;
+    candidates.push(candidate);
+    const legacyStorefront = context.target === 'storefront' && variant !== 'ordinary' &&
+      original.instanceCacheKey === options.legacyInstanceKey && options.legacyInstanceKey !== variant;
+    if (candidate.installedManifest || (Object.hasOwn(original, 'instanceCacheKey') && !legacyStorefront)) break;
+  }
+  return candidates;
+}
+
+function matchesRetryVariant(key, requested, legacy) {
+  return key === requested || (requested !== 'ordinary' && key === legacy);
+}
+
+async function inspectOriginalArtifact(context, original, variant, options) {
+  const root = context.deployment.pointerRoot;
+  const { sourceSha } = original;
+  const identity = artifactIdentity(context, {
+    sourceSha, treeDigest: original.treeDigest, manifestDigest: original.manifestDigest,
+    sha256: original.archiveSha256.slice(7),
+  });
+  const storefrontSnapshot = context.target === 'storefront' && variant !== 'ordinary'
+    ? await readJson(join(nodeRuntimeRecoveryPath(context, releasePath(context, identity)), 'storefront-public.json')) : null;
+  const storefrontEnvironmentDigest = storefrontSnapshot && typeof storefrontSnapshot === 'object' && !Array.isArray(storefrontSnapshot)
+    ? digest(storefrontSnapshot) : null;
+  for await (const path of storedReleasePaths(context, identity)) {
+    const manifest = await artifactForStatus(root, path);
+    if (manifest?.engineVersion !== 2 || manifest.project !== context.project ||
+        manifest.target !== context.target || manifest.sourceSha !== sourceSha ||
+        manifest.manifestDigest !== identity.manifestDigest || manifest.treeDigest !== identity.treeDigest ||
+        manifest.archive?.sha256 !== original.archiveSha256) continue;
+    const { manifestDigest, ...unsigned } = manifest;
+    if (digest(unsigned) !== manifestDigest) continue;
+    const keyed = Object.hasOwn(manifest, 'instanceCacheKey');
+    const snapshot = manifest.entries?.some((entry) => entry.path === 'node-runtime/manifest.json');
+    if (!keyed && snapshot && variant === 'ordinary') return null;
+    const key = keyed ? manifest.instanceCacheKey ?? 'ordinary' : snapshot ? options.legacyInstanceKey : 'ordinary';
+    if (key && !matchesRetryVariant(key, variant, options.legacyInstanceKey)) return null;
+    if (!key) continue;
+    if (context.target === 'storefront' && key !== variant) {
+      const packaged = manifest.entries?.find((entry) => entry.path === 'node-runtime/storefront-public.json');
+      const recorded = packaged ? packaged.sha256 : storefrontEnvironmentDigest;
+      const requested = packaged ? options.storefrontEnvironmentFileDigest : options.storefrontEnvironmentDigest;
+      if (!/^sha256:[a-f0-9]{64}$/.test(recorded ?? '') || !/^sha256:[a-f0-9]{64}$/.test(requested ?? '')) continue;
+      if (recorded !== requested) return null;
+    }
+    return { installedManifest: manifest, installedInstanceKey: key === 'ordinary' ? undefined : key };
+  }
+  return { originalDigests: { ...original, ...(storefrontEnvironmentDigest ? { storefrontEnvironmentDigest } : {}) } };
+}
+
+async function* originalDeploymentArtifacts(context, sourceSha) {
+  const actions = ['deploy-oss-direct', 'deploy-oss-direct-v2', 'activate', 'activate-direct'];
+  const manifests = new Set();
+  for await (const record of placementAudit(context)) {
+    if (!actions.includes(record.action)) continue;
+    const artifact = record.result?.activation?.receipt?.artifact ?? record.result?.receipt?.artifact
+      ?? record.error?.details?.receipt?.artifact;
+    if (artifact?.sourceSha === sourceSha && /^sha256:[a-f0-9]{64}$/.test(artifact.archiveSha256 ?? '') &&
+        /^sha256:[a-f0-9]{64}$/.test(artifact.treeDigest ?? '') && /^sha256:[a-f0-9]{64}$/.test(artifact.manifestDigest ?? '') &&
+        !manifests.has(artifact.manifestDigest)) {
+      manifests.add(artifact.manifestDigest);
+      yield artifact;
+    }
+  }
+}
+
+async function reuse(context, options, direct = false, stored) {
   const started = Date.now();
-  const found = await lookup(context, options);
+  const found = stored ?? await lookup(context, options);
   assert(found.exists, 'ARTIFACT_REUSE_MISSING', found);
   const checksStarted = Date.now();
   if (!direct) {
@@ -571,44 +790,98 @@ async function reuse(context, options, direct = false) {
   const candidateChecks = Date.now() - checksStarted;
   await ensureTraversablePointerRoot(context);
   const pointerStarted = Date.now();
-  if (found.candidate !== found.release) await atomicPointer(join(context.deployment.pointerRoot, 'candidate'), found.release);
+  if (found.status !== 'hit_candidate') await atomicPointer(join(context.deployment.pointerRoot, 'candidate'), found.release);
   const pointerMs = Date.now() - pointerStarted;
   return {
     ...found,
-    status: found.candidate === found.release ? 'hit_candidate' : 'hit_release',
+    status: found.status === 'hit_candidate' ? 'hit_candidate' : 'hit_release',
     candidate: found.release,
     cacheStatus: found.status,
     timings: { artifactLookup: found.artifactLookupMs, candidateChecks, pointer: pointerMs, total: Date.now() - started },
   };
 }
 
-async function activateDirect(context, options) {
+async function activateDirect(context, options, prepared) {
   const root = context.deployment.pointerRoot;
   assertAllowedRoot(context.policy, root);
-  const candidate = await pointer(root, 'candidate');
-  assert(candidate, 'CANDIDATE_MISSING');
-  const manifest = JSON.parse(await readFile(join(candidate, 'AI_DELIVERY_ARTIFACT.json'), 'utf8'));
   const sourceSha = required(options.sourceSha, 'DIRECT_SOURCE_SHA_REQUIRED');
+  const identity = prepared ? null : await acceptedActivationIdentity(context, options);
+  const previousCurrent = prepared?.pointers ? prepared.pointers[0]?.target ?? null : await pointer(root, 'current');
+  const installed = identity ? await locateStoredRelease(context, identity) : null;
+  if (installed && !installed.manifest) {
+    throw installed.damage[0]?.error ?? failure('ARTIFACT_REUSE_MISSING', { ...identity, release: installed.release });
+  }
+  const candidate = prepared?.candidate ?? installed.release;
+  assert(candidate, 'CANDIDATE_MISSING');
+  const manifest = installed?.manifest ?? JSON.parse(await readFile(join(candidate, 'AI_DELIVERY_ARTIFACT.json'), 'utf8'));
   assert(manifest.sourceSha === sourceSha, 'DIRECT_SOURCE_SHA_MISMATCH', { expected: sourceSha, actual: manifest.sourceSha });
-  const previousCurrent = await pointer(root, 'current');
+  const replacesCurrent = prepared?.replacesCurrent ??
+    (previousCurrent && installed?.damage.some(({ release }) => release === resolve(root, previousCurrent)) ? previousCurrent : null);
   const activated = await activate(context, {
     ...options,
     approval: `${context.project}:${sourceSha}`,
     expectedCurrent: previousCurrent ?? 'none',
-  });
+  }, { ...prepared, candidate, replacesCurrent });
   return {
     ...activated,
     direct: true,
-    mode: activated.alreadyCurrent ? 'direct-verify-only' : 'direct-activated',
+    mode: `direct-${activated.mode}`,
   };
 }
 
-async function activate(context, options) {
+function acceptedCandidateDirectory(context, sourceSha) {
+  return join(context.deployment.pointerRoot, 'state', 'accepted-candidates', sourceSha);
+}
+
+async function acceptedActivationIdentity(context, options) {
+  if (options.sha256 || options.treeDigest || options.manifestDigest) return artifactIdentity(context, options);
+
+  const sourceSha = options.sourceSha;
+  assert(/^[a-f0-9]{40}$/.test(sourceSha), 'LOOKUP_SOURCE_SHA_INVALID');
+  const directory = acceptedCandidateDirectory(context, sourceSha);
+  const names = await readdir(directory).catch((error) => {
+    if (error.code === 'ENOENT') return [];
+    throw error;
+  });
+  const accepted = new Map();
+  for (const name of names.filter((name) => /^[a-f0-9]{64}\.json$/.test(name))) {
+    const record = await readRollbackRecord(join(directory, name));
+    if (record) accepted.set(record.manifestDigest, record);
+  }
+  const root = context.deployment.pointerRoot;
+  for await (const audit of placementAudit(context)) {
+    const result = audit.result;
+    if (!['validate-oss-candidate', 'validate-oss-candidate-v2', 'validate-oss-candidate-v3'].includes(audit.action) ||
+        result?.sourceSha !== sourceSha) continue;
+    if (result.identity) {
+      accepted.set(result.identity.manifestDigest, result.identity);
+    } else if (result.staged?.candidate) {
+      const manifest = await artifactForStatus(root, result.staged.candidate);
+      if (manifest?.sourceSha !== sourceSha || manifest.archive?.sha256 !== result.artifactSha256 ||
+          manifest.treeDigest !== result.staged.treeDigest) continue;
+      const identity = artifactIdentity(context, { sourceSha, sha256: manifest.archive.sha256.slice(7),
+        treeDigest: manifest.treeDigest, manifestDigest: manifest.manifestDigest });
+      if (releasePath(context, identity) === resolve(root, result.staged.candidate)) accepted.set(identity.manifestDigest, identity);
+    }
+    if (accepted.size > 1) break;
+  }
+  if (accepted.size !== 1) {
+    throw failure(accepted.size ? 'DIRECT_CANDIDATE_AMBIGUOUS' : 'DIRECT_CANDIDATE_NOT_RECORDED', {
+      sourceSha, manifests: [...accepted.keys()],
+      nextAction: 'Pass the archive, tree and manifest digests from the original candidate receipt.',
+    });
+  }
+  const identity = accepted.values().next().value;
+  return artifactIdentity(context, { sourceSha, sha256: identity.archiveSha256,
+    treeDigest: identity.treeDigest, manifestDigest: identity.manifestDigest });
+}
+
+async function activate(context, options, prepared) {
   const started = Date.now();
   const timings = { candidate: 0, snapshot: 0, cutover: 0, restart: 0, health: 0, isolation: 0 };
   const root = context.deployment.pointerRoot;
   assertAllowedRoot(context.policy, root);
-  const candidate = await pointer(root, 'candidate');
+  const candidate = prepared?.candidate ?? await pointer(root, 'candidate');
   assert(candidate, 'CANDIDATE_MISSING');
   const manifest = JSON.parse(await readFile(join(candidate, 'AI_DELIVERY_ARTIFACT.json'), 'utf8'));
   const expectedApproval = `${context.project}:${manifest.sourceSha}`;
@@ -623,7 +896,9 @@ async function activate(context, options) {
   const pointersBefore = await pointerSnapshot(root);
   const previousCurrent = await pointer(root, 'current');
   const expectedCurrent = options.expectedCurrent === 'none' ? null : required(options.expectedCurrent, 'EXPECTED_CURRENT_REQUIRED');
-  assert(previousCurrent === expectedCurrent, 'CURRENT_POINTER_CHANGED', { expected: expectedCurrent, actual: previousCurrent });
+  assert(previousCurrent === expectedCurrent &&
+    (!prepared?.pointers || stableJson(prepared.pointers) === stableJson(await observePointerPair(root))),
+  'CURRENT_POINTER_CHANGED', { expected: expectedCurrent, actual: previousCurrent });
   assert(previousCurrent || context.deployment.allowFirstActivation === true, 'CURRENT_POINTER_REQUIRED_FOR_ROLLBACK', { root });
   const targetProcessBefore = await processId(context.deployment.restart);
   const previousRuntime = await pointer(root, 'runtime');
@@ -665,8 +940,12 @@ async function activate(context, options) {
     await command(['systemctl','enable',context.deployment.restart.name]);
   }
   const serviceBefore = await processState(context.deployment.restart);
-  if (previousCurrent === candidate && (serviceBefore.kind === 'none' || serviceBefore.activeState === 'active')) {
-    const readiness = await waitForReadiness(context, { candidateDir: candidate, currentDir: candidate, ...contextSummary(context) });
+  const replacesCurrent = Boolean(previousCurrent && prepared?.replacesCurrent === previousCurrent);
+  const resumingCurrent = previousCurrent === candidate || replacesCurrent;
+  const verified = previousCurrent === candidate && (serviceBefore.kind === 'none' || serviceBefore.activeState === 'active')
+    ? await verifyInstalledCandidate(context, candidate) : null;
+  if (verified) {
+    const { readiness, releases } = verified;
     timings.health = readiness.durationMs;
     const isolationStarted = Date.now();
     const protectedAfter = await assertProtectedUnchanged(context, protectedBefore);
@@ -676,9 +955,8 @@ async function activate(context, options) {
     return {
       mode: 'verify-only',
       alreadyCurrent: true,
-      current: candidate,
+      ...releases,
       runtime: await pointer(root, 'runtime'),
-      previous: await pointer(root, 'previous'),
       service: context.deployment.restart,
       serviceStatus: await processState(context.deployment.restart),
       restart: activationRestart,
@@ -704,35 +982,58 @@ async function activate(context, options) {
     };
   }
   let readiness;
+  let activatedReleases;
   let protectedAfter = null;
   let nodeRuntimeRecovery = null;
+  if (prepared?.pointers && stableJson(prepared.pointers) !== stableJson(await observePointerPair(root))) {
+    throw failure('CURRENT_POINTER_CHANGED', { expected: expectedCurrent, current: await pointer(root, 'current') });
+  }
+  await markCutover(root);
   try {
     const cutoverStarted = Date.now();
-    nodeRuntimeRecovery = await captureNodeRuntime(context, candidate);
-    if (previousCurrent && previousCurrent !== candidate) await atomicPointer(join(root, 'previous'), previousCurrent);
-    if (previousRuntime) await atomicPointer(join(root, 'previous-runtime'), previousRuntime);
-    if (candidateRuntime) await atomicPointer(join(root, 'runtime'), candidateRuntime);
+    const runtimeTransition = resumingCurrent ? null : await captureRuntimeTransition(context, previousCurrent, candidate);
+    const previousSnapshot = resumingCurrent && await readNodeRuntimeManifest(pointersBefore.previous);
+    nodeRuntimeRecovery = runtimeTransition?.outgoing ?? null;
+    if (previousCurrent && !resumingCurrent) {
+      await atomicPointer(join(root, 'previous'), previousCurrent);
+      await restoreOptionalPointer(join(root, 'previous-runtime'), previousRuntime);
+    }
+    if (candidateRuntime || runtimeTransition || previousSnapshot || (resumingCurrent && await readNodeRuntimeManifest(candidate))) {
+      await restoreOptionalPointer(join(root, 'runtime'), candidateRuntime);
+    }
     await atomicPointer(join(root, 'current'), candidate);
-    await installNodeRuntime(context, candidate);
+    if (!(await installNodeRuntime(context, candidate))) {
+      if (previousSnapshot) {
+        if (!(await restoreNodeRuntime(installedNodeRuntimePath(context, candidate)))) {
+          await restoreOrdinaryRuntime(context, pointersBefore.previous, { fromSnapshot: true }, null);
+        }
+      } else {
+        await restoreOrdinaryRuntime(context, previousCurrent, runtimeTransition, pointersBefore.previous);
+      }
+    }
     timings.cutover = Date.now() - cutoverStarted;
+    const processBeforeRestart = await cutoverProcess(context);
+    const processBefore = processBeforeRestart?.process ?? await observeProcess(context);
     const restartStarted = Date.now();
     activationRestart = await restart(context.deployment.restart);
     timings.restart = Date.now() - restartStarted;
     readiness = await waitForReadiness(context, { candidateDir: candidate, currentDir: candidate, ...contextSummary(context) });
     timings.health = readiness.durationMs;
-    const targetProcessAfter = await processId(context.deployment.restart);
-    if (context.deployment.restart?.kind !== 'none') {
-      assert(targetProcessAfter !== '0' && targetProcessAfter !== targetProcessBefore, 'TARGET_PROCESS_NOT_RESTARTED', { before: targetProcessBefore, after: targetProcessAfter });
-    }
+    const running = await verifyCutoverProcess(context, candidate, processBefore);
     const isolationStarted = Date.now();
     protectedAfter = await assertProtectedUnchanged(context, protectedBefore);
     timings.isolation = Date.now() - isolationStarted;
     const caddyAfter = await caddySemanticEvidence(context.policy);
-    const currentAfterHealth = await pointer(root, 'current');
-    assert(currentAfterHealth === candidate, 'CUTOVER_SUPERSEDED', { candidate, current: currentAfterHealth, previousCurrent });
+    const previous = previousCurrent && !resumingCurrent ? previousCurrent : pointersBefore.previous;
+    const pointers = await observePointerPair(root);
+    activatedReleases = await releasePointersForStatus(root, pointers.map((entry) => entry?.target ?? null));
+    assert(activatedReleases.current === candidate && activatedReleases.previous === previous &&
+      (!processBeforeRestart || stableJson(pointers) === stableJson(processBeforeRestart.pointers)),
+    'CUTOVER_SUPERSEDED', { candidate, ...activatedReleases });
+    await recordConfirmedCutover(root, { pointers, process: running, confirmedAt: Date.now() });
   } catch (candidateError) {
     const currentAtFailure = await pointer(root, 'current');
-    if (currentAtFailure !== candidate && currentAtFailure !== previousCurrent) {
+    if (candidateError.code === 'CUTOVER_SUPERSEDED' || (currentAtFailure !== candidate && currentAtFailure !== previousCurrent)) {
       throw failure('CUTOVER_SUPERSEDED', {
         candidate,
         current: currentAtFailure,
@@ -740,6 +1041,10 @@ async function activate(context, options) {
         candidateFailure: errorEvidence(candidateError),
         recovery: 'not-performed-because-a-newer-cutover-owns-current',
       });
+    }
+    if (resumingCurrent && !databaseMigration) {
+      const releases = await releasePointersForStatus(root);
+      throw failure('CUTOVER_RESUME_FAILED', { ...releases, candidateFailure: errorEvidence(candidateError) });
     }
     if (databaseMigration) {
       let pointerRecovery = { status: 'restored', error: null };
@@ -794,27 +1099,41 @@ async function activate(context, options) {
     };
     let rollbackFailure = null;
     try {
-      await restoreNodeRuntime(nodeRuntimeRecovery);
       assert(previousCurrent, 'ROLLBACK_BASELINE_MISSING', { root });
-      await chmod(previousCurrent, 0o755);
+      const { observed } = await observeRollbackPlacement(root);
+      const rollbackTarget = await verifiedRollbackTarget(context, previousCurrent, observed);
+      await restoreNodeRuntime(nodeRuntimeRecovery);
+      await chmod(rollbackTarget, 0o755);
       const pointerStarted = performance.now();
       rollback.startedAt = new Date().toISOString();
       rollback.triggerDelayMs = elapsedMs(failureDetectedAt);
-      await atomicPointer(join(root, 'current'), previousCurrent);
+      await atomicPointer(join(root, 'current'), rollbackTarget);
+      await restoreOptionalPointer(join(root, 'previous'), pointersBefore.previous);
       await restoreOptionalPointer(join(root, 'runtime'), previousRuntime);
+      await restoreOptionalPointer(join(root, 'previous-runtime'), pointersBefore['previous-runtime']);
+      if (context.target === 'storefront') await restoreStorefrontPublicEnvironment(context, rollbackTarget);
       rollback.pointerRestoreMs = elapsedMs(pointerStarted);
+      const processBeforeRestart = await cutoverProcess(context);
+      const processBefore = processBeforeRestart?.process ?? await observeProcess(context);
       const restartStarted = performance.now();
       rollback.restart = await restart(context.deployment.restart);
       rollback.restartMs = elapsedMs(restartStarted);
       const failureResetStarted = performance.now();
       await resetFailureState(context.deployment.restart);
       rollback.failureResetMs = elapsedMs(failureResetStarted);
-      const rollbackReadiness = await waitForReadiness(context, { candidateDir: previousCurrent, currentDir: previousCurrent, ...contextSummary(context) });
+      const rollbackReadiness = await waitForReadiness(context, { candidateDir: rollbackTarget, currentDir: rollbackTarget, ...contextSummary(context) });
       rollback.readiness = rollbackReadiness;
       rollback.readinessMs = rollbackReadiness.durationMs;
+      const running = await verifyCutoverProcess(context, rollbackTarget, processBefore);
       protectedAfter = await assertProtectedUnchanged(context, protectedBefore);
-      rollback.finalCurrent = await pointer(root, 'current');
+      const pointers = await observePointerPair(root);
+      rollback.finalCurrent = pointers[0]?.target ?? null;
       rollback.finalRuntime = await pointer(root, 'runtime');
+      assert(rollback.finalCurrent === rollbackTarget && (pointers[1]?.target ?? null) === pointersBefore.previous &&
+        rollback.finalRuntime === previousRuntime &&
+        (!processBeforeRestart || stableJson(pointers) === stableJson(processBeforeRestart.pointers)),
+      'CUTOVER_SUPERSEDED', { current: rollback.finalCurrent, previous: pointers[1]?.target ?? null });
+      await recordConfirmedCutover(root, { pointers, process: running, confirmedAt: Date.now() });
     } catch (error) {
       rollback.restart = error?.details?.restart ?? rollback.restart;
       rollbackFailure = errorEvidence(error);
@@ -861,11 +1180,10 @@ async function activate(context, options) {
   }
   timings.total = Date.now() - started;
   return {
-    mode: 'activated',
+    mode: resumingCurrent ? 'resumed-cutover' : 'activated',
     alreadyCurrent: false,
-    current: candidate,
+    ...activatedReleases,
     runtime: await pointer(root, 'runtime'),
-    previous: await pointer(root, 'previous'),
     service: context.deployment.restart,
     serviceStatus: await processState(context.deployment.restart),
     restart: activationRestart,
@@ -889,6 +1207,36 @@ async function activate(context, options) {
       finalStatus: 'success',
     }),
   };
+}
+
+async function verifyInstalledCandidate(context, candidate) {
+  const root = context.deployment.pointerRoot;
+  const pointers = await observePointerPair(root);
+  if (pointers[0]?.target !== candidate) return null;
+  const running = await observeProcess(context);
+  if (await observeCutover(context, pointers, running)) return null;
+  if (context.target === 'storefront') {
+    const expected = await storefrontPublicEnvironment(context, candidate);
+    if (Object.keys(expected).length > 0) {
+      const source = await readFile(nodeRuntimeDestinations(context).environment, 'utf8');
+      const current = new Map();
+      for (const line of source.split(/\r?\n/)) {
+        const match = /^\s*(?:export\s+)?([A-Z0-9_]+)\s*=\s*(.*?)\s*$/.exec(line);
+        if (match) current.set(match[1], match[2]);
+      }
+      if (Object.entries(expected).some(([key, value]) => {
+        const raw = current.get(key);
+        return raw !== value && raw !== `'${value}'` && `${key}=${raw}` !== environmentAssignment(key, value);
+      })) return null;
+    }
+  }
+
+  const readiness = await waitForReadiness(context, { candidateDir: candidate, currentDir: candidate, ...contextSummary(context) });
+  const after = await observeProcess(context);
+  if (stableJson(running) !== stableJson(after) ||
+      stableJson(pointers) !== stableJson(await observePointerPair(root)) ||
+      await hasActiveCutover(root)) return null;
+  return { readiness, releases: await releasePointersForStatus(root, pointers.map((entry) => entry?.target ?? null)) };
 }
 
 async function preflight(context) {
@@ -1489,7 +1837,7 @@ function databaseRecoveryEvidence(definition) {
   };
 }
 
-async function rollback(context) {
+async function rollback(context, { requestId, controlSha } = {}) {
   const root = context.deployment.pointerRoot;
   assertAllowedRoot(context.policy, root);
   if (context.deployment.databaseMigration) {
@@ -1500,75 +1848,595 @@ async function rollback(context) {
       previous: await pointer(root, 'previous'),
     });
   }
-  const [current, previous, currentRuntime, previousRuntime] = await Promise.all([pointer(root, 'current'), pointer(root, 'previous'), pointer(root, 'runtime'), pointer(root, 'previous-runtime')]);
-  assert(previous, 'ROLLBACK_POINTER_MISSING');
-  await ensureTraversablePointerRoot(context);
+  const records = await rollbackRequestRecords(context, requestId);
+  const { intentPath, receipt } = records;
+  let { request, receiptId, receiptPath } = records;
+  if (receipt) return { ...receipt, replayed: true };
+
+  let { pair, observed, pointerStates } = await observeRollbackPlacement(root);
+  if (intentPath && !request) request = await readRollbackRecord(intentPath);
+  const pending = request ? null : await unfinishedRollback(context, pair, observed, pointerStates);
+  if (intentPath && !request) {
+    request = await claimRollbackRecord(intentPath, {
+      plan: pending?.plan ?? observed,
+      pair,
+      pointerStates,
+      startedAt: pending?.startedAt ?? Date.now(),
+      receiptId: pending?.requestId ?? requestId,
+      ...(pending?.pointerJournal ? { pointerJournal: pending.pointerJournal } : {}),
+      ...(pending && !pending.pointerJournal ? { legacyResume: true } : {}),
+      ...(pending?.ordinaryRuntime ? { ordinaryRuntime: pending.ordinaryRuntime } : {}),
+    });
+  }
+  if (request) {
+    receiptId = request.receiptId;
+    receiptPath = rollbackRecordPath(context, receiptId, 'receipt');
+    const saved = await followRollbackExecution(context, receiptId, receiptPath);
+    if (saved) return { ...saved, replayed: true };
+    ({ pair, observed, pointerStates } = await observeRollbackPlacement(root));
+  }
+  const plan = request?.plan ?? pending?.plan ?? observed;
+  const pointerJournal = request?.pointerJournal ?? pending?.pointerJournal ?? (receiptId
+    ? rollbackRecordPath(context, receiptId, 'pointer-generations')
+    : join(root, 'state', 'cutovers', `rollback-${randomBytes(12).toString('hex')}.pointers.json`));
+  let journal = await readRollbackRecord(pointerJournal);
+  let progress = journal ? rollbackJournalProgress(journal, pointerStates) : 0;
+  const sameStart = !request || (stableJson(request.pair) === stableJson(pair) &&
+    (!request.pointerStates || stableJson(request.pointerStates) === stableJson(pointerStates)));
+  const adoptedLegacy = Boolean(pending && !pending.pointerJournal || request?.legacyResume && sameStart);
+  if ((journal && (progress < 0 || stableJson(journal.plan) !== stableJson(plan))) ||
+      (!journal && (!sameStart || (!adoptedLegacy && stableJson(plan) !== stableJson(observed))))) {
+    await reportRollbackEvidence(context, observed, 'The pointer generations no longer match the original rollback request.');
+  }
+  const resumed = progress > 0 || adoptedLegacy || journal?.resuming === true;
+  const { current, previous: requestedPrevious, runtime: currentRuntime, previousRuntime } = plan;
+  assert(requestedPrevious, 'ROLLBACK_POINTER_MISSING');
+  const previous = await verifiedRollbackTarget(context, requestedPrevious, observed, journal?.target);
+  if (journal?.restart?.systemdClient && journal.target !== previous &&
+      await readRollbackSystemdJob(context, pointerJournal, journal, observed)) {
+    await reportRollbackEvidence(context, observed, 'The original restart already ran against a different release copy.',
+      { restart: rollbackRestartReceipt(context.deployment.restart, journal) });
+  }
+  const continueRestart = journal?.target === previous && Boolean(journal.restart);
+  let resumedProcess = continueRestart ? await observeRollbackRestart(context, pointerJournal, journal, progress, observed) : null;
+  const runtimeRecordPath = receiptId && rollbackRecordPath(context, receiptId, 'ordinary-runtime');
+  const savedRuntime = runtimeRecordPath ? await readRollbackRecord(runtimeRecordPath) : null;
+  const recordedRuntime = savedRuntime ?? request?.ordinaryRuntime ?? pending?.ordinaryRuntime;
+  const ordinaryRuntime = continueRestart ? null : await rollbackOrdinaryRuntime(context, current, previous, observed, recordedRuntime);
+  if (!continueRestart) await ensureTraversablePointerRoot(context);
   const protectedBefore = await protectedProcessSnapshot(context);
   const started = performance.now();
   const timings = { pointer: 0, restart: 0, readiness: 0, isolation: 0, total: 0 };
-  await chmod(previous, 0o755);
-  try {
-    const pointerStarted = performance.now();
-    await atomicPointer(join(root, 'current'), previous);
-    if (current) await atomicPointer(join(root, 'previous'), current);
-    await restoreOptionalPointer(join(root, 'runtime'), previousRuntime);
-    await restoreOptionalPointer(join(root, 'previous-runtime'), currentRuntime);
-    if (!(await installNodeRuntime(context, previous))) {
-      await restoreNodeRuntime(nodeRuntimeRecoveryPath(context, current));
+  const live = await observeRollbackPlacement(root);
+  const finishedRequest = receiptPath && await readRollbackRecord(receiptPath);
+  if (finishedRequest) return { ...finishedRequest, replayed: true };
+  if (stableJson(live.pair) !== stableJson(pair) || stableJson(live.pointerStates) !== stableJson(pointerStates)) {
+    await reportRollbackEvidence(context, live.observed, 'The placement pointers changed while the rollback was being resolved.');
+  }
+  if (ordinaryRuntime && runtimeRecordPath && !savedRuntime) {
+    const saved = await claimRollbackRecord(runtimeRecordPath, ordinaryRuntime.evidence);
+    if (stableJson(saved) !== stableJson(ordinaryRuntime.evidence)) {
+      await reportRollbackEvidence(context, observed, 'The original rollback request recorded a different ordinary runtime backup.');
     }
-    timings.pointer = elapsedMs(pointerStarted);
-    const restartStarted = performance.now();
-    const restartOperation = await restart(context.deployment.restart);
-    timings.restart = elapsedMs(restartStarted);
+  }
+  if (!journal || journal.target !== previous) {
+    const superseded = journal ? [...(journal.superseded ?? []), ...journal.steps.slice(progress)] : [];
+    journal = await createRollbackPointerJournal(root, pointerJournal, plan, pointerStates, previous, resumed, superseded);
+    progress = 0;
+  }
+  if (journal.superseded?.length) {
+    await discardSupersededRollbackStages(root, journal.superseded);
+    delete journal.superseded;
+    await writeAtomicJson(pointerJournal, journal);
+  }
+  await markCutover(root, {
+    rollback: plan, rollbackStartedAt: request?.startedAt ?? pending?.startedAt ?? Date.now(), rollbackRequestId: receiptId,
+    pointerJournal,
+    ...(ordinaryRuntime || recordedRuntime ? { ordinaryRuntime: ordinaryRuntime?.evidence ?? recordedRuntime } : {}),
+  }, { required: true });
+  let restartOperation;
+  try {
+    let processBeforeRestart;
+    let processBefore;
+    if (!continueRestart) {
+      await chmod(previous, 0o755);
+      const pointerStarted = performance.now();
+      const runtimeTransition = await captureRuntimeTransition(context, current, previous, {
+        capture: !resumed, ...(ordinaryRuntime ? { fromSnapshot: true } : {}),
+      });
+      await applyRollbackPointerJournal(root, journal, progress);
+      if (ordinaryRuntime) {
+        await applyNodeRuntime(ordinaryRuntime.entries);
+      } else if (runtimeTransition) {
+        const restored = await restoreNodeRuntime(installedNodeRuntimePath(context, previous));
+        if (restored && context.target === 'storefront') {
+          await restoreStorefrontPublicEnvironment(context, previous);
+        } else if (!restored && !(await installNodeRuntime(context, previous))) {
+          await restoreOrdinaryRuntime(context, current, runtimeTransition, previous);
+        }
+      }
+      timings.pointer = elapsedMs(pointerStarted);
+    }
+    if (resumedProcess) {
+      restartOperation = { ...rollbackRestartReceipt(context.deployment.restart, journal), reusedRunningProcess: true };
+    } else {
+      processBeforeRestart = await cutoverProcess(context);
+      processBefore = processBeforeRestart?.process ?? await observeProcess(context);
+      const restartStarted = performance.now();
+      ({ operation: restartOperation, before: processBefore, reused: resumedProcess } =
+        await restartRollbackProcess(context, pointerJournal, journal, processBefore));
+      if (!resumedProcess || restartOperation.commandCount > 0) timings.restart = elapsedMs(restartStarted);
+    }
     const readiness = await waitForReadiness(context, { candidateDir: previous, currentDir: previous, ...contextSummary(context) });
     timings.readiness = readiness.durationMs;
+    const running = resumedProcess
+      ? await verifyResumedRollbackProcess(context, previous, resumedProcess)
+      : await verifyCutoverProcess(context, previous, processBefore);
     const isolationStarted = performance.now();
     const protectedAfter = await assertProtectedUnchanged(context, protectedBefore);
     timings.isolation = elapsedMs(isolationStarted);
     timings.total = elapsedMs(started);
-    return { current: previous, previous: current, runtime: previousRuntime, restart: restartOperation, readiness, timings, rollbackMs: timings.total, protectedProcesses: { before: protectedBefore, after: protectedAfter } };
+    const { pair: finishedPointers, observed: finished, pointerStates: finishedStates } = await observeRollbackPlacement(root);
+    const { runtime: finishedRuntime, previousRuntime: finishedPreviousRuntime } = finished;
+    const releases = await releasePointersForStatus(root, finishedPointers.map((entry) => entry?.target ?? null));
+    if (releases.current !== previous || releases.previous !== current ||
+        finishedRuntime !== previousRuntime || finishedPreviousRuntime !== currentRuntime ||
+        rollbackJournalProgress(journal, finishedStates) !== journal.steps.length ||
+        (processBeforeRestart && stableJson(finishedPointers) !== stableJson(processBeforeRestart.pointers))) {
+      throw failure('CUTOVER_SUPERSEDED', releases);
+    }
+    const completion = {
+      pointers: finishedPointers,
+      process: running,
+      confirmedAt: Date.now(),
+      closedMarkers: [cutoverMarker, ...(pending?.markers ?? [])].filter(Boolean).map((marker) => basename(marker)),
+    };
+    const result = { ...releases, controlSha, remoteAgent: fileURLToPath(import.meta.url), resumed: resumed || continueRestart, runtime: finishedRuntime, previousRuntime: finishedPreviousRuntime, completion, restart: restartOperation, readiness, timings, rollbackMs: timings.total, protectedProcesses: { before: protectedBefore, after: protectedAfter } };
+    if (receiptPath) {
+      const recorded = await claimRollbackRecord(receiptPath, result);
+      if (recorded !== result) return { ...recorded, replayed: true };
+    }
+    if (await recordConfirmedCutover(root, completion) && pending) {
+      await Promise.all(pending.markers.map((marker) => rm(marker, { force: true }).catch(() => {})));
+    }
+    return result;
   } catch (error) {
+    const restart = error?.details?.restart ?? restartOperation ??
+      (journal.restart?.job ? rollbackRestartReceipt(context.deployment.restart, journal) : null);
+    if (error?.code === 'ROLLBACK_EVIDENCE_INSUFFICIENT') {
+      if (restart) error.details.restart = restart;
+      throw error;
+    }
     const observations = await Promise.allSettled([
       pointer(root, 'current'), pointer(root, 'previous'), pointer(root, 'runtime'), pointer(root, 'previous-runtime'), processState(context.deployment.restart),
     ]);
     const observed = (index) => observations[index].status === 'fulfilled' ? observations[index].value : { error: errorEvidence(observations[index].reason) };
+    const [currentArtifact, previousArtifact] = await Promise.all([observed(0), observed(1)].map((release) =>
+      typeof release === 'string' ? artifactForStatus(root, release).catch(() => null) : null));
     throw failure('ROLLBACK_FAILED', {
       rollbackFailure: errorEvidence(error),
+      ...(restart ? { restart } : {}),
+      pointerJournal,
       originalCurrent: current,
-      attemptedCurrent: previous,
+      attemptedCurrent: requestedPrevious,
+      selectedCurrent: previous,
       current: observed(0),
+      currentArtifact,
       previous: observed(1),
+      previousArtifact,
       runtime: observed(2),
       previousRuntime: observed(3),
       serviceStatus: observed(4),
       timings: { ...timings, total: elapsedMs(started) },
-      nextAction: 'Run status and inspect the service. Do not repeat rollback blindly: current and previous may already have swapped. Recover the intended version manually.',
+      nextAction: 'Run status or retry rollback for this target and physical node to finish the recorded rollback.',
     });
   }
 }
 
-async function status(context) {
+function rollbackRecordPath(context, requestId, kind) {
+  const key = createHash('sha256').update(stableJson({ ...contextSummary(context), requestId })).digest('hex');
+  return join(context.deployment.pointerRoot, 'state', 'rollback-requests', `${key}-${kind}.json`);
+}
+
+async function rollbackRequestRecords(context, requestId) {
+  const intentPath = requestId && rollbackRecordPath(context, requestId, 'intent');
+  const request = intentPath ? await readRollbackRecord(intentPath) : null;
+  const receiptId = request?.receiptId ?? requestId;
+  const receiptPath = receiptId && rollbackRecordPath(context, receiptId, 'receipt');
+  const receipt = receiptPath ? await readRollbackRecord(receiptPath) : null;
+  return { intentPath, request, receiptId, receiptPath, receipt };
+}
+
+async function observeRollbackPlacement(root) {
+  const [pair, pointerStates] = await Promise.all([
+    observePointerPair(root), observePointerPair(root, ROLLBACK_POINTER_NAMES, { stableAcrossRename: true }),
+  ]);
+  const [current, previous, runtime, previousRuntime] = pointerStates.map((entry) => entry?.target ?? null);
+  return { pair, pointerStates, observed: { current, previous, runtime, previousRuntime } };
+}
+
+async function createRollbackPointerJournal(root, path, plan, before, target, resuming, superseded) {
+  const destinations = [target, plan.current, plan.previousRuntime, plan.runtime];
+  const nonce = randomBytes(12).toString('hex');
+  const steps = [];
+  try {
+    for (const [index, name] of ROLLBACK_POINTER_NAMES.entries()) {
+      const destination = destinations[index];
+      if ((before[index]?.target ?? null) === destination) continue;
+      if (!destination) {
+        steps.push({ index, staged: null, next: null });
+        continue;
+      }
+      const staged = `.rollback-${nonce}-${name}`;
+      await symlink(destination, join(root, staged));
+      steps.push({ index, staged, next: null });
+      [steps.at(-1).next] = await observePointerPair(root, [staged], { stableAcrossRename: true });
+      assert(steps.at(-1).next?.target === destination, 'ROLLBACK_STAGED_POINTER_UNAVAILABLE', { name });
+    }
+    const journal = { plan, before, target, steps, resuming, ...(superseded.length ? { superseded } : {}) };
+    await writeAtomicJson(path, journal);
+    return journal;
+  } catch (error) {
+    await Promise.all(steps.filter(({ staged }) => staged).map(({ staged }) => rm(join(root, staged), { force: true }).catch(() => {})));
+    throw error;
+  }
+}
+
+function rollbackJournalProgress(journal, pointers) {
+  if (!Array.isArray(journal.before) || !Array.isArray(journal.steps)) return -1;
+  const state = [...journal.before];
+  const observed = stableJson(pointers);
+  if (stableJson(state) === observed) return 0;
+  for (const [index, step] of journal.steps.entries()) {
+    if (!step || !ROLLBACK_POINTER_NAMES[step.index]) return -1;
+    state[step.index] = step.next;
+    if (stableJson(state) === observed) return index + 1;
+  }
+  return -1;
+}
+
+function rollbackStagedPointerName(index, staged) {
+  const name = ROLLBACK_POINTER_NAMES[index];
+  return Boolean(name && new RegExp(`^\\.rollback-[a-f0-9]{24}-${name}$`).test(staged));
+}
+
+async function discardSupersededRollbackStages(root, steps) {
+  for (const { index, staged, next } of steps) {
+    if (!staged || !next || !rollbackStagedPointerName(index, staged)) continue;
+    const [state] = await observePointerPair(root, [staged], { stableAcrossRename: true });
+    if (stableJson(state) !== stableJson(next)) continue;
+    await rm(join(root, staged)).catch((error) => {
+      if (error.code !== 'ENOENT') throw error;
+    });
+  }
+}
+
+async function applyRollbackPointerJournal(root, journal, progress) {
+  const remaining = journal.steps.slice(progress);
+  for (const { index, staged, next } of remaining) {
+    const name = ROLLBACK_POINTER_NAMES[index];
+    if (!name || (staged ? !rollbackStagedPointerName(index, staged) || !next : next !== null)) {
+      throw failure('ROLLBACK_POINTER_JOURNAL_INVALID', { name, pointerAction: 'not-performed' });
+    }
+    if (staged) {
+      const [state] = await observePointerPair(root, [staged], { stableAcrossRename: true });
+      assert(stableJson(state) === stableJson(next), 'ROLLBACK_STAGED_POINTER_UNAVAILABLE', { name, pointerAction: 'not-performed' });
+    }
+  }
+  const current = await observePointerPair(root, ROLLBACK_POINTER_NAMES, { stableAcrossRename: true });
+  assert(rollbackJournalProgress(journal, current) === progress, 'ROLLBACK_POINTER_GENERATION_CHANGED', { pointerAction: 'not-performed' });
+  for (const { index, staged } of remaining) {
+    const path = join(root, ROLLBACK_POINTER_NAMES[index]);
+    if (staged) await rename(join(root, staged), path);
+    else await rm(path, { force: true });
+  }
+}
+
+async function observeRollbackRestart(context, path, journal, progress, observed, { requireJob = false } = {}) {
+  if (progress !== journal.steps.length) {
+    return reportRollbackEvidence(context, observed, 'The restart record no longer matches the final rollback pointer generations.');
+  }
+  const job = await readRollbackSystemdJob(context, path, journal, observed, { executed: requireJob });
+  if (requireJob && !job) {
+    return reportRollbackEvidence(context, observed, 'The restart client did not leave evidence of the original systemd job.',
+      { restart: rollbackRestartReceipt(context.deployment.restart, journal) });
+  }
+  const { service, running } = await settledRollbackService(context, observed, path, journal);
+  const boot = await rollbackBootId();
+  const live = await observeRollbackPlacement(context.deployment.pointerRoot);
+  if (rollbackJournalProgress(journal, live.pointerStates) !== journal.steps.length) {
+    return reportRollbackEvidence(context, live.observed, 'The pointer generations changed while waiting for the recorded restart.');
+  }
+  return classifyRollbackRestart(context, journal, live.observed, service, running, boot, job);
+}
+
+async function classifyRollbackRestart(context, journal, observed, service, running, boot, job) {
+  const saved = journal.restart;
+  const sameProcess = boot === saved.boot && running.pid === saved.before.pid && running.started === saved.before.started;
+  const release = await processRelease(context.deployment.pointerRoot, journal.target, running.cwd);
+  const onTarget = running.started && !sameProcess && release === 'current';
+  if (job && onTarget && service.activeState === 'active') return running;
+  if (!job && service.kind !== 'systemd' && onTarget) return running;
+  const stopped = service.pid === '0' && ['inactive', 'failed'].includes(service.activeState);
+  const unchangedRunningProcess = sameProcess && running.started && service.activeState === 'active';
+  const unchangedService = saved.service && stableJson(saved.service) === stableJson(service);
+  const oldProcessStillRunning = unchangedRunningProcess && release === 'other';
+  if (job || saved.clientTimedOut || saved.jobObserved || (service.kind === 'systemd' && (onTarget || saved.failed))) {
+    return reportRollbackEvidence(context, observed, job
+      ? 'The original systemd job finished, but the target release is not confirmed in the running process.'
+      : 'The original systemd job ID and final result could not be confirmed.',
+    { restart: rollbackRestartReceipt(context.deployment.restart, journal) });
+  }
+  if (!saved.jobObserved && service.kind === 'systemd' && sameProcess &&
+      (saved.service ? unchangedService && (stopped || unchangedRunningProcess) : oldProcessStillRunning)) return null;
+  if (saved.failed && !saved.jobObserved && (stopped || oldProcessStillRunning)) return null;
+  return reportRollbackEvidence(context, observed, 'The running process does not confirm the recorded rollback restart.');
+}
+
+async function restartRollbackProcess(context, path, journal, before) {
+  const definition = context.deployment.restart;
+  if (restartEvidence(definition).kind === 'none') return { operation: restartEvidence(definition), before };
+  const root = context.deployment.pointerRoot;
+  const { observed } = await observeRollbackPlacement(root);
+  const job = await readRollbackSystemdJob(context, path, journal, observed);
+  const { service, running } = await settledRollbackService(context, observed, path, journal);
+  const boot = await rollbackBootId();
+  const { pointerStates } = await observeRollbackPlacement(root);
+  assert(rollbackJournalProgress(journal, pointerStates) === journal.steps.length,
+    'ROLLBACK_POINTER_GENERATION_CHANGED', { pointerAction: 'not-performed' });
+  if (journal.restart) {
+    const reused = await classifyRollbackRestart(context, journal, observed, service, running, boot, job);
+    if (reused) return { operation: { ...rollbackRestartReceipt(definition, journal), reusedRunningProcess: true }, before: running, reused };
+  }
+  journal.restart = { before: running, boot, service };
+  if (definition.kind === 'systemd') journal.restart.systemdClient = randomBytes(12).toString('hex');
+  await writeAtomicJson(path, journal);
+  if (definition.kind === 'systemd') {
+    await runRollbackSystemdClient(path, journal.restart.systemdClient, definition);
+    const reused = await observeRollbackRestart(context, path, journal, journal.steps.length, observed, { requireJob: true });
+    return { operation: rollbackRestartReceipt(definition, journal, true), before: running, reused };
+  }
+  try {
+    return { operation: await restart(definition, rollbackPlacementFd), before: running };
+  } catch (error) {
+    journal.restart.failed = true;
+    await writeAtomicJson(path, journal);
+    throw error;
+  }
+}
+
+function rollbackRestartReceipt(definition, journal, executed = false) {
+  const operation = restartEvidence(definition, executed);
+  const saved = journal.restart;
+  if (saved?.systemdClient && executed) operation.commands = [rollbackSystemdCommand(definition)];
+  if (operation.kind !== 'systemd') return operation;
+  return {
+    ...operation,
+    clientTimedOut: saved?.job ? saved.job.clientTimedOut ?? null : (saved?.clientTimedOut ? true : null),
+    jobId: saved?.job?.id ?? null,
+    jobResult: saved?.job?.result ?? null,
+  };
+}
+
+function rollbackSystemdCommand(definition) {
+  const [command, ...args] = restartEvidence(definition, true).commands[0];
+  return [command, '--show-transaction', ...args];
+}
+
+function rollbackSystemdClientFiles(journalPath, attempt) {
+  assert(/^[a-f0-9]{24}$/.test(attempt), 'ROLLBACK_SYSTEMD_CLIENT_RECORD_INVALID', { pointerAction: 'not-performed' });
+  const prefix = `${journalPath}.restart-${attempt}`;
+  return { log: `${prefix}.log`, exit: `${prefix}.exit` };
+}
+
+async function runRollbackSystemdClient(journalPath, attempt, definition) {
+  const { log, exit } = rollbackSystemdClientFiles(journalPath, attempt);
+  const script = `umask 077
+log=$1
+outcome=$2
+shift 2
+read -r started ignored < /proc/uptime || exit 1
+printf 'started %s\\n' "$started" > "$log" || exit 1
+LC_ALL=C SYSTEMD_LOG_LEVEL=debug SYSTEMD_LOG_TARGET=console SYSTEMD_LOG_LOCATION=0 SYSTEMD_COLORS=0 "$@" >> "$log" 2>&1
+status=$?
+read -r finished ignored < /proc/uptime || exit 1
+printf '%s %s\\n' "$status" "$finished" > "$outcome.tmp" || exit 1
+mv -- "$outcome.tmp" "$outcome"`;
+  // Keep the original systemctl client listening for JobRemoved after the normal client deadline.
+  await new Promise((resolvePromise, reject) => {
+    const child = spawn('sh', ['-c', script, 'rollback-systemd', log, exit, ...rollbackSystemdCommand(definition)], {
+      detached: true,
+      stdio: ['ignore', 'ignore', 'ignore', rollbackPlacementFd],
+    });
+    child.once('error', reject);
+    child.once('close', resolvePromise);
+  });
+}
+
+async function readRollbackSystemdJob(context, journalPath, journal, observed, { executed = false } = {}) {
+  const saved = journal.restart;
+  if (!saved?.systemdClient) return null;
+  const definition = context.deployment.restart;
+  if (!saved.job) {
+    const { log, exit } = rollbackSystemdClientFiles(journalPath, saved.systemdClient);
+    const [logRecord, exitRecord] = await Promise.allSettled([log, exit].map((file) => readFile(file, 'utf8').catch((error) => {
+      if (error.code === 'ENOENT') return null;
+      throw error;
+    })));
+    if (logRecord.status === 'rejected' || (logRecord.value === null && exitRecord.status === 'rejected')) {
+      return reportRollbackEvidence(context, observed, 'The original systemd job record could not be read.',
+        { restart: rollbackRestartReceipt(definition, journal, executed) });
+    }
+    const output = logRecord.value;
+    const finished = exitRecord.status === 'fulfilled' ? exitRecord.value : null;
+    if (output === null && finished === null) return null;
+    const unit = definition.name;
+    const lines = output?.split(/\r?\n/) ?? [];
+    const watches = lines.map((line) => /^Adding \/org\/freedesktop\/systemd1\/job\/([1-9]\d*) to the set\.?$/.exec(line)).filter(Boolean);
+    const anchors = lines.map((line) => /^Enqueued anchor job ([1-9]\d*) ([^\s/]+)\/[a-z-]+\.$/.exec(line)).filter(Boolean);
+    const results = lines.map((line) => /^Got result ([a-z-]+)\/.* for job (\S+)$/.exec(line)).filter(Boolean);
+    const startedAt = /^started (\d+(?:\.\d+)?)$/.exec(lines[0])?.[1];
+    const completion = /^(\d+)(?:[ \t]+(\S+))?$/.exec(finished?.trim() ?? '');
+    const id = watches.length === 1 ? watches[0][1] : null;
+    const result = results.length === 1 && [unit, `${unit}.`].includes(results[0][2]) ? results[0][1] : null;
+    const finishedAt = completion?.[2];
+    const durationMs = startedAt && /^\d+(?:\.\d+)?$/.test(finishedAt ?? '')
+      ? Math.round((Number(finishedAt) - Number(startedAt)) * 1000) : null;
+    const clientTimedOut = Number.isFinite(durationMs) && durationMs >= 0 ? durationMs >= RESTART_CLIENT_TIMEOUT_MS : null;
+    const bound = id && (anchors.length === 0 || anchors.length === 1 && anchors[0][1] === id && anchors[0][2] === unit);
+    if (!bound || !result) {
+      return reportRollbackEvidence(context, observed, 'The original systemd job ID and final result could not be confirmed.',
+        { restart: { ...rollbackRestartReceipt(definition, journal, executed), jobId: bound ? Number(id) : null,
+          clientTimedOut } });
+    }
+    saved.job = { id: Number(id), result, exitCode: completion ? Number(completion[1]) : null, clientTimedOut };
+    await writeAtomicJson(journalPath, journal);
+  }
+  const restart = rollbackRestartReceipt(definition, journal, executed);
+  if (saved.job.result === 'skipped' || (saved.job.result === 'done' && saved.job.exitCode != null && saved.job.exitCode !== 0)) {
+    return reportRollbackEvidence(context, observed, 'The original systemd job did not confirm a completed restart.', { restart });
+  }
+  if (saved.job.result !== 'done') {
+    const releases = await releasePointersForStatus(context.deployment.pointerRoot, [observed.current, observed.previous]);
+    throw failure('RESTART_COMMAND_FAILED', { ...observed, ...releases, restart, pointerAction: 'not-performed' });
+  }
+  return saved.job;
+}
+
+async function settledRollbackService(context, observed, path, journal) {
+  const definition = context.deployment.restart;
+  const timeoutMs = readinessSettings(context).timeoutMs;
+  let deadline = performance.now() + timeoutMs;
+  for (;;) {
+    const service = await processState(definition, { includeRestartState: true }).catch(() => null);
+    if (!service) return reportRollbackEvidence(context, observed, 'The selected service restart state could not be read.');
+    if (service.kind === 'systemd' && (service.loadState !== 'loaded' || service.job === null ||
+        !/^\d+$/.test(service.pid ?? '') || !/^\d+$/.test(service.stateChange ?? '') ||
+        !/^(?:[a-f0-9]{32})?$/.test(service.invocation ?? '-'))) {
+      return reportRollbackEvidence(context, observed, 'Systemd did not report the selected service job and invocation state.');
+    }
+    const pending = service.kind === 'systemd' &&
+      (Boolean(service.job) || ['activating', 'deactivating', 'reloading', 'refreshing'].includes(service.activeState) ||
+        service.subState === 'auto-restart' || service.subState === 'auto-restart-queued');
+    if (pending) {
+      if (journal.restart?.job) {
+        return reportRollbackEvidence(context, observed, 'A separate service transition started after the original systemd job finished.',
+          { restart: rollbackRestartReceipt(definition, journal) });
+      }
+      deadline = performance.now() + timeoutMs;
+      if (journal.restart && !journal.restart.jobObserved) {
+        journal.restart.jobObserved = true;
+        await writeAtomicJson(path, journal);
+      }
+    } else {
+      const running = await observeProcess(context);
+      const confirmed = await processState(definition, { includeRestartState: true }).catch(() => null);
+      if (service.pid === running.pid && stableJson(service) === stableJson(confirmed)) return { service, running };
+    }
+    if (performance.now() >= deadline) {
+      return reportRollbackEvidence(context, observed, 'The selected service restart is still in progress or its state is changing.');
+    }
+    await delay(Math.min(500, Math.max(1, deadline - performance.now())));
+  }
+}
+
+async function verifyResumedRollbackProcess(context, release, before) {
+  const running = await observeProcess(context);
+  if (running.pid !== before.pid || running.started !== before.started ||
+      await processRelease(context.deployment.pointerRoot, release, running.cwd) !== 'current') {
+    throw failure('RUNNING_RELEASE_UNCONFIRMED', { current: release, before, process: running });
+  }
+  return running;
+}
+
+async function rollbackBootId() {
+  return (await readFile('/proc/sys/kernel/random/boot_id', 'utf8')).trim();
+}
+
+async function followRollbackExecution(context, receiptId, receiptPath) {
+  const started = await processStartToken(process.pid);
+  if (!started) throw failure('ROLLBACK_EXECUTION_IDENTITY_UNAVAILABLE', { requestId: receiptId });
+  const boot = await rollbackBootId();
+  const execution = { pid: process.pid, started, boot, id: randomBytes(12).toString('hex') };
+  let kind = 'execution';
+  while (true) {
+    const receipt = await readRollbackRecord(receiptPath);
+    if (receipt) return receipt;
+
+    const path = rollbackRecordPath(context, receiptId, kind);
+    let owner = await readRollbackRecord(path);
+    if (!owner) {
+      if (kind !== 'execution' || !(await activeRollbackMarker(context.deployment.pointerRoot, receiptId))) {
+        owner = await claimRollbackRecord(path, execution);
+        if (owner === execution) return await readRollbackRecord(receiptPath);
+      }
+    }
+    // Every contender follows the same successor record when an execution exits without a receipt.
+    if (owner && (owner.boot !== boot || await processStartToken(owner.pid) !== owner.started)) {
+      kind = `execution-${owner.id}`;
+      continue;
+    }
+    await delay(1_000);
+  }
+}
+
+async function activeRollbackMarker(root, receiptId) {
+  for (const { marker, pid, started } of await cutoverEntries(root)) {
+    const record = await readJson(marker);
+    if (record?.rollbackRequestId === receiptId && await processStartToken(pid) === started) return true;
+  }
+  return false;
+}
+
+async function readRollbackRecord(path) {
+  try {
+    return JSON.parse(await readFile(path, 'utf8'));
+  } catch (error) {
+    if (error.code === 'ENOENT') return null;
+    throw error;
+  }
+}
+
+async function claimRollbackRecord(path, record) {
+  // Linking the complete file lets repeat callers share a single immutable plan or receipt.
+  const staged = `${path}.${process.pid}.${randomBytes(6).toString('hex')}`;
+  try {
+    await writeAtomicJson(staged, record);
+    try {
+      await link(staged, path);
+      return record;
+    } catch (error) {
+      if (error.code !== 'EEXIST') throw error;
+      return await readRollbackRecord(path);
+    }
+  } finally {
+    await rm(staged, { force: true }).catch(() => {});
+  }
+}
+
+async function status(context, releases, layers) {
   const root = context.deployment.pointerRoot;
   const candidate = await statusPointer(root, 'candidate');
-  const current = await statusPointer(root, 'current');
-  const previous = await statusPointer(root, 'previous');
   return {
     pointerRoot: root,
     candidate,
-    candidateArtifact: await artifactForStatus(candidate),
-    current,
-    currentArtifact: await artifactForStatus(current),
-    previous,
-    previousArtifact: await artifactForStatus(previous),
-    runtime: await statusPointer(root, 'runtime'),
-    previousRuntime: await statusPointer(root, 'previous-runtime'),
+    candidateArtifact: await artifactForStatus(root, candidate),
+    ...(releases ?? await releasePointersForStatus(root)),
+    runtime: layers ? layers[0]?.target ?? null : await statusPointer(root, 'runtime'),
+    previousRuntime: layers ? layers[1]?.target ?? null : await statusPointer(root, 'previous-runtime'),
     restart: context.deployment.restart,
   };
 }
 
+async function releasePointersForStatus(root, pointers = null) {
+  const [current, previous] = pointers ?? await Promise.all([statusPointer(root, 'current'), statusPointer(root, 'previous')]);
+  const [currentArtifact, previousArtifact] = await Promise.all([artifactForStatus(root, current), artifactForStatus(root, previous)]);
+  return { current, currentArtifact, previous, previousArtifact };
+}
+
 function nodeRuntimeRecoveryPath(context, release) {
   if (!release) return null;
-  const key = createHash('sha256').update(release).digest('hex');
+  const key = createHash('sha256').update(canonicalArtifactPath(release)).digest('hex');
   return join(context.deployment.pointerRoot, 'state', 'node-runtime', key);
 }
 
@@ -1587,9 +2455,108 @@ async function readNodeRuntimeManifest(release) {
   return readJson(join(release, 'node-runtime', 'manifest.json'));
 }
 
-async function captureNodeRuntime(context, release) {
-  if (!(await readNodeRuntimeManifest(release))) return null;
-  const directory = nodeRuntimeRecoveryPath(context, release);
+function installedNodeRuntimePath(context, release) {
+  return release ? join(nodeRuntimeRecoveryPath(context, release), 'installed') : null;
+}
+
+function ordinaryNodeRuntimePath(context) {
+  return join(context.deployment.pointerRoot, 'state', 'node-runtime', 'ordinary');
+}
+
+async function captureRuntimeTransition(context, current, next, { capture = true, fromSnapshot: knownSnapshot } = {}) {
+  const [fromSnapshot, toSnapshot] = await Promise.all([
+    knownSnapshot ?? readNodeRuntimeManifest(current), readNodeRuntimeManifest(next),
+  ]);
+  if (!fromSnapshot && !toSnapshot) return null;
+  if (!capture) return { fromSnapshot: Boolean(fromSnapshot) };
+  const outgoing = installedNodeRuntimePath(context, current) ?? nodeRuntimeRecoveryPath(context, next);
+  await captureNodeRuntime(context, outgoing);
+  if (!fromSnapshot) await captureNodeRuntime(context, ordinaryNodeRuntimePath(context));
+  return { outgoing, fromSnapshot: Boolean(fromSnapshot) };
+}
+
+async function restoreOrdinaryRuntime(context, current, transition, previous) {
+  if (!transition?.fromSnapshot || await restoreNodeRuntime(ordinaryNodeRuntimePath(context))) return;
+  // Before per-release snapshots, the snapshot install saved the ordinary config under its own release path.
+  if (!(await readNodeRuntimeManifest(previous))) await restoreNodeRuntime(nodeRuntimeRecoveryPath(context, current));
+}
+
+async function rollbackOrdinaryRuntime(context, current, previous, observed, saved) {
+  if (!saved && (!current || await readNodeRuntimeManifest(previous))) return null;
+  const destinations = nodeRuntimeDestinations(context);
+  const paths = [destinations.environment, destinations.central].filter(Boolean);
+  if (!paths.length) return null;
+  const root = context.deployment.pointerRoot;
+  const currentDirectory = resolve(root, current);
+  const artifact = await artifactForStatus(root, currentDirectory);
+  const { manifestDigest, ...unsigned } = artifact ?? {};
+  const contentAddressed = canonicalArtifactPath(currentDirectory) === (artifact?.engineVersion === 2 &&
+    /^[a-f0-9]{40}$/.test(artifact.sourceSha ?? '') && /^sha256:[a-f0-9]{64}$/.test(artifact.treeDigest ?? '') &&
+    /^sha256:[a-f0-9]{64}$/.test(manifestDigest ?? '') ? releasePath(context, artifact) : null);
+  const trustedManifest = artifact?.project === context.project && artifact.target === context.target &&
+    manifestDigest === digest(unsigned) && (artifact.engineVersion === 1 || contentAddressed);
+  const recordedSnapshot = trustedManifest && artifact.entries?.some((entry) => entry.path === 'node-runtime/manifest.json');
+  const runtimePath = join(root, 'current', 'node-runtime');
+  const selectsSnapshot = (environment, central) => {
+    const manifestPath = environment.match(/^[ \t]*(?:export[ \t]+)?NODE_MANIFEST_PATH[ \t]*=[ \t]*["']?([^"' \t\r\n#]+)/m)?.[1];
+    return manifestPath === join(runtimePath, 'manifest.json') ||
+      Boolean(central && destinations.centralFile && resolve(dirname(destinations.central), central) === join(runtimePath, destinations.centralFile));
+  };
+  try {
+    const backups = [
+      installedNodeRuntimePath(context, previous), ordinaryNodeRuntimePath(context), nodeRuntimeRecoveryPath(context, currentDirectory),
+    ];
+    const target = canonicalArtifactPath(previous);
+    if (saved) {
+      if (saved.target === target && backups.includes(saved.directory)) {
+        const backup = await readOrdinaryRuntimeBackup(saved.directory, paths);
+        if (backup && backup.digest === saved.backupDigest) return { entries: backup.entries, evidence: saved };
+      }
+      return reportRollbackEvidence(context, observed, 'The ordinary runtime backup recorded for this rollback is missing or has changed.');
+    }
+    const nodeRuntime = await readNodeRuntimeManifest(currentDirectory);
+    if (!recordedSnapshot && !/^[a-f0-9]{40}$/.test(nodeRuntime?.release_pointer_ref?.source_sha ?? '')) {
+      const activeEnvironment = destinations.environment && await lstatOrNull(destinations.environment)
+        ? await readFile(destinations.environment, 'utf8') : '';
+      const activeCentral = destinations.central && (await lstatOrNull(destinations.central))?.isSymbolicLink()
+        ? await readlink(destinations.central) : null;
+      if (!selectsSnapshot(activeEnvironment, activeCentral)) {
+        if (trustedManifest || (!artifact && await releaseSourceSha(context, currentDirectory).catch(() => null))) return null;
+        return reportRollbackEvidence(context, observed, 'The outgoing release and active runtime do not identify which configuration must be restored.');
+      }
+    }
+    for (const directory of backups) {
+      const backup = await readOrdinaryRuntimeBackup(directory, paths);
+      if (!backup) continue;
+      const environment = backup.entries.find((entry) => entry.path === destinations.environment);
+      const central = backup.entries.find((entry) => entry.path === destinations.central);
+      if (selectsSnapshot(environment?.body?.toString('utf8') ?? '', central?.target)) continue;
+      return { entries: backup.entries, evidence: { target, directory, backupDigest: backup.digest } };
+    }
+  } catch (error) {
+    return reportRollbackEvidence(context, observed, `The ordinary runtime backup could not be read (${error.code ?? 'unreadable'}).`);
+  }
+  return reportRollbackEvidence(context, observed, 'No complete ordinary runtime backup matches the rollback target.');
+}
+
+async function readOrdinaryRuntimeBackup(directory, paths) {
+  const entries = await readJson(join(directory, 'before.json'));
+  if (!Array.isArray(entries) || entries.length !== paths.length || paths.some((path) => !entries.some((entry) => entry?.path === path))) return null;
+  if (entries.some((entry) => !['missing', 'link', 'file'].includes(entry.kind) ||
+    (entry.kind === 'link' && typeof entry.target !== 'string') ||
+    (entry.kind === 'file' && (!/^\d+$/.test(entry.backup ?? '') || ![entry.mode, entry.uid, entry.gid].every(Number.isInteger))))) return null;
+  try {
+    const backup = await Promise.all(entries.map(async (entry) => entry.kind === 'file'
+      ? { ...entry, body: await readFile(join(directory, entry.backup)) } : entry));
+    return { entries: backup, digest: digest(backup.map(({ body, ...entry }) =>
+      body ? { ...entry, sha256: createHash('sha256').update(body).digest('hex') } : entry)) };
+  } catch (error) {
+    if (['ENOENT', 'ENOTDIR'].includes(error.code)) return null;
+    throw error;
+  }
+}
+
+async function captureNodeRuntime(context, directory) {
   const destinations = nodeRuntimeDestinations(context);
   await mkdir(directory, { recursive: true, mode: 0o700 });
   await chmod(directory, 0o700);
@@ -1674,23 +2641,49 @@ async function installNodeRuntime(context, release) {
           if (existingKeys.has(key)) updates[key] = value;
         }
       }
+      Object.assign(updates, await storefrontPublicEnvironment(context, release));
     }
-    const pending = new Set(Object.keys(updates));
-    const lines = before.split(/\r?\n/).map((line) => {
-      const key = /^\s*(?:export\s+)?([A-Z0-9_]+)\s*=/.exec(line)?.[1];
-      if (context.target === 'web-api' && ['OBJECT_STORE_ENDPOINT','OBJECT_STORE_BEARER_TOKEN'].includes(key)) return null;
-      if (!Object.hasOwn(updates, key ?? '')) return line;
-      pending.delete(key);
-      return environmentAssignment(key, updates[key]);
-    }).filter((line) => line !== null);
-    while (lines.at(-1) === '') lines.pop();
-    for (const key of pending) lines.push(environmentAssignment(key, updates[key]));
-    await writeNodeRuntimeFile(path, `${lines.join('\n')}\n`, stats);
+    const removed = context.target === 'web-api' ? ['OBJECT_STORE_ENDPOINT', 'OBJECT_STORE_BEARER_TOKEN'] : [];
+    await updateNodeRuntimeEnvironment(path, before, stats, updates, removed);
   }
   if (destinations.central && await exists(join(release, 'node-runtime', destinations.centralFile))) {
     await atomicPointer(destinations.central, join(activeRuntime, destinations.centralFile));
   }
   return true;
+}
+
+async function storefrontPublicEnvironment(context, release) {
+  const packaged = await readJson(join(release, 'node-runtime', 'storefront-public.json'));
+  // Older immutable archives can keep their original digest and use the snapshot captured with their pin.
+  const snapshot = packaged ?? await readJson(join(nodeRuntimeRecoveryPath(context, release), 'storefront-public.json'));
+  const keys = ['NEXT_PUBLIC_API_BASE_URL', 'NEXT_PUBLIC_AUTH_ORIGIN', 'NEXT_PUBLIC_CLIENT_VERSION', 'NEXT_PUBLIC_STOREFRONT_HOSTNAME'];
+  const environment = Object.fromEntries(keys.filter((key) => typeof snapshot?.[key] === 'string').map((key) => [key, snapshot[key]]));
+  if (Object.hasOwn(environment, 'NEXT_PUBLIC_STOREFRONT_HOSTNAME')) {
+    environment.SFL_STOREFRONT_HOSTNAME = environment.NEXT_PUBLIC_STOREFRONT_HOSTNAME;
+  }
+  return environment;
+}
+
+async function restoreStorefrontPublicEnvironment(context, release) {
+  const updates = await storefrontPublicEnvironment(context, release);
+  if (Object.keys(updates).length === 0) return;
+  const path = nodeRuntimeDestinations(context).environment;
+  const [stats, before] = await Promise.all([lstat(path), readFile(path, 'utf8')]);
+  await updateNodeRuntimeEnvironment(path, before, stats, updates);
+}
+
+async function updateNodeRuntimeEnvironment(path, before, stats, updates, removed = []) {
+  const pending = new Set(Object.keys(updates));
+  const lines = before.split(/\r?\n/).map((line) => {
+    const key = /^\s*(?:export\s+)?([A-Z0-9_]+)\s*=/.exec(line)?.[1];
+    if (removed.includes(key)) return null;
+    if (!Object.hasOwn(updates, key ?? '')) return line;
+    pending.delete(key);
+    return environmentAssignment(key, updates[key]);
+  }).filter((line) => line !== null);
+  while (lines.at(-1) === '') lines.pop();
+  for (const key of pending) lines.push(environmentAssignment(key, updates[key]));
+  await writeNodeRuntimeFile(path, `${lines.join('\n')}\n`, stats);
 }
 
 function environmentAssignment(key, value) {
@@ -1711,13 +2704,18 @@ async function writeNodeRuntimeFile(path, contents, stats) {
 }
 
 async function restoreNodeRuntime(directory) {
-  if (!directory) return;
+  if (!directory) return false;
   const entries = await readJson(join(directory, 'before.json'));
-  if (!entries) return;
+  if (!entries) return false;
+  await applyNodeRuntime(entries, directory);
+  return true;
+}
+
+async function applyNodeRuntime(entries, directory) {
   for (const entry of entries) {
     if (entry.kind === 'missing') await rm(entry.path, { force: true });
     else if (entry.kind === 'link') await atomicPointer(entry.path, entry.target);
-    else await writeNodeRuntimeFile(entry.path, await readFile(join(directory, entry.backup)), entry);
+    else await writeNodeRuntimeFile(entry.path, entry.body ?? await readFile(join(directory, entry.backup)), entry);
   }
 }
 
@@ -1726,29 +2724,474 @@ async function observeMany(targetIds, makeContext) {
     let targetStatus;
     try {
       const context = makeContext(target);
-      targetStatus = await status(context);
-      const verification = await verifyCurrent(context);
-      return { target, status: targetStatus, verification };
+      const root = context.deployment.pointerRoot;
+      const layerNames = ['runtime', 'previous-runtime'];
+      const [before, beforeLayers] = await Promise.all([observePointerPair(root), observePointerPair(root, layerNames)]);
+      const processBefore = before[0]?.target ? await observeProcess(context) : null;
+      const cutover = await observeCutover(context, before, processBefore, beforeLayers);
+      if (cutover?.code === 'OBSERVATION_CHANGED') return changingObservation(target);
+      const releases = await releasePointersForStatus(root, before.map((pointer) => pointer?.target ?? null));
+      targetStatus = await status(context, releases, beforeLayers);
+      let verification = null;
+      let error = null;
+      if (!cutover || cutover.code === 'RUNNING_RELEASE_UNCONFIRMED') {
+        try {
+          verification = await verifyCurrent(context, releases);
+        } catch (failure) {
+          error = errorEvidence(failure);
+        }
+      }
+      const processAfter = processBefore ? await observeProcess(context) : null;
+      const [after, afterLayers] = await Promise.all([observePointerPair(root), observePointerPair(root, layerNames)]);
+      if (JSON.stringify(before) !== JSON.stringify(after) ||
+          JSON.stringify(beforeLayers) !== JSON.stringify(afterLayers) ||
+          JSON.stringify(processBefore) !== JSON.stringify(processAfter) ||
+          await hasActiveCutover(root)) return changingObservation(target);
+      if (cutover && (cutover.code !== 'RUNNING_RELEASE_UNCONFIRMED' || !error)) {
+        return { target, status: targetStatus, process: processAfter, verification: null, error: cutover };
+      }
+      if (verification) verification.targetProcess = processAfter?.pid ?? null;
+      return { target, status: targetStatus, process: processAfter, verification, ...(error ? { error } : {}) };
     } catch (error) {
-      return { target, status: targetStatus ?? null, verification: null, error: errorEvidence(error) };
+      return { target, status: null, verification: null, error: errorEvidence(error) };
     }
   }));
   return { targets };
 }
 
-async function artifactForStatus(release) {
-  return release ? await readJson(join(release, 'AI_DELIVERY_ARTIFACT.json')) : null;
+function changingObservation(target) {
+  return { target, status: null, verification: null, error: { code: 'OBSERVATION_CHANGED', message: 'The release is changing during observation.' } };
 }
 
-async function verifyCurrent(context) {
+function observePointerPair(root, names = ['current', 'previous'], { stableAcrossRename = false } = {}) {
+  return Promise.all(names.map(async (name) => {
+    const path = join(root, name);
+    try {
+      const stat = await lstat(path, { bigint: true });
+      if (!stat.isSymbolicLink()) return null;
+      // Renaming a staged pointer changes ctime, while its symlink identity and creation data stay the same.
+      const generation = stableAcrossRename
+        ? `${stat.dev}:${stat.ino}:${stat.birthtimeNs}:${stat.mtimeNs}`
+        : `${stat.dev}:${stat.ino}:${stat.ctimeNs}`;
+      return { target: await readlink(path), generation };
+    } catch (error) {
+      if (error.code === 'ENOENT' || error.code === 'EINVAL') return null;
+      throw error;
+    }
+  }));
+}
+
+async function observeProcess(context) {
+  const pid = await processId(context.deployment.restart);
+  if (!/^[1-9]\d*$/.test(pid)) return { pid, started: null, cwd: null };
+  const started = await processStartToken(pid);
+  const cwd = await readlink(`/proc/${pid}/cwd`).catch((error) => {
+    if (['ENOENT', 'ESRCH', 'EACCES', 'EPERM'].includes(error.code)) return null;
+    throw error;
+  });
+  return { pid, started, cwd };
+}
+
+async function verifyCutoverProcess(context, release, before) {
+  const running = await observeProcess(context);
+  if (running.pid === 'none') return running;
+  if (!running.started || (running.pid === before.pid && running.started === before.started)) {
+    throw failure('TARGET_PROCESS_NOT_RESTARTED', { current: release, before, process: running });
+  }
+  if (await processRelease(context.deployment.pointerRoot, release, running.cwd) === 'other') {
+    throw failure('TARGET_PROCESS_RELEASE_MISMATCH', { current: release, process: running });
+  }
+  return running;
+}
+
+async function processStartToken(pid) {
+  try {
+    const stat = await readFile(`/proc/${pid}/stat`, 'utf8');
+    // The process name may contain spaces. Start time is field 22.
+    const fields = stat.slice(stat.lastIndexOf(')') + 2).split(' ');
+    return ['Z', 'X'].includes(fields[0]) ? null : fields[19] ?? null;
+  } catch (error) {
+    if (['ENOENT', 'ESRCH', 'EACCES'].includes(error.code)) return null;
+    throw error;
+  }
+}
+
+async function markCutover(root, intent = {}, { required: mustRecord = false } = {}) {
+  try {
+    const started = await processStartToken(process.pid);
+    if (!started) {
+      if (mustRecord) throw failure('ROLLBACK_EXECUTION_IDENTITY_UNAVAILABLE');
+      return;
+    }
+    const directory = join(root, 'state', 'cutovers');
+    await mkdir(directory, { recursive: true });
+    const marker = join(directory, `${process.pid}-${started}`);
+    await writeAtomicJson(marker, { before: await observePointerPair(root), ...intent });
+    cutoverMarker = marker;
+  } catch (error) {
+    if (mustRecord) throw error;
+    process.stderr.write(`REMOTE_OBSERVATION_WARNING=${JSON.stringify(errorEvidence(error))}\n`);
+  }
+}
+
+async function cutoverProcess(context) {
+  if (!cutoverMarker) return null;
+  try {
+    const pointers = await observePointerPair(context.deployment.pointerRoot);
+    return { pointers, process: await observeProcess(context) };
+  } catch (error) {
+    process.stderr.write(`REMOTE_OBSERVATION_WARNING=${JSON.stringify(errorEvidence(error))}\n`);
+    return null;
+  }
+}
+
+async function recordConfirmedCutover(root, completion) {
+  try {
+    await writeAtomicJson(join(root, 'state', 'cutovers', 'confirmed.json'), completion);
+  } catch (error) {
+    process.stderr.write(`REMOTE_OBSERVATION_WARNING=${JSON.stringify(errorEvidence(error))}\n`);
+    return false;
+  }
+  if (cutoverMarker) {
+    await rm(cutoverMarker, { force: true }).catch((error) => {
+      process.stderr.write(`REMOTE_OBSERVATION_WARNING=${JSON.stringify(errorEvidence(error))}\n`);
+    });
+    cutoverMarker = null;
+  }
+  return true;
+}
+
+async function cutoverEntries(root) {
+  const directory = join(root, 'state', 'cutovers');
+  const entries = await readdir(directory).catch((error) => {
+    if (error.code === 'ENOENT') return [];
+    throw error;
+  });
+  return entries.flatMap((name) => {
+    const match = /^(\d+)-(\d+)$/.exec(name);
+    return match ? [{ marker: join(directory, name), pid: match[1], started: match[2] }] : [];
+  });
+}
+
+async function hasActiveCutover(root) {
+  for (const entry of await cutoverEntries(root)) {
+    if (await processStartToken(entry.pid) === entry.started) return true;
+  }
+  return false;
+}
+
+async function unfinishedRollback(context, pair, observed, pointerStates) {
   const root = context.deployment.pointerRoot;
-  const current = await pointer(root, 'current');
+  const confirmed = await readJson(join(root, 'state', 'cutovers', 'confirmed.json'));
+  if (stableJson(confirmed?.pointers) === stableJson(pair)) return null;
+  const { latest: audit, completed } = await latestCutoverAudit(context);
+  if (completed && matchesRollbackCompletion(completed, pair, observed)) return null;
+  let confirmedAt = Math.max(confirmed?.confirmedAt ?? 0, completed?.confirmedAt ?? 0);
+  const closedMarkers = new Set([...(confirmed?.closedMarkers ?? []), ...(completed?.result.completion?.closedMarkers ?? [])]);
+
+  const entries = await cutoverEntries(root);
+  const matches = [];
+  const unresolved = [];
+  const requestReceipts = new Map();
+  for (const { marker } of entries) {
+    if (closedMarkers.has(basename(marker))) continue;
+    const record = await readJson(marker);
+    if (record?.rollback) {
+      if (record.rollbackRequestId) {
+        const id = record.rollbackRequestId;
+        if (!requestReceipts.has(id)) {
+          requestReceipts.set(id, await readRollbackRecord(rollbackRecordPath(context, id, 'receipt')));
+        }
+        const receipt = requestReceipts.get(id);
+        if (receipt) {
+          const recordedAt = receipt.completion.confirmedAt;
+          if (matchesRollbackCompletion({ result: receipt, confirmedAt: recordedAt }, pair, observed)) return null;
+          confirmedAt = Math.max(confirmedAt, recordedAt);
+          continue;
+        }
+      }
+      const plan = record.rollback;
+      if (!Number.isFinite(record.rollbackStartedAt) || record.rollbackStartedAt < confirmedAt) continue;
+      if (!record.pointerJournal) {
+        if (!rollbackReachedCurrent(plan, observed)) continue;
+        unresolved.push({ marker, original: plan, recordedAt: record.rollbackStartedAt });
+        continue;
+      }
+      const journal = await readRollbackRecord(record.pointerJournal);
+      if (!journal) {
+        if (rollbackReachedCurrent(plan, observed)) unresolved.push({ marker, original: plan, recordedAt: record.rollbackStartedAt });
+        continue;
+      }
+      const progress = rollbackJournalProgress(journal, pointerStates);
+      if (stableJson(journal.plan) !== stableJson(plan) || progress < 0 || (progress === 0 && !journal.resuming)) continue;
+      matches.push({ marker, plan, startedAt: record.rollbackStartedAt, requestId: record.rollbackRequestId,
+        ordinaryRuntime: record.ordinaryRuntime, pointerJournal: record.pointerJournal });
+      continue;
+    }
+    if (record && (!Array.isArray(record.before) || stableJson(record.before) === stableJson(pair))) continue;
+    const original = record ? { current: record.before[0]?.target ?? null, previous: record.before[1]?.target ?? null } : null;
+    if (original && !rollbackReachedCurrent(original, observed)) continue;
+    const stamp = await lstatOrNull(marker);
+    if (stamp && stamp.mtimeMs >= confirmedAt) {
+      unresolved.push({ marker, original, recordedAt: stamp.mtimeMs });
+    }
+  }
+  const openMatches = matches.filter(({ startedAt }) => startedAt >= confirmedAt)
+    .sort((left, right) => right.startedAt - left.startedAt || Number(Boolean(right.ordinaryRuntime)) - Number(Boolean(left.ordinaryRuntime)));
+  const latest = openMatches[0];
+  if (latest) return {
+    plan: latest.plan,
+    requestId: latest.requestId,
+    startedAt: latest.startedAt,
+    ordinaryRuntime: latest.ordinaryRuntime,
+    pointerJournal: latest.pointerJournal,
+    markers: openMatches.filter(({ startedAt, plan }) =>
+      startedAt === latest.startedAt && stableJson(plan) === stableJson(latest.plan)).map(({ marker }) => marker),
+  };
+  return recoverLegacyRollback(context, pair, observed, unresolved.filter(({ recordedAt }) => recordedAt >= confirmedAt), confirmedAt, audit);
+}
+
+function completedRollbackAudit(audit) {
+  if (audit?.action !== 'rollback' || audit.error || !audit.result?.current) return null;
+  const result = audit.result;
+  const confirmedAt = result.completion?.confirmedAt ?? Date.parse(audit.completedAt ?? '');
+  return Number.isFinite(confirmedAt) ? { result, confirmedAt } : null;
+}
+
+function matchesRollbackCompletion({ result, confirmedAt }, pair, observed) {
+  if (result.current !== observed.current || result.previous !== observed.previous ||
+      result.runtime !== observed.runtime ||
+      (Object.hasOwn(result, 'previousRuntime') && result.previousRuntime !== observed.previousRuntime)) return false;
+  if (result.completion?.pointers) return stableJson(result.completion.pointers) === stableJson(pair);
+  // Old successful receipts contain release paths, but no recorded pointer generations.
+  return !pointersChangedAfter(pair, confirmedAt);
+}
+
+function pointersChangedAfter(pair, timestamp) {
+  return pair.some((entry) => entry &&
+    BigInt(entry.generation.split(':').at(-1)) >= BigInt(timestamp + 1) * 1_000_000n);
+}
+
+function rollbackReachedCurrent(original, observed) {
+  return Boolean(original.previous) && original.current !== original.previous &&
+    observed.current !== original.current && canonicalArtifactPath(observed.current) === canonicalArtifactPath(original.previous) &&
+    [original.current, original.previous].includes(observed.previous);
+}
+
+async function recoverLegacyRollback(context, pair, observed, unresolved, confirmedAt, audit) {
+  const failed = audit?.action === 'rollback' && audit.error?.code === 'ROLLBACK_FAILED' ? audit.error.details : null;
+  const receipt = failed?.pointerJournal ? null : failed;
+  const failedAt = Date.parse(audit?.failedAt ?? '');
+  const original = receipt && { current: receipt.originalCurrent, previous: receipt.attemptedCurrent };
+  const failureMatches = original && failedAt >= confirmedAt && rollbackReachedCurrent(original, observed);
+  if (!failureMatches && unresolved.length === 0) return null;
+
+  const markers = failureMatches ? unresolved.filter(({ original: recorded, recordedAt }) =>
+    recordedAt < failedAt + 1 && (!recorded ||
+      (recorded.current === original.current && recorded.previous === original.previous))) : [];
+  if (failureMatches && (unresolved.length === 0 || markers.length > 0) &&
+      !pointersChangedAfter(pair, failedAt - 1) &&
+      ['current', 'previous', 'runtime', 'previousRuntime'].every((key) => receipt[key] === observed[key])) {
+    const runtime = await recoverLegacyRuntime(context, original, observed, receipt);
+    if (runtime) return { plan: { ...original, ...runtime }, startedAt: Math.floor(markers[0]?.recordedAt ?? failedAt), markers: markers.map(({ marker }) => marker) };
+  }
+
+  return reportRollbackEvidence(context, observed,
+    failureMatches ? 'Legacy rollback runtime or pointer evidence is incomplete or inconsistent.' : 'No matching failed rollback receipt for this placement.');
+}
+
+async function reportRollbackEvidence(context, observed, reason, details = {}) {
+  const releases = await releasePointersForStatus(context.deployment.pointerRoot, [observed.current, observed.previous]);
+  throw failure('ROLLBACK_EVIDENCE_INSUFFICIENT', {
+    ...releases,
+    runtime: observed.runtime,
+    previousRuntime: observed.previousRuntime,
+    ...details,
+    pointerAction: 'not-performed',
+    reason,
+    nextAction: 'Inspect the recorded release paths and failed rollback receipt for this target and physical node.',
+  });
+}
+
+async function verifiedRollbackTarget(context, requested, observed, preferred) {
+  const root = resolve(context.deployment.pointerRoot);
+  const path = resolve(root, requested);
+  const canonical = canonicalArtifactPath(path);
+  const identityMatch = /^([a-f0-9]{40})-([a-f0-9]{64})-([a-f0-9]{64})$/.exec(basename(canonical));
+  if (identityMatch && canonical === join(root, 'releases', basename(canonical))) {
+    const [, sourceSha, treeDigest, manifestDigest] = identityMatch;
+    // The manifest digest in the recorded release path also commits to the archive digest.
+    const identity = { project: context.project, target: context.target, sourceSha,
+      treeDigest: `sha256:${treeDigest}`, manifestDigest: `sha256:${manifestDigest}` };
+    const stored = await locateStoredRelease(context, identity, [preferred, requested, ...await placementReleasePointers(root)]);
+    if (stored.manifest) return stored.release;
+    return reportRollbackEvidence(context, observed, `No verified copy matched the rollback target manifest ${identity.manifestDigest}.`);
+  }
+  // Seeded releases and imported baselines predate content-addressed archives.
+  try {
+    if (await releaseSourceSha(context, path)) return path;
+  } catch (error) {
+    return reportRollbackEvidence(context, observed, `The recorded rollback target could not be verified (${error.code ?? 'unreadable'}).`);
+  }
+  return reportRollbackEvidence(context, observed, 'No verified artifact or baseline matched the recorded rollback target.');
+}
+
+async function latestCutoverAudit(context) {
+  const actions = ['rollback', 'activate', 'activate-direct', 'deploy-oss-direct', 'deploy-oss-direct-v2', 'baseline', 'seed'];
+  let latest = null;
+  for await (const record of placementAudit(context)) {
+    if (!actions.includes(record.action) || record.error?.code === 'ROLLBACK_EVIDENCE_INSUFFICIENT') continue;
+    latest ??= record;
+    const completed = completedRollbackAudit(record);
+    if (completed) return { latest, completed };
+  }
+  return { latest, completed: null };
+}
+
+async function* placementAudit(context) {
+  const root = context.policy.auditRoot ?? '/var/log/ai-delivery';
+  let file;
+  try {
+    file = await open(join(root, `${safeName(context.project)}.jsonl`), 'r');
+    let position = (await file.stat()).size;
+    let partialLine = Buffer.alloc(0);
+    while (position > 0) {
+      const block = Buffer.alloc(Math.min(position, 64 * 1024));
+      position -= block.length;
+      const { bytesRead } = await file.read(block, 0, block.length, position);
+      const chunk = Buffer.concat([block.subarray(0, bytesRead), partialLine]);
+      const firstNewline = position === 0 ? -1 : chunk.indexOf(10);
+      partialLine = firstNewline < 0 ? chunk : chunk.subarray(0, firstNewline);
+      if (position > 0 && firstNewline < 0) continue;
+      const lines = chunk.subarray(firstNewline + 1).toString('utf8').split('\n');
+      for (let index = lines.length - 1; index >= 0; index -= 1) {
+        let record;
+        try { record = JSON.parse(lines[index]); } catch { continue; }
+        if (record?.project === context.project && record.node === context.node && record.target === context.target) yield record;
+      }
+    }
+  } catch {
+    // Older placements may no longer have the corresponding audit file.
+  } finally {
+    await file?.close().catch(() => {});
+  }
+}
+
+async function recoverLegacyRuntime(context, original, observed, receipt) {
+  // Before previous moves, neither runtime pointer has been written.
+  if (observed.previous === original.previous) return { runtime: observed.runtime, previousRuntime: observed.previousRuntime };
+  const failureCode = receipt.rollbackFailure?.code;
+  if (receipt.timings?.pointer > 0 || receipt.timings?.restart > 0 ||
+      ['RESTART_COMMAND_FAILED', 'READINESS_HARD_FAILURE', 'READINESS_TIMEOUT', 'TARGET_PROCESS_NOT_RESTARTED', 'TARGET_PROCESS_RELEASE_MISMATCH'].includes(failureCode)) {
+    return { runtime: observed.previousRuntime, previousRuntime: observed.runtime };
+  }
+
+  const root = context.deployment.pointerRoot;
+  const [from, to] = await Promise.all([original.current, original.previous].map(async (release) => {
+    if (!release) return null;
+    const manifest = await artifactForStatus(root, release);
+    return manifest?.dependencyLayer
+      ? dependencyLayerPath(context, manifest.dependencyLayer).catch(() => undefined) : undefined;
+  }));
+  // Equal live links can also mean only the first runtime link was updated.
+  if (observed.runtime === observed.previousRuntime && from === undefined) return null;
+  const possibilities = [
+    { runtime: observed.runtime, previousRuntime: observed.previousRuntime },
+    { runtime: observed.previousRuntime, previousRuntime: observed.runtime },
+    ...(observed.runtime === observed.previousRuntime && from !== undefined
+      ? [{ runtime: from, previousRuntime: observed.runtime }] : []),
+  ].filter(({ runtime, previousRuntime }) =>
+    (from === undefined || from === runtime) && (to === undefined || to === previousRuntime));
+  const unique = new Map(possibilities.map((runtime) => [stableJson(runtime), runtime]));
+  return unique.size === 1 ? unique.values().next().value : null;
+}
+
+async function observeCutover(context, pointers, running, layers) {
+  const root = context.deployment.pointerRoot;
+  const pending = await cutoverEntries(root);
+  const generation = stableJson(pointers);
+  let confirmed = await readJson(join(root, 'state', 'cutovers', 'confirmed.json'));
+  let generationConfirmed = stableJson(confirmed?.pointers) === generation;
+  const interrupted = [];
+  for (const entry of pending) {
+    if (confirmed?.closedMarkers?.includes(basename(entry.marker))) continue;
+    if (await processStartToken(entry.pid) === entry.started) return { code: 'OBSERVATION_CHANGED' };
+    if (!generationConfirmed) {
+      const record = await readJson(entry.marker);
+      if (record?.rollbackRequestId) {
+        const receipt = await readRollbackRecord(rollbackRecordPath(context, record.rollbackRequestId, 'receipt'));
+        if (receipt) {
+          if (stableJson(receipt.completion.pointers) === generation) {
+            confirmed = receipt.completion;
+            generationConfirmed = true;
+          }
+          continue;
+        }
+      }
+      if (!record || stableJson(record.before) === generation) continue;
+      const recordedAt = record.rollbackStartedAt ?? (await lstatOrNull(entry.marker))?.mtimeMs;
+      if (recordedAt >= (confirmed?.confirmedAt ?? 0)) interrupted.push({ marker: basename(entry.marker), recordedAt });
+    }
+  }
+  if (interrupted.length) {
+    const { completed } = await latestCutoverAudit(context);
+    if (completed) {
+      const [runtime, previousRuntime] = layers ? layers.map((entry) => entry?.target ?? null)
+        : await Promise.all([pointer(root, 'runtime'), pointer(root, 'previous-runtime')]);
+      if (stableJson(await observePointerPair(root)) !== generation) return { code: 'OBSERVATION_CHANGED' };
+      if (matchesRollbackCompletion(completed, pointers, {
+        current: pointers[0]?.target ?? null, previous: pointers[1]?.target ?? null, runtime, previousRuntime,
+      })) {
+        confirmed = completed.result.completion;
+        generationConfirmed = true;
+      }
+    }
+    if (!generationConfirmed && interrupted.some(({ marker, recordedAt }) =>
+      !completed?.result.completion?.closedMarkers?.includes(marker) && recordedAt >= (completed?.confirmedAt ?? 0))) return {
+      code: 'CUTOVER_INCOMPLETE',
+      message: 'The cutover stopped after the release pointers changed.',
+      details: { current: pointers[0]?.target ?? null, previous: pointers[1]?.target ?? null, process: running },
+    };
+  }
+  if (!running || running.pid === 'none') return null;
+  const release = await processRelease(root, pointers[0].target, running.cwd);
+  const processConfirmed = generationConfirmed && running.started && confirmed?.process?.pid === running.pid && confirmed.process.started === running.started;
+  if (release === 'current' || (release !== 'other' && processConfirmed)) return null;
+  return {
+    code: release === 'other' ? 'RUNNING_RELEASE_MISMATCH' : 'RUNNING_RELEASE_UNCONFIRMED',
+    message: release === 'other' ? 'The service process is running a different release.' : 'The running release could not be identified.',
+    details: { current: pointers[0].target, previous: pointers[1]?.target ?? null, process: running },
+  };
+}
+
+async function processRelease(root, current, cwd) {
+  if (!cwd || !current) return 'unknown';
+  const release = await realpath(resolve(root, current)).catch((error) => {
+    if (error.code === 'ENOENT') return null;
+    throw error;
+  });
+  if (!release) return 'unknown';
+  if (cwd === release || cwd.startsWith(`${release}/`)) return 'current';
+  const releases = await realpath(join(root, 'releases')).catch((error) => {
+    if (error.code === 'ENOENT') return null;
+    throw error;
+  });
+  return releases && cwd.startsWith(`${releases}/`) ? 'other' : 'unknown';
+}
+
+async function artifactForStatus(root, release) {
+  return release ? await readJson(join(resolve(root, release), 'AI_DELIVERY_ARTIFACT.json')) : null;
+}
+
+async function verifyCurrent(context, observedRelease = null) {
+  const root = context.deployment.pointerRoot;
+  const current = observedRelease ? observedRelease.current : await pointer(root, 'current');
   assert(current, 'CURRENT_POINTER_MISSING', { root });
-  const readiness = await waitForReadiness(context, { candidateDir: '', currentDir: current, ...contextSummary(context) });
+  const readiness = await waitForReadiness(context, { candidateDir: '', currentDir: resolve(root, current), ...contextSummary(context) });
   return {
     current,
-    currentArtifact: await readJson(join(current, 'AI_DELIVERY_ARTIFACT.json')),
-    targetProcess: await processId(context.deployment.restart),
+    currentArtifact: observedRelease ? observedRelease.currentArtifact : await artifactForStatus(root, current),
+    ...(observedRelease ? {} : { targetProcess: await processId(context.deployment.restart) }),
     checks: readiness.checks,
     readiness,
     protectedProcesses: {},
@@ -1856,7 +3299,9 @@ async function caddySemanticEvidence(policy) {
 }
 
 function artifactSummary(manifest) {
-  return { sourceSha: manifest.sourceSha, treeDigest: manifest.treeDigest, manifestDigest: manifest.manifestDigest, archiveSha256: manifest.archive?.sha256 ?? null, archiveBytes: manifest.archive?.bytes ?? null };
+  return { sourceSha: manifest.sourceSha, treeDigest: manifest.treeDigest, manifestDigest: manifest.manifestDigest,
+    archiveSha256: manifest.archive?.sha256 ?? null, archiveBytes: manifest.archive?.bytes ?? null,
+    ...(Object.hasOwn(manifest, 'instanceCacheKey') ? { instanceCacheKey: manifest.instanceCacheKey } : {}) };
 }
 
 async function deploymentReceipt(context, manifest, evidence) {
@@ -1927,15 +3372,17 @@ function restartEvidence(definition = { kind: 'none', name: 'none' }, executed =
   };
 }
 
-async function restart(definition = { kind: 'none', name: 'none' }) {
+async function restart(definition = { kind: 'none', name: 'none' }, inheritedFd) {
   const evidence = restartEvidence(definition, true);
   const restartAt = new Date().toISOString();
   if (evidence.commandCount === 0) return evidence;
   try {
-    await command(evidence.commands[0], { timeoutMs: 45_000 });
+    const argv = inheritedFd === undefined ? evidence.commands[0]
+      : ['sh', '-c', '"$@"; exit "$?"', 'rollback-restart', ...evidence.commands[0]];
+    await command(argv, { timeoutMs: RESTART_CLIENT_TIMEOUT_MS, inheritedFd });
   } catch (error) {
     let serviceError = null;
-    if (evidence.kind === 'systemd') {
+    if (evidence.kind === 'systemd' && !(inheritedFd !== undefined && error.details?.timedOut)) {
       try {
         const journal = await command(['journalctl','-u',evidence.target,'--since',restartAt,'-n','80','--no-pager','-o','cat']);
         serviceError = journal.stdout.split('\n').filter((line) => /Error|Warning|curl:|unsettled|_TIMEOUT|_MISMATCH|_MISSING|_INVALID|_REQUIRED/i.test(line)).slice(-3).join('\n');
@@ -2048,14 +3495,17 @@ async function runReadinessAttempt(checks, values, settings, deadline) {
   return results;
 }
 
-async function processState(definition = { kind: 'none', name: 'none' }) {
+async function processState(definition = { kind: 'none', name: 'none' }, { includeRestartState = false } = {}) {
   if (!definition || definition.kind === 'none') return { kind: 'none', name: 'none', pid: 'none', activeState: 'unmonitored' };
   if (definition.kind === 'pm2') {
     const pid = await processId(definition);
     return { kind: 'pm2', name: definition.name, pid, activeState: pid === '0' ? 'inactive' : 'active' };
   }
   if (definition.kind === 'systemd') {
-    const result = await command(['systemctl', 'show', '--property=ActiveState', '--property=SubState', '--property=Result', '--property=MainPID', definition.name], { acceptExitCodes: [0, 3], timeoutMs: 2_000 });
+    const evidence = includeRestartState ? ['--all', '--property=LoadState', '--property=Job',
+      '--property=InvocationID', '--property=StateChangeTimestampMonotonic'] : [];
+    const result = await command(['systemctl', 'show', '--property=ActiveState', '--property=SubState',
+      '--property=Result', '--property=MainPID', ...evidence, definition.name], { acceptExitCodes: [0, 3], timeoutMs: 2_000 });
     const properties = Object.fromEntries(
       result.stdout
         .split('\n')
@@ -2065,10 +3515,16 @@ async function processState(definition = { kind: 'none', name: 'none' }) {
     return {
       kind: 'systemd',
       name: definition.name,
-      pid: properties.MainPID || '0',
+      pid: includeRestartState ? properties.MainPID : properties.MainPID || '0',
       activeState: properties.ActiveState || 'unknown',
       subState: properties.SubState || 'unknown',
       result: properties.Result || 'unknown',
+      ...(includeRestartState ? {
+        loadState: properties.LoadState,
+        job: /^\d*$/.test(properties.Job ?? '-') ? Number(properties.Job) : null,
+        invocation: properties.InvocationID,
+        stateChange: properties.StateChangeTimestampMonotonic,
+      } : {}),
     };
   }
   throw failure('PROCESS_KIND_INVALID', definition);
@@ -2109,6 +3565,7 @@ async function command(argv, options = {}) {
   const started = Date.now();
   const chunks = [];
   let interruptedSignal = null;
+  let timedOut = false;
   const result = await new Promise((resolvePromise, reject) => {
     const useProcessGroup = process.platform !== 'win32';
     let escalation;
@@ -2116,7 +3573,8 @@ async function command(argv, options = {}) {
     const child = spawn(argv[0], argv.slice(1), {
       shell: false,
       detached: useProcessGroup,
-      stdio: [options.input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'],
+      stdio: [options.input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe',
+        ...(options.inheritedFd === undefined ? [] : [options.inheritedFd])],
       ...(options.cwd ? { cwd: options.cwd } : {}),
       ...(options.env ? { env: options.env } : {}),
       ...(options.uid === undefined ? {} : { uid: options.uid }),
@@ -2158,7 +3616,8 @@ async function command(argv, options = {}) {
       removeSignalHandlers();
       reject(error);
     });
-    const timer = setTimeout(() => {
+    const timer = options.timeoutMs === null ? null : setTimeout(() => {
+      timedOut = true;
       terminate('SIGKILL');
     }, options.timeoutMs ?? 30_000);
     child.on('close', (code, signal) => {
@@ -2177,7 +3636,9 @@ async function command(argv, options = {}) {
   const stdout = Buffer.concat(chunks).toString('utf8');
   if (interruptedSignal) throw failure('REMOTE_COMMAND_INTERRUPTED', { argv, signal: interruptedSignal, outputTail: stdout.slice(-3000) });
   const accepted = options.acceptExitCodes ?? [0];
-  assert(accepted.includes(result.code), 'REMOTE_COMMAND_FAILED', { argv, code: result.code, signal: result.signal, outputTail: stdout.slice(-3000) });
+  assert(accepted.includes(result.code), 'REMOTE_COMMAND_FAILED', {
+    argv, code: result.code, signal: result.signal, ...(timedOut ? { timedOut: true } : {}), outputTail: stdout.slice(-3000),
+  });
   return { stdout, durationMs: Date.now() - started };
 }
 
@@ -2239,7 +3700,63 @@ function artifactIdentity(context, options) {
 }
 
 function releasePath(context, identity) {
-  return join(context.deployment.pointerRoot, 'releases', `${identity.sourceSha}-${identity.treeDigest.slice(7)}-${identity.manifestDigest.slice(7)}`);
+  return resolve(context.deployment.pointerRoot, 'releases', `${identity.sourceSha}-${identity.treeDigest.slice(7)}-${identity.manifestDigest.slice(7)}`);
+}
+
+function repairRecordPath(context, identity) {
+  return join(context.deployment.pointerRoot, 'state', 'repaired-artifacts', `${identity.manifestDigest.slice(7)}.json`);
+}
+
+function placementReleasePointers(root) {
+  return Promise.all(['current', 'previous', 'candidate'].map((name) => pointer(root, name)));
+}
+
+function canonicalArtifactPath(path) {
+  return path?.replace(/(\/[a-f0-9]{40}-[a-f0-9]{64}-[a-f0-9]{64})\.repair-[a-f0-9]{16}$/, '$1') ?? null;
+}
+
+async function* storedReleasePaths(context, identity, pointers) {
+  const root = context.deployment.pointerRoot;
+  const canonical = releasePath(context, identity);
+  const repair = await readJson(repairRecordPath(context, identity));
+  const paths = [...(pointers ?? await placementReleasePointers(root)), canonical, repair?.release];
+  const seen = new Set(paths.filter((path) => typeof path === 'string' && path).map((path) => resolve(root, path)));
+  for (const path of seen) {
+    if (canonicalArtifactPath(path) === canonical) yield path;
+  }
+  const directory = dirname(canonical);
+  let names;
+  try {
+    names = await readdir(directory);
+  } catch (error) {
+    if (error.code === 'ENOENT') return;
+    throw error;
+  }
+  const prefix = `${basename(canonical)}.repair-`;
+  for (const name of names.sort()) {
+    if (!name.startsWith(prefix) || !/^[a-f0-9]{16}$/.test(name.slice(prefix.length))) continue;
+    const path = join(directory, name);
+    if (!seen.has(path)) yield path;
+  }
+}
+
+async function locateStoredRelease(context, identity, pointers) {
+  const damage = [];
+  for await (const release of storedReleasePaths(context, identity, pointers)) {
+    try {
+      if (!(await exists(release))) continue;
+      return { release, manifest: await verifyStoredRelease(context, release, identity), damage };
+    } catch (error) {
+      if (!isStoredArtifactDamage(error)) throw error;
+      damage.push({ release, error });
+    }
+  }
+  return { release: releasePath(context, identity), manifest: null, damage };
+}
+
+function isStoredArtifactDamage(error) {
+  return /^(EXISTING_RELEASE_|ARTIFACT_|CRITICAL_FILE_)/.test(error.code ?? '') ||
+    ['CURRENT_RELEASE_TREE_MISMATCH', 'ENOENT', 'ENOTDIR'].includes(error.code);
 }
 
 async function verifyStoredRelease(context, release, identity) {
@@ -2247,14 +3764,16 @@ async function verifyStoredRelease(context, release, identity) {
   assert(manifest?.schema === 'ai.delivery.artifact.v1' && manifest.engineVersion === 2, 'EXISTING_RELEASE_MANIFEST_INVALID', { release });
   assert(manifest.project === identity.project && manifest.target === identity.target, 'EXISTING_RELEASE_SCOPE_MISMATCH', { release });
   assert(manifest.sourceSha === identity.sourceSha && manifest.treeDigest === identity.treeDigest && manifest.manifestDigest === identity.manifestDigest, 'EXISTING_RELEASE_IDENTITY_MISMATCH', { release });
-  assert(manifest.archive?.sha256 === `sha256:${identity.archiveSha256}`, 'EXISTING_RELEASE_ARCHIVE_MISMATCH', { release });
+  assert(/^sha256:[a-f0-9]{64}$/.test(manifest.archive?.sha256 ?? '') &&
+    (!identity.archiveSha256 || manifest.archive.sha256 === `sha256:${identity.archiveSha256}`),
+  'EXISTING_RELEASE_ARCHIVE_MISMATCH', { release });
   const claimedDigest = manifest.manifestDigest;
   const unsigned = { ...manifest };
   delete unsigned.manifestDigest;
   assert(claimedDigest === digest(unsigned), 'EXISTING_RELEASE_MANIFEST_DIGEST_MISMATCH', { release });
   assertManifestEntries(manifest);
   const evidence = await treeEvidence(release, new Set(['AI_DELIVERY_ARTIFACT.json']));
-  assertTreeMatchesManifest(evidence, manifest);
+  assertCurrentTreeMatchesManifest(evidence, manifest, release);
   await verifyCriticalFiles(release, manifest.criticalFiles ?? []);
   return manifest;
 }
@@ -2425,7 +3944,7 @@ function assertIncomingPath(policy, path) {
 }
 
 function validatePolicy(policy, project, selectedNode, selectedTargets, action) {
-  const recoveryOrObservation = ['status', 'observe', 'rollback'].includes(action);
+  const recoveryOrObservation = ['status', 'observe', 'rollback', 'artifact-pin'].includes(action);
   assert(policy?.schema === 'ai.delivery.remote-policy.v1' && policy.project === project, 'POLICY_INVALID');
   assert(Array.isArray(policy.allowedRoots) && policy.allowedRoots.length > 0, 'POLICY_ALLOWED_ROOTS_REQUIRED');
   for (const root of policy.allowedRoots) assert(typeof root === 'string' && root.startsWith('/') && root !== '/', 'POLICY_ALLOWED_ROOT_INVALID', { root });

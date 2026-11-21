@@ -28,6 +28,7 @@
   },
   "impactResolvers": {
     "commerce-services": {"module":"../../../04_tools/release-engine/adapters/zdt-next/service-impact.mjs"},
+    "instance-snapshot": {"module":"../../../04_tools/release-engine/adapters/zdt-next/instance-snapshot-impact.mjs"},
     "workspace-graph": {"module":"../../../04_tools/release-engine/adapters/zdt-next/workspace-impact.mjs"}
   },
   "targets": {
@@ -494,9 +495,16 @@
       "id": "environment",
       "targets": ["catalog-media","storefront","auth-web","console","identity-api","identity-notification-jobs","mall-provisioning-api","support-api","purchase-api","web-api","catalog-api","catalog-jobs","payment-webhook-api","payment-jobs"],
       "include": ["**/*.env","**/*.env.*","**/*.env.example"],
-      "exclude": ["02_platform_pingtai/config/node-runtime/**/catalog-jobs.env","02_platform_pingtai/config/node-runtime/**/catalog-jobs.env.*"],
+      "exclude": ["02_platform_pingtai/config/node-runtime/**/catalog-jobs.env","02_platform_pingtai/config/node-runtime/**/catalog-jobs.env.*","02_platform_pingtai/config/release-inputs/zhudatuan-l0/**"],
       "touches": ["environment"],
       "reason": "runtime environment contract"
+    },
+    {
+      "id": "zhudatuan-instance-snapshot",
+      "include": ["02_platform_pingtai/config/release-inputs/zhudatuan-l0/**"],
+      "targets": [],
+      "dynamicImpact": "instance-snapshot",
+      "reason": "ZhudaTuan L0 instance release inputs"
     },
     {
       "id": "sfl-node-kernel",

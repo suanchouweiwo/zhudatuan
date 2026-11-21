@@ -50,7 +50,7 @@ on:
         type: choice
         options: [auto, github-hosted]
       request_id:
-        description: Internal command/run correlation only
+        description: Command correlation and stable rollback request identity
         required: false
         type: string
 
@@ -159,6 +159,7 @@ jobs:
       ZDT_CLOUDFLARE_ZONE: ${{ inputs.cloudflare_zone }}
       ZDT_RELEASE_SSH_KEY: ${{ secrets.ZDT_RELEASE_SSH_KEY }}
       CONTROL_SHA: ${{ github.sha }}
+      ZDT_DELIVERY_REQUEST_ID: ${{ inputs.request_id }}
     steps:
       - uses: actions/checkout@v6
         if: ${{ inputs.operation == 'status' }}
@@ -252,6 +253,7 @@ jobs:
       ZDT_CLOUDFLARE_ZONE: ${{ inputs.cloudflare_zone }}
       ZDT_RELEASE_SSH_KEY: ${{ secrets.ZDT_RELEASE_SSH_KEY }}
       CONTROL_SHA: ${{ github.sha }}
+      ZDT_DELIVERY_REQUEST_ID: ${{ inputs.request_id }}
     steps:
       - uses: actions/checkout@v6
         if: ${{ inputs.operation == 'status' }}

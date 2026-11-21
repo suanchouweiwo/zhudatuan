@@ -7,16 +7,16 @@ export async function r2ClientFromEnvironment(environment = process.env) {
   const endpoint = environment.CLOUDFLARE_R2_ENDPOINT || `https://${accountId}.r2.cloudflarestorage.com`;
   const accessKeyId = required(environment.CLOUDFLARE_R2_ACCESS_KEY_ID, 'R2_ACCESS_KEY_ID_REQUIRED');
   const secretAccessKey = required(environment.CLOUDFLARE_R2_SECRET_ACCESS_KEY, 'R2_SECRET_ACCESS_KEY_REQUIRED');
-  const { S3Client, HeadObjectCommand, GetObjectCommand, PutObjectCommand } = await import('@aws-sdk/client-s3');
+  const { S3Client, HeadObjectCommand, GetObjectCommand, PutObjectCommand, ListObjectsV2Command } = await import('@aws-sdk/client-s3');
   const { getSignedUrl } = await import('@aws-sdk/s3-request-presigner');
   const client = new S3Client({
     region: 'auto', endpoint,
     credentials: { accessKeyId, secretAccessKey },
   });
-  return createR2Client({ bucket, endpoint }, { client, getSignedUrl, HeadObjectCommand, GetObjectCommand, PutObjectCommand });
+  return createR2Client({ bucket, endpoint }, { client, getSignedUrl, HeadObjectCommand, GetObjectCommand, PutObjectCommand, ListObjectsV2Command });
 }
 
-export function createR2Client({ bucket, endpoint }, { client, getSignedUrl, HeadObjectCommand, GetObjectCommand, PutObjectCommand }) {
+export function createR2Client({ bucket, endpoint }, { client, getSignedUrl, HeadObjectCommand, GetObjectCommand, PutObjectCommand, ListObjectsV2Command }) {
   return Object.freeze({
     endpoint,
     async headObject(object) {
@@ -36,6 +36,21 @@ export function createR2Client({ bucket, endpoint }, { client, getSignedUrl, Hea
       } catch (error) {
         throw failure(error.$metadata?.httpStatusCode === 404 ? missingCode : 'OSS_GET_FAILED', error);
       }
+    },
+    async *listObjects(prefix) {
+      let token;
+      do {
+        let page;
+        try {
+          page = await client.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix, ContinuationToken: token }));
+        } catch (error) {
+          throw failure('OSS_LIST_FAILED', error);
+        }
+        for (const entry of page.Contents ?? []) if (entry.Key) yield entry.Key;
+        if (!page.IsTruncated) return;
+        invariant(page.NextContinuationToken && page.NextContinuationToken !== token, 'OSS_LIST_CONTINUATION_MISSING', 'Artifact listing did not return the next page token');
+        token = page.NextContinuationToken;
+      } while (token);
     },
     async putContent(object, body, contentType = 'application/octet-stream') {
       const bytes = Buffer.isBuffer(body) ? body : Buffer.from(body);

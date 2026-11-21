@@ -6,6 +6,7 @@ operation="${1:-}"
 identifier=''
 target=''
 physical_node=''
+rollback_request_id=''
 instance_path="${ZDT_INSTANCE_PATH:-}"
 case "$operation" in
   release|status)
@@ -25,9 +26,12 @@ case "$operation" in
       || { echo 'retry requires an r16 release id' >&2; exit 64; }
     ;;
   rollback)
-    [ "$#" -eq 3 ] || { echo 'Usage: delivery-dispatch.sh rollback <target> <physical-node>' >&2; exit 64; }
+    { [ "$#" -eq 3 ] || [ "$#" -eq 4 ]; } || { echo 'Usage: delivery-dispatch.sh rollback <target> <physical-node> [request-id]' >&2; exit 64; }
     target="$2"
     physical_node="$3"
+    rollback_request_id="${4:-$(od -An -N12 -tx1 /dev/urandom | tr -d '[:space:]')}"
+    [[ "$rollback_request_id" =~ ^[a-zA-Z0-9._-]{1,128}$ ]] || { echo 'Invalid rollback request ID.' >&2; exit 64; }
+    echo "Rollback request: $rollback_request_id"
     ;;
   *) echo 'Runner 1.7 operations: release, status, retry, rollback' >&2; exit 64 ;;
 esac
@@ -52,7 +56,7 @@ dispatch_run() {
   local dispatch_output
   local request_id
   local dispatch_args
-  request_id="$(od -An -N12 -tx1 /dev/urandom | tr -d '[:space:]')"
+  request_id="${rollback_request_id:-$(od -An -N12 -tx1 /dev/urandom | tr -d '[:space:]')}"
   dispatch_args=(workflow run "$workflow" --ref zdt-next
     -f operation="$operation" -f identifier="$identifier" -f release_target="$target" -f physical_node="$physical_node"
     -f execution_location="$execution_location" -f request_id="$request_id")
