@@ -1,12 +1,13 @@
 import React from 'react';
 import { Camera, Check, ChevronLeft, Clock3, PackageOpen, RotateCcw, Truck, WalletCards } from 'lucide-react';
-import type { FrontendOrder } from '../../adapters/frontendData';
+import type { FrontendOrder, FrontendOrderItem } from '../../adapters/frontendData';
+import type { OrderAftersaleInput } from '../../services/productionApi.types';
 import { storefrontImageUrl } from '../../services/storefrontImageUrl';
 
 interface MobileAfterSaleViewProps {
   order: FrontendOrder;
   onBack: () => void;
-  onSubmit: () => void;
+  onSubmit: (input: OrderAftersaleInput) => void;
 }
 
 type ServiceType = 'return_goods' | 'refund_only';
@@ -15,25 +16,37 @@ type ProgressState = 'done' | 'current' | 'pending';
 
 const REASONS = ['商品与描述不符', '质量或破损问题', '错发/漏发', '不再需要'];
 
+function itemKey(item: FrontendOrderItem): string {
+  return item.orderLineId ?? item.productId;
+}
+
 export function MobileAfterSaleView({ order, onBack, onSubmit }: Readonly<MobileAfterSaleViewProps>) {
   if (order.status === 'after_sale') return <AfterSaleProgress order={order} onBack={onBack} />;
   return <AfterSaleApplication order={order} onBack={onBack} onSubmit={onSubmit} />;
 }
 
 function AfterSaleApplication({ order, onBack, onSubmit }: Readonly<MobileAfterSaleViewProps>) {
-  const [selectedIds, setSelectedIds] = React.useState(() => new Set(order.items.map((item) => item.productId)));
+  const [selectedIds, setSelectedIds] = React.useState(() => new Set(order.items.map(itemKey)));
   const [serviceType, setServiceType] = React.useState<ServiceType>('return_goods');
   const [reason, setReason] = React.useState(REASONS[0]);
   const [returnMethod, setReturnMethod] = React.useState<ReturnMethod>('pickup');
   const [hasPhoto, setHasPhoto] = React.useState(false);
-  const selectedAmount = order.items.reduce((sum, item) => selectedIds.has(item.productId) ? sum + item.priceAtPurchase * item.quantity : sum, 0);
-  const selectedItemCount = order.items.reduce((sum, item) => selectedIds.has(item.productId) ? sum + item.quantity : sum, 0);
+  const selectedItems = order.items.filter((item) => selectedIds.has(itemKey(item)));
+  const selectedAmount = selectedItems.reduce((sum, item) => sum + (item.payableMinor ?? Math.round(item.priceAtPurchase * item.quantity * 100)), 0) / 100;
+  const selectedItemCount = selectedItems.reduce((sum, item) => sum + item.quantity, 0);
 
   const toggleItem = (productId: string) => setSelectedIds((previous) => {
     const next = new Set(previous);
     if (next.has(productId)) next.delete(productId);
     else next.add(productId);
     return next;
+  });
+
+  const submit = () => onSubmit({
+    lines: selectedItems.map(itemKey),
+    kind: serviceType === 'return_goods' ? 'return' : 'refund',
+    reason,
+    ...(serviceType === 'return_goods' ? { returnMethod } : {}),
   });
 
   return (
@@ -59,9 +72,10 @@ function AfterSaleApplication({ order, onBack, onSubmit }: Readonly<MobileAfterS
           </div>
           <div className="border-t border-slate-100 px-3.5">
             {order.items.map((item, index) => {
-              const selected = selectedIds.has(item.productId);
+              const key = itemKey(item);
+              const selected = selectedIds.has(key);
               return (
-                <button key={item.productId} type="button" aria-pressed={selected} onClick={() => toggleItem(item.productId)} className="flex w-full touch-manipulation items-center gap-2.5 border-b border-slate-100 py-3 text-left transition-[background-color,transform] duration-150 active:scale-[0.995] active:bg-[#F8FAFC] last:border-b-0">
+                <button key={key} type="button" aria-pressed={selected} onClick={() => toggleItem(key)} className="flex w-full touch-manipulation items-center gap-2.5 border-b border-slate-100 py-3 text-left transition-[background-color,transform] duration-150 active:scale-[0.995] active:bg-[#F8FAFC] last:border-b-0">
                   <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border transition-colors duration-150 ${selected ? 'border-[#6E91BA] bg-[#6E91BA] text-white' : 'border-slate-300 bg-white text-transparent'}`}><Check className="h-3 w-3" /></span>
                   <img
                     src={storefrontImageUrl(item.product.imageUrl, 112)}
@@ -121,16 +135,23 @@ function AfterSaleApplication({ order, onBack, onSubmit }: Readonly<MobileAfterS
 
       <footer className="absolute inset-x-0 bottom-0 z-40 flex min-h-[66px] items-center justify-between gap-3 border-t border-slate-100 bg-white px-3.5 py-2.5 shadow-[0_-8px_24px_rgba(33,52,78,0.04)]">
         <div><p className="text-[8px] tracking-wide text-slate-400">预计退款</p><p className="mt-0.5 text-[18px] font-black tracking-[-0.03em] text-slate-900">¥{selectedAmount.toFixed(2)}</p></div>
-        <button type="button" disabled={selectedIds.size === 0} onClick={onSubmit} className="min-h-11 touch-manipulation rounded-full bg-[var(--sw-brand)] px-7 text-[11px] font-black text-white shadow-[0_8px_18px_rgba(36,105,232,0.2)] transition-transform duration-150 active:scale-95 disabled:bg-slate-300 disabled:shadow-none">提交申请</button>
+        <button type="button" disabled={selectedIds.size === 0} onClick={submit} className="min-h-11 touch-manipulation rounded-full bg-[var(--sw-brand)] px-7 text-[11px] font-black text-white shadow-[0_8px_18px_rgba(36,105,232,0.2)] transition-transform duration-150 active:scale-95 disabled:bg-slate-300 disabled:shadow-none">提交申请</button>
       </footer>
     </div>
   );
 }
 
 function AfterSaleProgress({ order, onBack }: Readonly<Pick<MobileAfterSaleViewProps, 'order' | 'onBack'>>) {
+  const activeCases = order.aftersales?.filter(({ state }) => ['requested', 'approved', 'processing'].includes(state)) ?? [];
+  const receipt = activeCases[0];
+  const item = order.items.find(({ orderLineId }) => orderLineId === receipt?.lineId) ?? order.items[0];
+  const refundAmount = activeCases.length > 0 && activeCases.every(({ amountMinor }) => amountMinor !== null)
+    ? activeCases.reduce((sum, { amountMinor }) => sum + (amountMinor ?? 0), 0) / 100
+    : order.totalAmount;
+  const image = item?.product.imageUrl ?? '';
   return (
     <div className="min-h-full bg-[#F3F5F8] pb-6 text-slate-800 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-right-1 motion-safe:duration-200">
-      <PageHeader title="售后进度" subtitle={`AS-${order.orderNo.slice(-8)}`} onBack={onBack} />
+      <PageHeader title="售后进度" subtitle={receipt?.id ?? `AS-${order.orderNo.slice(-8)}`} onBack={onBack} />
       <main className="space-y-3 px-3 py-3.5">
         <section className="relative overflow-hidden rounded-[24px] border border-[#E1DDF0] bg-gradient-to-br from-white via-[#FAF9FD] to-[#F1EFF8] p-4 shadow-[0_12px_30px_rgba(67,56,104,0.06)]">
           <span aria-hidden="true" className="absolute inset-0 bg-[radial-gradient(circle_at_92%_4%,rgba(225,218,243,0.56),transparent_42%)]" />
@@ -152,8 +173,8 @@ function AfterSaleProgress({ order, onBack }: Readonly<Pick<MobileAfterSaleViewP
 
         <section className="rounded-[22px] border border-white bg-white p-3.5 shadow-[0_10px_28px_rgba(33,52,78,0.045)]">
           <div className="flex items-center gap-3">
-            <img src={storefrontImageUrl(order.items[0]?.product.imageUrl ?? '', 112)} srcSet={`${storefrontImageUrl(order.items[0]?.product.imageUrl ?? '', 56)} 1x, ${storefrontImageUrl(order.items[0]?.product.imageUrl ?? '', 112)} 2x, ${storefrontImageUrl(order.items[0]?.product.imageUrl ?? '', 168)} 3x`} alt="售后商品" width={56} height={56} loading="eager" fetchPriority="high" decoding="async" className="h-14 w-14 rounded-[14px] bg-[#F5F7FA] object-cover" />
-            <div className="min-w-0 flex-1"><p className="line-clamp-2 text-[10px] font-bold leading-4 text-slate-800">{order.items[0]?.productTitle}</p><p className="mt-1.5 text-[9px] text-slate-400">退款金额 <span className="font-black text-slate-700">¥{order.totalAmount.toFixed(2)}</span></p></div>
+            <img src={storefrontImageUrl(image, 112)} srcSet={`${storefrontImageUrl(image, 56)} 1x, ${storefrontImageUrl(image, 112)} 2x, ${storefrontImageUrl(image, 168)} 3x`} alt="售后商品" width={56} height={56} loading="eager" fetchPriority="high" decoding="async" className="h-14 w-14 rounded-[14px] bg-[#F5F7FA] object-cover" />
+            <div className="min-w-0 flex-1"><p className="line-clamp-2 text-[10px] font-bold leading-4 text-slate-800">{item?.productTitle}</p><p className="mt-1.5 text-[9px] text-slate-400">退款金额 <span className="font-black text-slate-700">¥{refundAmount.toFixed(2)}</span></p></div>
           </div>
         </section>
       </main>

@@ -5,5 +5,6 @@ export type { OrderSummary } from './03_application_yingyong/queries_duqu/GetOrd
 export { GetOrderSummary } from './03_application_yingyong/queries_duqu/GetOrderSummary';
 export type { OrderVoucherGateway } from './03_application_yingyong/commands_xieru/PlaceOrder';
 export { DirectOrderQuoteStore, PlaceOrder } from './03_application_yingyong/commands_xieru/PlaceOrder';
+export { applyAftersale } from './03_application_yingyong/commands_xieru/ApplyAftersale';
 export { publishOrderReceived } from './03_application_yingyong/services_fuwu/OrderReceivedEvent';
 export { orderManifest } from './module.manifest';

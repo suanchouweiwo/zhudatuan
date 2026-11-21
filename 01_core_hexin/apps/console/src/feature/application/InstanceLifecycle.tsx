@@ -1,13 +1,14 @@
 import { Button } from '@shop/design';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ConsoleContext, ConsoleScope } from '../../entity/session/ConsoleSession';
-import { enterManagedInstance, manageInstance, readManagedInstances, type AutoNodeTaskReceipt } from './MallCreateCommand';
+import { enterManagedInstance, manageInstance, readManagedInstances, readManagedInstanceTask, retryManagedInstanceTask, type AutoNodeTaskReceipt } from './MallCreateCommand';
 
 export function InstanceLifecycle({ context, scope }: { context: ConsoleContext; scope: ConsoleScope }) {
   const [task, setTask] = useState<AutoNodeTaskReceipt>();
   const [error, setError] = useState<string>();
   const [submitting, setSubmitting] = useState(false);
+  const taskSubmission = useRef(false);
   const [administrator, setAdministrator] = useState({ displayName: '', username: '', password: '' });
   const [editing, setEditing] = useState<string>();
   const instances = useQuery({ queryKey: ['managed-instances', scope.id], queryFn: () => readManagedInstances(context, scope) });
@@ -19,22 +20,31 @@ export function InstanceLifecycle({ context, scope }: { context: ConsoleContext;
   }, [instances.data, task]);
   useEffect(() => {
     if (!running || !task) return;
+    const controller = new AbortController();
     const timer = window.setTimeout(() => {
-      void readManagedInstances(context, scope).then((items) => {
-        const next = items.find((instance) => instance.node_id === task.node_id)?.task;
-        if (!next) return;
+      void readManagedInstanceTask(context, scope, task.task_id, controller.signal).then((next) => {
+        if (controller.signal.aborted) return;
         setTask(next);
         if (next.status === 'SUCCEEDED') void instances.refetch();
-      }).catch((cause: unknown) => { setError(cause instanceof Error ? cause.message : String(cause)); });
+      }).catch((cause: unknown) => {
+        if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : String(cause));
+      });
     }, 3000);
-    return () => window.clearTimeout(timer);
+    return () => { window.clearTimeout(timer); controller.abort(); };
   }, [context, scope, task, running, instances.refetch]);
-  const execute = async (nodeId: string, action: 'CREATE' | 'DELETE' | 'INITIALIZE') => {
+  const submitTask = async (submit: () => Promise<AutoNodeTaskReceipt>) => {
+    if (submitting || taskSubmission.current) return;
+    taskSubmission.current = true;
     setSubmitting(true); setError(undefined);
-    try { setTask(await manageInstance(context, scope, nodeId, action, action === 'DELETE' || !administrator.username ? undefined : administrator)); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
-    finally { setSubmitting(false); }
+    try {
+      const next = await submit();
+      setTask(next);
+      if (next.status === 'SUCCEEDED') void instances.refetch();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    finally { taskSubmission.current = false; setSubmitting(false); }
   };
+  const execute = (nodeId: string, action: 'CREATE' | 'DELETE' | 'INITIALIZE') =>
+    submitTask(() => manageInstance(context, scope, nodeId, action, action === 'DELETE' || !administrator.username ? undefined : administrator));
   return <section className="commerceboard" aria-label="L0 实例管理">
     <div className="commercefilterbar"><div><strong>L0 实例管理</strong><span>同一核心，独立配置；删除后重新生成空库商城。</span></div></div>
     {instances.isPending ? <p>正在读取实例…</p> : null}
@@ -61,8 +71,8 @@ export function InstanceLifecycle({ context, scope }: { context: ConsoleContext;
     </div>)}
     {task ? <p role="status">{task.status === 'SUCCEEDED' ? (task.action === 'DELETE' ? '删除完成' : task.action === 'INITIALIZE' ? '管理员已初始化' : '全新商城已生成') : `${task.phase} · ${task.progress}%`}</p> : null}
     {task?.last_error ? <p role="alert">{task.last_error.message}</p> : null}
-    {task?.status === 'FAILED_RETRYABLE' ? <Button onPress={() => {
-      void execute(task.node_id, task.action === 'ACTIVATE' ? 'CREATE' : task.action);
+    {task && (task.status === 'WAITING_EXTERNAL' || task.status === 'FAILED_RETRYABLE') ? <Button onPress={() => {
+      void submitTask(() => retryManagedInstanceTask(context, scope, task));
     }}>继续任务</Button> : null}
     {error ? <p role="alert">{error}</p> : null}
     {task?.status === 'SUCCEEDED' ? task.result?.access_entries.map((entry) => <p key={entry.surface_ref}><a href={entry.url}>{entry.surface_ref === 'surface:console' ? '打开新商城后台' : entry.surface_ref === 'surface:storefront' ? '打开新商城' : entry.url}</a></p>) : null}

@@ -100,7 +100,10 @@ export function mapApiOrder(order: ApiOrder, scope: { enterpriseId: string; ente
     supplierType: 'third_party',
     status: statusMap[order.status] ?? 'pending_payment',
     createTime: order.createdAt,
+    ...(order.aftersales === undefined ? {} : { aftersales: order.aftersales }),
     items: (order.items ?? []).map((item) => ({
+      ...(item.orderLineId === undefined ? {} : { orderLineId: item.orderLineId }),
+      ...(item.payableCents === undefined ? {} : { payableMinor: item.payableCents }),
       productId: item.productId,
       productTitle: item.productTitle,
       productImage: item.productImage ?? FALLBACK_IMAGE,
@@ -118,6 +121,7 @@ export function mapApiOrder(order: ApiOrder, scope: { enterpriseId: string; ente
       welfareDeducted: (order.welfarePaidCents ?? order.paidCents) / 100,
       mealDeducted: (order.mealPaidCents ?? 0) / 100,
       wechatPaid: 0,
+      ...(order.wechatPayableCents === undefined ? {} : { wechatPayableMinor: order.wechatPayableCents }),
       finalPaidAmount: order.paidCents / 100,
       payMethodText: order.paidCents > 0 ? '内部福利账户支付' : '待支付',
     },

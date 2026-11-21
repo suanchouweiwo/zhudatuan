@@ -19,7 +19,7 @@ import type { CheckoutQuote } from '../checkout_jiesuan';
 import { FulfillmentPort } from '../fulfillment';
 import { InventoryPort } from '../inventory';
 import { MarketingPort } from '../marketing';
-import { OrderPort, PlaceOrder } from '../order_dingdan';
+import { applyAftersale, OrderPort, PlaceOrder } from '../order_dingdan';
 import { PaymentSettlementCore } from '../payment_zhifu';
 import { ExternalPaymentIntentOperations } from '../payment_zhifu';
 import { paymentIntentReadOperations } from '../payment_zhifu';
@@ -40,9 +40,14 @@ import {
   type InternalIntent,
 } from './PurchasePolicy';
 
+export const PURCHASE_ORDER_OPERATION_IDS = Object.freeze([
+  'order.orders.create',
+  'order.aftersales.apply',
+] as const satisfies readonly OperationId[]);
+
 export const PURCHASE_OPERATION_IDS = Object.freeze([
   'checkout.quote.create',
-  'order.orders.create',
+  ...PURCHASE_ORDER_OPERATION_IDS,
   'payment.intents.create',
   'payment.intents.read',
 ] as const satisfies readonly OperationId[]);
@@ -96,7 +101,8 @@ export function purchaseOrderOperations(context: ModuleContext): ModuleOperation
         new PurchaseOrderQuoteStore(access.actor.session)).execute(request, database);
       return purchaseOrderResponse(result);
     },
-  }, ['order.orders.create']);
+    'order.aftersales.apply': applyAftersale,
+  }, PURCHASE_ORDER_OPERATION_IDS);
 }
 
 interface InternalSettlement {

@@ -139,6 +139,8 @@ export type OrderStatus =
   | 'after_sale'; // 售后中
 
 export interface OrderItem {
+  orderLineId?: string;
+  payableMinor?: number;
   productId: string;
   productTitle: string;
   productImage: string;
@@ -155,9 +157,18 @@ export interface OrderPaymentDetail {
   welfareDeducted: number; // 福利卡扣减
   mealDeducted: number; // 餐卡扣减
   wechatPaid: number; // 微信支付/补差
+  wechatPayableMinor?: number;
   finalPaidAmount: number;
   payMethodText: string;
   paidAt?: string;
+}
+
+export interface OrderAftersaleReceipt {
+  readonly id: string;
+  readonly lineId: string | null;
+  readonly kind: string;
+  readonly state: string;
+  readonly amountMinor: number | null;
 }
 
 export interface Order {
@@ -174,6 +185,7 @@ export interface Order {
   status: OrderStatus;
   createTime: string;
   items: OrderItem[];
+  aftersales?: OrderAftersaleReceipt[];
   address?: DeliveryAddress;
   payment: OrderPaymentDetail;
   invoice?: InvoiceInfo;

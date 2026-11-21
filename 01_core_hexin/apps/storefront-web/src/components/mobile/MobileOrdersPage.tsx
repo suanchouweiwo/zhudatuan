@@ -1,7 +1,10 @@
 import React from 'react';
+import { createSecureId } from '@shop/sdk/context';
 import { ChevronLeft, ChevronRight, Package, RefreshCw, RotateCcw, Store, Truck, WalletCards } from 'lucide-react';
 import type { FrontendOrder, FrontendOrderItem } from '../../adapters/frontendData';
 import { useMall, type MobileFulfillmentStage } from '../../context/MallContext';
+import { loadProductionApi } from '../../services/productionApiLoader';
+import type { OrderAftersaleInput } from '../../services/productionApi.types';
 import { storefrontImageUrl } from '../../services/storefrontImageUrl';
 import { MobileAfterSaleView } from './MobileAfterSaleView';
 import { MobileOrderDetailView } from './MobileOrderDetailView';
@@ -36,6 +39,9 @@ export const MobileOrdersPage: React.FC<MobileOrdersPageProps> = ({ mode }) => {
     setMobileFulfillmentSimulationStage,
     setMpPage,
     setAndroidPage,
+    isShowcase,
+    continueOrderPayment,
+    refreshProductionData,
     showToast,
     triggerPendingFeature,
   } = useMall();
@@ -43,6 +49,8 @@ export const MobileOrdersPage: React.FC<MobileOrdersPageProps> = ({ mode }) => {
   const [selectedOrder, setSelectedOrder] = React.useState<FrontendOrder | null>(null);
   const [orderView, setOrderView] = React.useState<'list' | 'detail' | 'after-sale'>('list');
   const [paymentOrder, setPaymentOrder] = React.useState<FrontendOrder | null>(null);
+  const aftersaleInFlight = React.useRef(false);
+  const aftersaleRequest = React.useRef<{ fingerprint: string; key: string } | null>(null);
   const [showPreviewControl, setShowPreviewControl] = React.useState(false);
   React.useEffect(() => {
     setShowPreviewControl(window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost');
@@ -81,13 +89,42 @@ export const MobileOrdersPage: React.FC<MobileOrdersPageProps> = ({ mode }) => {
     setOrderView(view);
   };
 
+  const submitAftersale = async (order: FrontendOrder, input: OrderAftersaleInput) => {
+    if (isShowcase) {
+      triggerPendingFeature('售后申请提交', `订单 ${order.orderNo} 的退货退款表单已完成，等待接入售后提交与审核接口。`);
+      return;
+    }
+    if (aftersaleInFlight.current) return;
+    aftersaleInFlight.current = true;
+    const lines = [...input.lines].sort();
+    const fingerprint = JSON.stringify([order.id, lines, input.kind, input.reason, input.returnMethod]);
+    try {
+      const pending = aftersaleRequest.current?.fingerprint === fingerprint ? aftersaleRequest.current : { fingerprint, key: createSecureId() };
+      aftersaleRequest.current = pending;
+      const productionApi = await loadProductionApi();
+      const receipts = await productionApi.applyOrderAftersale(order.id, { ...input, lines }, pending.key);
+      aftersaleRequest.current = null;
+      setSelectedOrder((current) => current?.id === order.id ? { ...current, status: 'after_sale', aftersales: receipts } : current);
+      showToast('售后申请已提交', 'success');
+      void refreshProductionData().catch(() => undefined);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : '售后申请暂未提交，请稍后重试', 'error');
+    } finally {
+      aftersaleInFlight.current = false;
+    }
+  };
+
   const paymentSheet = paymentOrder && (
     <MobilePaymentSheet
       order={paymentOrder}
       onClose={() => setPaymentOrder(null)}
       onConfirm={() => {
         setPaymentOrder(null);
-        triggerPendingFeature('继续付款', `订单 ${paymentOrder.orderNo} 的支付界面已完成，等待接入微信支付创建与回调接口。`);
+        if (isShowcase) {
+          triggerPendingFeature('继续付款', `订单 ${paymentOrder.orderNo} 的支付界面已完成，等待接入微信支付创建与回调接口。`);
+        } else {
+          void continueOrderPayment(paymentOrder.id);
+        }
       }}
     />
   );
@@ -117,7 +154,7 @@ export const MobileOrdersPage: React.FC<MobileOrdersPageProps> = ({ mode }) => {
         <MobileAfterSaleView
           order={selectedOrder}
           onBack={() => setOrderView('detail')}
-          onSubmit={() => triggerPendingFeature('售后申请提交', `订单 ${selectedOrder.orderNo} 的退货退款表单已完成，等待接入售后提交与审核接口。`)}
+          onSubmit={(input) => { void submitAftersale(selectedOrder, input); }}
         />
       </div>
     );

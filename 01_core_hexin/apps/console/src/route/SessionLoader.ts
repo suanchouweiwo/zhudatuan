@@ -204,20 +204,27 @@ async function readLayers(
   const allowed = session.permissions.includes('organization.layer.read')
     && session.capabilities.includes('organization.layers.read');
   if (!allowed) return [];
-  const pages = await Promise.all(roots.map(async (scope) => {
+  const rootLayers = await Promise.all(roots.map(async (scope) => {
     const candidate = prefetched?.find((item) => item.scopeKind === scope.kind && item.scopeId === scope.id);
-    const parsed = parseScopePage(candidate?.value);
-    if (parsed !== undefined) return parsed.items.filter(isConsoleScope);
+    const firstPage = parseScopePage(candidate?.value);
+    const layers = firstPage?.items.filter(isConsoleScope) ?? [];
+    if (firstPage !== undefined && firstPage.nextCursor === undefined) return layers;
+
     const { organizationLayersRead, consoleRequest } = await consoleClient();
-    const value = await organizationLayersRead(
-      { query: { limit: 1000 } },
-      consoleRequest(scope, signal, session.accessVersion),
-    );
-    const page = parseScopePage(value);
-    if (page === undefined) throw new Error('CONSOLE_SCOPE_PAGE_SCHEMA_INVALID');
-    return page.items.filter(isConsoleScope);
+    let cursor = firstPage?.nextCursor;
+    do {
+      const value = await organizationLayersRead(
+        { query: { limit: 1000, ...(cursor === undefined ? {} : { cursor }) } },
+        consoleRequest(scope, signal, session.accessVersion),
+      );
+      const page = parseScopePage(value);
+      if (page === undefined) throw new Error('CONSOLE_SCOPE_PAGE_SCHEMA_INVALID');
+      layers.push(...page.items.filter(isConsoleScope));
+      cursor = page.nextCursor;
+    } while (cursor !== undefined);
+    return layers;
   }));
-  return Object.freeze(pages.flat());
+  return Object.freeze(rootLayers.flat());
 }
 
 async function readSessionFromSdk(signal: AbortSignal): Promise<ConsoleSession> {

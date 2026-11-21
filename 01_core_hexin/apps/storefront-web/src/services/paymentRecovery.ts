@@ -16,6 +16,7 @@ export type PaymentFlowStage =
 export interface PaymentRecoveryRecord {
   readonly schema: 'storefront.payment-recovery.v1';
   readonly scope: string;
+  readonly source?: 'order';
   readonly orderId: string | null;
   readonly paymentId: string | null;
   readonly amountMinor: number;
@@ -56,11 +57,12 @@ interface PaymentSubmissionLock {
 }
 
 const STORAGE_KEY = 'zdt:storefront:payment-recovery:v1';
+const ORDER_STORAGE_KEY = 'zdt:storefront:order-payment-recovery:v1';
 const STAGES: ReadonlySet<PaymentFlowStage> = new Set([
   'validating', 'creating-order', 'creating-payment', 'opening-wechat', 'wechat-active',
   'verifying', 'captured', 'cancelled', 'recovery', 'failed', 'expired',
 ]);
-let volatileRecord: PaymentRecoveryRecord | null = null;
+const volatileRecords = new Map<string, PaymentRecoveryRecord>();
 
 export function paymentRecoveryScope(memberId: string, mallId: string): string {
   return `${memberId.trim()}:${mallId.trim()}`;
@@ -84,7 +86,7 @@ export function paymentCartFingerprint(
 }
 
 export function beginPaymentRecovery(input: BeginPaymentRecoveryInput, options: PaymentRecoveryOptions = {}): PaymentRecoveryRecord {
-  const existing = loadPaymentRecovery(input.scope, options.storage);
+  const existing = loadCartPaymentRecovery(input.scope, options.storage);
   if (existing && existing.stage !== 'captured') return existing;
   const now = (options.now ?? (() => new Date()))().toISOString();
   const record: PaymentRecoveryRecord = Object.freeze({
@@ -106,6 +108,17 @@ export function beginPaymentRecovery(input: BeginPaymentRecoveryInput, options: 
   return persist(record, options.storage);
 }
 
+export function beginOrderPaymentRecovery(input: {
+  scope: string; orderId: string; paymentId: string | null; amountMinor: number; currency: string; mallName: string;
+}): PaymentRecoveryRecord {
+  const stored = [loadCartPaymentRecovery(input.scope), readRecovery(input.scope, ORDER_STORAGE_KEY, browserStorage())]
+    .find((record) => record?.orderId === input.orderId && record.stage !== 'captured');
+  if (stored) return updatePaymentRecovery(stored, { paymentId: stored.paymentId ?? input.paymentId, amountMinor: input.amountMinor, currency: input.currency });
+  const now = new Date().toISOString();
+  return persist(Object.freeze({ ...input, schema: 'storefront.payment-recovery.v1', source: 'order', createdAt: now, updatedAt: now,
+    idempotencyKey: `order-payment:${input.orderId}`, cartFingerprint: '', cartItemIds: Object.freeze([]), stage: 'recovery', retryCount: 0 }));
+}
+
 export function updatePaymentRecovery(
   current: PaymentRecoveryRecord,
   patch: Partial<Pick<PaymentRecoveryRecord, 'orderId' | 'paymentId' | 'amountMinor' | 'currency' | 'stage' | 'retryCount'>>,
@@ -120,22 +133,41 @@ export function updatePaymentRecovery(
 }
 
 export function loadPaymentRecovery(scope: string, storage: StorageLike | null = browserStorage()): PaymentRecoveryRecord | null {
-  let value: unknown = volatileRecord;
+  const cart = loadCartPaymentRecovery(scope, storage);
+  const order = readRecovery(scope, ORDER_STORAGE_KEY, storage);
+  return order && (!cart || order.updatedAt >= cart.updatedAt) ? order : cart;
+}
+
+export function loadCartPaymentRecovery(scope: string, storage: StorageLike | null = browserStorage()): PaymentRecoveryRecord | null {
+  return readRecovery(scope, STORAGE_KEY, storage);
+}
+
+function readRecovery(scope: string, key: string, storage: StorageLike | null): PaymentRecoveryRecord | null {
+  const volatile = volatileRecords.get(key);
+  let value: unknown = volatile;
   try {
-    const source = storage?.getItem(STORAGE_KEY);
+    const source = storage?.getItem(key);
     if (source) value = JSON.parse(source);
   } catch {
-    value = volatileRecord;
+    value = volatile;
   }
   const record = parseRecord(value);
   return record?.scope === scope ? record : null;
 }
 
 export function clearPaymentRecovery(scope: string, storage: StorageLike | null = browserStorage()): void {
-  if (volatileRecord?.scope === scope) volatileRecord = null;
+  removeRecovery(scope, STORAGE_KEY, storage);
+}
+
+export function clearOrderPaymentRecovery(scope: string): void {
+  removeRecovery(scope, ORDER_STORAGE_KEY, browserStorage());
+}
+
+function removeRecovery(scope: string, key: string, storage: StorageLike | null): void {
+  if (volatileRecords.get(key)?.scope === scope) volatileRecords.delete(key);
   try {
-    const stored = storage?.getItem(STORAGE_KEY);
-    if (!stored || parseRecord(JSON.parse(stored))?.scope === scope) storage?.removeItem(STORAGE_KEY);
+    const stored = storage?.getItem(key);
+    if (!stored || parseRecord(JSON.parse(stored))?.scope === scope) storage?.removeItem(key);
   } catch {
     // The in-memory copy is already cleared; storage can recover on the next successful write.
   }
@@ -157,9 +189,10 @@ export function finishPaymentSubmission(lock: PaymentSubmissionLock): void {
 }
 
 function persist(record: PaymentRecoveryRecord, storage: StorageLike | null = browserStorage()): PaymentRecoveryRecord {
-  volatileRecord = record;
+  const key = record.source === 'order' ? ORDER_STORAGE_KEY : STORAGE_KEY;
+  volatileRecords.set(key, record);
   try {
-    storage?.setItem(STORAGE_KEY, JSON.stringify(record));
+    storage?.setItem(key, JSON.stringify(record));
   } catch {
     // Volatile recovery still protects repeated clicks during this page lifetime.
   }
@@ -171,6 +204,7 @@ function parseRecord(value: unknown): PaymentRecoveryRecord | null {
   const record = value as Record<string, unknown>;
   if (record.schema !== 'storefront.payment-recovery.v1'
     || typeof record.scope !== 'string'
+    || (record.source !== undefined && record.source !== 'order')
     || !(typeof record.orderId === 'string' || record.orderId === null)
     || !(typeof record.paymentId === 'string' || record.paymentId === null)
     || !Number.isSafeInteger(record.amountMinor) || Number(record.amountMinor) < 0

@@ -148,7 +148,8 @@ export class PlaceOrder {
     await this.saveSupplierFlowFacts(database, order, routeContext);
     const intent = await this.paymentPlan(database, request, order, number, current);
     await checkoutSessionPort.confirm(database, stored.checkout);
-    await cartPort.convert(database, stored.cart_id);
+    if (selection.items === undefined) await cartPort.convert(database, stored.cart_id);
+    else await cartPort.consumeCheckoutItems(database, order);
     await database.query(`insert into runtime.job(id,kind,owner,scope_id,payload,state,priority,available_at,created_at,updated_at)
       values($1,'orderexpiry','order',$2,jsonb_build_object('order',$3::text),'queued',10,clock_timestamp()+interval '30 minutes',clock_timestamp(),clock_timestamp())`,
     [`job:expiry:${order}`, current.cart.mall, order]);

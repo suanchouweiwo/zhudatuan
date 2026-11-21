@@ -21,22 +21,50 @@ export function provisioningOperations(context: ModuleContext): ModuleOperations
   const pool = context.container.get(DATABASE_POOL);
   const createMall = new CreateMall();
   const nodeControl = context.container.get(AUTONODE_CONTROL_CLIENT);
+  const readTask = async (taskId: string) => {
+    try {
+      return await nodeControl.read(taskId);
+    } catch (cause) {
+      if (cause instanceof Error && cause.message.includes('AUTONODE_TASK_NOT_FOUND')) reject(404, 'RESOURCE_NOT_FOUND');
+      throw cause;
+    }
+  };
+  const readInstanceTask = async (taskId: string) => {
+    const task = await readTask(taskId);
+    if (task.task_id !== taskId || !['CREATE', 'DELETE', 'INITIALIZE'].includes(task.action)) reject(404, 'RESOURCE_NOT_FOUND');
+    return task;
+  };
   return new ModuleOperations('provisioning', pool, context.container.get(AUDIT_SINK), {
     'provisioning.instances.read': async (request) => {
       requireAccess(request);
+      const { taskId } = request.input.query;
+      if (taskId !== undefined) return { status: 200, body: { task: await readInstanceTask(textField({ taskId }, 'taskId')) } };
       return { status: 200, body: await nodeControl.instances() };
     },
     'provisioning.instances.manage': async (request) => {
       const access = requireAccess(request);
-      const action = textField(bodyRecord(request), 'action');
-      if (!['CREATE', 'DELETE', 'INITIALIZE'].includes(action)) reject(422, 'VALIDATION_FAILED');
       const body = bodyRecord(request);
+      const action = textField(body, 'action');
+      const instanceId = request.input.path.instanceid!;
+      if (action === 'RETRY') {
+        const task = await readInstanceTask(textField(body, 'taskId'));
+        if (task.node_id !== instanceId) reject(404, 'RESOURCE_NOT_FOUND');
+        try {
+          return { status: 202, body: await nodeControl.retry(task.task_id) };
+        } catch (cause) {
+          if (cause instanceof Error && cause.message === 'AUTONODE_CONTROL_REQUEST_FAILED:AUTONODE_TASK_NOT_RETRYABLE') {
+            return { status: 202, body: await readInstanceTask(task.task_id) };
+          }
+          throw cause;
+        }
+      }
+      if (!['CREATE', 'DELETE', 'INITIALIZE'].includes(action)) reject(422, 'VALIDATION_FAILED');
       const administrator = action !== 'DELETE' && typeof body.username === 'string' ? {
         username: textField(body, 'username', 128).trim(),
         displayName: textField(body, 'displayName', 128),
         passwordHash: await new PasswordPolicy().hash(secretField(body, 'password', 128)),
       } : undefined;
-      return { status: 202, body: await nodeControl.lifecycle(request.input.path.instanceid!, action as 'CREATE' | 'DELETE' | 'INITIALIZE', access, request.input.idempotency!, administrator) };
+      return { status: 202, body: await nodeControl.lifecycle(instanceId, action as 'CREATE' | 'DELETE' | 'INITIALIZE', access, request.input.idempotency!, administrator) };
     },
     'provisioning.malls.create': operationLifecycle({
       async execute(request, database) {
@@ -73,14 +101,7 @@ export function provisioningOperations(context: ModuleContext): ModuleOperations
     },
     'provisioning.nodetasks.read': async (request) => {
       requireAccess(request);
-      try {
-        return { status: 200, body: await nodeControl.read(request.input.path.taskid!) };
-      } catch (cause) {
-        if (cause instanceof Error && cause.message.includes('AUTONODE_TASK_NOT_FOUND')) {
-          reject(404, 'RESOURCE_NOT_FOUND');
-        }
-        throw cause;
-      }
+      return { status: 200, body: await readTask(request.input.path.taskid!) };
     },
     'provisioning.nodetasks.retry': async (request) => {
       requireAccess(request);

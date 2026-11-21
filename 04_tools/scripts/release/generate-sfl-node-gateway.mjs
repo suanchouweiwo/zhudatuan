@@ -122,7 +122,7 @@ export function gatewayConfiguration(manifest, nodeRoot, ports, options = {}) {
 `${canonicalAlias ? `\t@storefrontCanonical host ${canonicalAlias}\n\thandle @storefrontCanonical {\n\t\tredir https://${primaryStorefrontHost}{uri} 308\n\t}\n\n` : ''}` +
 `\t@ordersReadPreflight {\n\t\thost ${apiHost}\n\t\tmethod OPTIONS\n\t\tpath /api/v1/orders /api/v1/orders/*\n\t\theader Access-Control-Request-Method GET\n\t}\n` +
 `\thandle @ordersReadPreflight {\n${proxy(ports.web)}\n\t}\n\n` +
-`\t@purchaseWrite {\n\t\thost ${apiHost}\n\t\tmethod POST OPTIONS\n\t\tpath /api/v1/checkouts/quotes /api/v1/orders /api/v1/payments/intents\n\t}\n` +
+`\t@purchaseWrite {\n\t\thost ${apiHost}\n\t\tmethod POST OPTIONS\n\t\tpath /api/v1/checkouts/quotes /api/v1/orders /api/v1/orders/*/aftersales /api/v1/payments/intents\n\t}\n` +
 `\thandle @purchaseWrite {\n${proxy(ports.purchase)}\n\t}\n\n` +
 `\t@paymentRead {\n\t\thost ${apiHost}\n\t\tmethod GET HEAD OPTIONS\n\t\tpath /api/v1/payments/intents/*\n\t}\n` +
 `\thandle @paymentRead {\n${proxy(ports.purchase)}\n\t}\n\n` +

@@ -302,6 +302,11 @@ export async function readManagedInstances(context: ConsoleContext, scope: Conso
   return z.object({ items: z.array(InstanceSchema) }).parse(value).items;
 }
 
+export async function readManagedInstanceTask(context: ConsoleContext, scope: ConsoleScope, taskId: string, signal: AbortSignal): Promise<AutoNodeTaskReceipt> {
+  const value = await instancesRead({ query: { taskId } }, consoleCommand(scope, { accessVersion: context.session.accessVersion, signal }));
+  return z.object({ task: AutoNodeTaskReceiptSchema }).parse(value).task;
+}
+
 export interface InstanceAdministratorInput { username: string; displayName: string; password: string; }
 export async function enterManagedInstance(instance: ManagedInstance, administrator: InstanceAdministratorInput): Promise<string> {
   if (!instance.api_origin) throw new Error('实例入口尚未生成');
@@ -327,7 +332,17 @@ export async function enterManagedInstance(instance: ManagedInstance, administra
   return destination.toString();
 }
 export async function manageInstance(context: ConsoleContext, scope: ConsoleScope, nodeId: string, action: 'CREATE' | 'DELETE' | 'INITIALIZE', administrator?: InstanceAdministratorInput): Promise<AutoNodeTaskReceipt> {
-  const value = await instancesManage({ path: { instanceid: nodeId }, body: { action, ...administrator } }, consoleCommand(scope, {
+  return await submitInstanceAction(context, scope, nodeId, { action, ...administrator });
+}
+
+export async function retryManagedInstanceTask(context: ConsoleContext, scope: ConsoleScope, task: AutoNodeTaskReceipt): Promise<AutoNodeTaskReceipt> {
+  return await submitInstanceAction(context, scope, task.node_id, { action: 'RETRY', taskId: task.task_id });
+}
+
+async function submitInstanceAction(context: ConsoleContext, scope: ConsoleScope, nodeId: string, body:
+  | ({ action: 'CREATE' | 'DELETE' | 'INITIALIZE' } & Partial<InstanceAdministratorInput>)
+  | { action: 'RETRY'; taskId: string }): Promise<AutoNodeTaskReceipt> {
+  const value = await instancesManage({ path: { instanceid: nodeId }, body: { ...body } }, consoleCommand(scope, {
     accessVersion: context.session.accessVersion, idempotencyKey: createIdempotencyKey(),
     ...(context.session.csrf === undefined ? {} : { csrfToken: context.session.csrf }),
   }));
