@@ -1703,8 +1703,8 @@ operations:
     permission: order.aftersale.apply
     idempotent: false
     schema: named
-    requestFields: ["amountMinor","evidence","kind","line","quantity","reason"]
-    responseFields: ["exports"]
+    requestFields: ["amountMinor","evidence","kind","line","lines","quantity","reason","returnMethod"]
+    responseFields: ["exports","items"]
     requirements:
       - MVP08
       - MVP17

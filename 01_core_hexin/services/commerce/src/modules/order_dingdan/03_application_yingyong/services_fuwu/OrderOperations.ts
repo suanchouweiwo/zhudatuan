@@ -10,12 +10,10 @@ import { fullCheckoutPort } from '../../../checkout_jiesuan/04_adapters_shixian/
 import { BenefitPort } from '../../../benefit';
 import { FinancePort } from '../../../finance';
 import { VoucherPort } from '../../../voucher';
-import { Order, type AftersaleState, type CommerceState, type FulfillmentState, type PaymentState } from '../../02_domain_yewu/models_moxing/Order';
 import { confirmOrderReceiptOperations } from '../commands_xieru/ConfirmOrderReceipt';
+import { applyAftersale } from '../commands_xieru/ApplyAftersale';
 import { PlaceOrder } from '../commands_xieru/PlaceOrder';
 import { createReportingExport, listReportingExports } from '../../../reporting';
-
-interface OrderRow { readonly id: string; readonly lifecycle_state: CommerceState; readonly payment_state: PaymentState; readonly fulfillment_state: FulfillmentState; readonly aftersale_state: AftersaleState }
 
 export function orderOperations(context: ModuleContext): ModuleOperations {
   const pool = context.container.get(DATABASE_POOL);
@@ -76,27 +74,7 @@ export function orderOperations(context: ModuleContext): ModuleOperations {
         order by aftersale.created_at desc,aftersale.id desc limit $4`, [access.scope.id, page.sort, page.id, page.fetch]);
       return keysetResult(result, page, 'created_at');
     },
-    'order.aftersales.apply': async (request, database) => {
-      const access = requireAccess(request);
-      const body = bodyRecord(request);
-      const loaded = await database.query<OrderRow>(`select id,lifecycle_state,payment_state,fulfillment_state,aftersale_state from ordering.orderrecord
-        where id=$1 and member_id=$2 for update`, [request.input.path.orderid!, access.scope.id]);
-      const row = loaded.rows[0];
-      if (!row) throw new Error('RESOURCE_NOT_FOUND');
-      new Order(row.id, row.lifecycle_state, row.payment_state, row.fulfillment_state, row.aftersale_state).assertAftersaleAllowed();
-      const result = await database.query(`insert into ordering.aftersale(id,order_id,line_id,kind,state,quantity,amount_minor,reason,requested_by,
-        requested_membership_id,supplier_leg_id,route_snapshot,created_at,updated_at,version)
-        select $1,$2,$3,$4,'requested',$5,$6,$7,$8,$9,
-          (select line.supplier_leg_id from ordering.line line where line.order_id=$2 and line.id=$3),
-          case when $3::text is null then jsonb_build_object('scope','order','routes',
-          coalesce((select jsonb_agg(line.route_snapshot order by line.id) from ordering.line line where line.order_id=$2),'[]'::jsonb))
-          else (select line.route_snapshot||jsonb_build_object('orderLineId',line.id,'linePayableMinor',line.payable_minor)
-            from ordering.line line where line.order_id=$2 and line.id=$3) end,
-          clock_timestamp(),clock_timestamp(),0 returning *`, [`aftersale:${randomUUID()}`, row.id,
-        body.line ?? null, body.kind ?? 'refund', body.quantity ?? null, body.amountMinor ?? null, textField(body, 'reason', 1000), access.actor.id, access.membership.id]);
-      await database.query("update ordering.orderrecord set aftersale_state='requested',version=version+1,updated_at=clock_timestamp() where id=$1", [row.id]);
-      return rowResult(result, 201);
-    },
+    'order.aftersales.apply': applyAftersale,
     'order.aftersales.approve': review('approved'),
     'order.aftersales.reject': review('rejected'),
   });

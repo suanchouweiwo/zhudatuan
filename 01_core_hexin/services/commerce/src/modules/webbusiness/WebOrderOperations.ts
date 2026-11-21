@@ -56,7 +56,7 @@ export function webOrderOperations(context: ModuleContext): ModuleOperations {
           'supplierId',line.supplier_id,'supplierRelationshipId',line.supplier_relationship_id,'contractId',line.contract_id,
           'contractHash',line.contract_hash,'fulfillmentPartyId',line.fulfillment_party_id,'settlementPartyId',line.settlement_party_id,
           'invoicePartyId',line.invoice_party_id,'routeSnapshot',line.route_snapshot) order by line.id)
-          filter(where $15::boolean),'[]'::jsonb) items,
+          filter(where $15::boolean or $1::boolean),'[]'::jsonb) items,
           case when count(*)=0 then null else jsonb_build_object(
             'title',(array_agg(line.title_snapshot order by line.id))[1],
             'sku',(array_agg(line.sku_id order by line.id))[1],
@@ -106,10 +106,10 @@ export function webOrderOperations(context: ModuleContext): ModuleOperations {
           or journal.reference_id in(select refund.id from payment.refund refund join payment.payment payment on payment.id=refund.payment_id
             join payment.intent intent on intent.id=payment.intent_id where intent.order_id=orders.id))) financefacts on true
         left join lateral(select jsonb_agg(jsonb_build_object('id',aftersale.id,'lineId',aftersale.line_id,'kind',aftersale.kind,
-          'state',aftersale.state,'quantity',aftersale.quantity,'amountMinor',aftersale.amount_minor,'reason',aftersale.reason,
+          'state',aftersale.state,'quantity',aftersale.quantity,'amountMinor',aftersale.amount_minor,'reason',aftersale.reason,'returnMethod',aftersale.return_method,
           'requestedAt',aftersale.created_at,'updatedAt',aftersale.updated_at,'routeSnapshot',aftersale.route_snapshot)
           order by aftersale.created_at desc,aftersale.id desc) items
-          from ordering.aftersale aftersale where $15::boolean and aftersale.order_id=orders.id) aftersales on true
+          from ordering.aftersale aftersale where ($15::boolean or $1::boolean) and aftersale.order_id=orders.id) aftersales on true
         left join lateral(select jsonb_agg(jsonb_build_object('id',operation.id,'kind',operation.kind,
           'actor_id',operation.actor_id,'actor_name',operation.actor_name,'membership_id',operation.membership_id,
           'occurred_at',operation.occurred_at,'result',operation.result) order by operation.occurred_at desc,operation.id desc) items

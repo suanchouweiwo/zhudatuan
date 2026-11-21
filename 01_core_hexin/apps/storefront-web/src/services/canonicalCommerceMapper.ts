@@ -66,11 +66,26 @@ export function mapCanonicalOrders(value: unknown): { items: ApiOrder[]; nextCur
   };
 }
 
+export function mapOrderAftersales(value: unknown): NonNullable<ApiOrder['aftersales']> {
+  return records(value, 'order.aftersales').map((item) => {
+    const amount = item.amountMinor ?? item.amount_minor;
+    return {
+      id: text(item.id, 'order.aftersale.id'),
+      lineId: optionalText(item.lineId ?? item.line_id),
+      kind: text(item.kind, 'order.aftersale.kind'),
+      state: text(item.state, 'order.aftersale.state'),
+      amountMinor: amount == null ? null : nonNegativeInteger(amount, 'order.aftersale.amountMinor'),
+    };
+  });
+}
+
 function mapOrder(item: Record<string, unknown>): ApiOrder {
   const total = nonNegativeInteger(item.total_minor, 'order.total_minor');
   const paymentState = optionalText(item.payment_state) ?? 'unpaid';
   const lines = records(item.lines ?? [], 'order.lines');
-  const benefitPaid = paymentState === 'paid' ? benefitTenderAmount(item.evidence, total) : 0;
+  const benefitPaid = paymentState === 'paid' ? tenderAmount(item.evidence, 'benefit') ?? total : 0;
+  const wechatPayable = tenderAmount(item.evidence, 'wechat');
+  const intentId = item.payment_fact == null ? null : optionalText(record(item.payment_fact, 'order.payment_fact').intentId);
   return {
     id: text(item.id, 'order.id'),
     orderNo: text(item.order_number, 'order.order_number'),
@@ -78,12 +93,17 @@ function mapOrder(item: Record<string, unknown>): ApiOrder {
     goodsAmountCents: lines.reduce((sum, line) => sum + nonNegativeInteger(line.totalMinor, 'order.line.totalMinor'), 0),
     discountCents: lines.reduce((sum, line) => sum + nonNegativeInteger(line.discountMinor, 'order.line.discountMinor'), 0),
     payableCents: total,
+    ...(wechatPayable === undefined ? {} : { wechatPayableCents: wechatPayable }),
+    ...(intentId === null ? {} : { paymentIntentId: intentId }),
     paidCents: paymentState === 'paid' || paymentState.includes('refund') ? total : 0,
     welfarePaidCents: benefitPaid,
     mealPaidCents: 0,
     createdAt: asDate(item.created_at),
     updatedAt: asDate(item.updated_at),
+    aftersales: mapOrderAftersales(item.aftersales ?? []),
     items: lines.map((line) => ({
+      ...(typeof line.id === 'string' ? { orderLineId: line.id } : {}),
+      ...(line.payableMinor == null ? {} : { payableCents: nonNegativeInteger(line.payableMinor, 'order.line.payableMinor') }),
       productId: text(line.listing, 'order.line.listing'),
       productTitle: text(line.title, 'order.line.title'),
       productImage: null,
@@ -108,12 +128,12 @@ function orderStatus(item: Record<string, unknown>): string {
   return 'paid';
 }
 
-function benefitTenderAmount(value: unknown, fallback: number): number {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) return fallback;
+function tenderAmount(value: unknown, kind: 'benefit' | 'wechat'): number | undefined {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return undefined;
   const tenders = Reflect.get(value, 'tenders');
-  if (!Array.isArray(tenders)) return fallback;
+  if (!Array.isArray(tenders)) return undefined;
   return tenders.reduce((sum, raw) => {
-    if (raw === null || typeof raw !== 'object' || Array.isArray(raw) || Reflect.get(raw, 'kind') !== 'benefit') return sum;
+    if (raw === null || typeof raw !== 'object' || Array.isArray(raw) || Reflect.get(raw, 'kind') !== kind) return sum;
     const amount = Reflect.get(raw, 'amountMinor');
     return typeof amount === 'number' && Number.isSafeInteger(amount) && amount >= 0 ? sum + amount : sum;
   }, 0);
