@@ -6793,6 +6793,9 @@
           "password": {
             "$ref": "#/components/schemas/JsonValue"
           },
+          "taskId": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
           "username": {
             "$ref": "#/components/schemas/JsonValue"
           }
@@ -6899,6 +6902,9 @@
             "$ref": "#/components/schemas/JsonValue"
           },
           "retryable": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "task": {
             "$ref": "#/components/schemas/JsonValue"
           }
         },
@@ -45937,7 +45943,7 @@
           "operating_mall",
           "consumer"
         ],
-        "x-operation-hash": "999e526201564ba41401621e696568924fedb40b38b44c88c73f53fb907476a8",
+        "x-operation-hash": "7c6859d444d5204f76f114a7c96156c62294f410e7a6255a6dc1caa35ea10184",
         "x-permission": "organization.layer.read",
         "x-request-schema": "ProvisioningInstancesReadRequest",
         "x-requirements": [
@@ -46118,7 +46124,7 @@
           "operating_mall",
           "consumer"
         ],
-        "x-operation-hash": "d6011cb0e0421c696c04f8f7861e555de3f7c1c58eedddbccb8d361016daa208",
+        "x-operation-hash": "85e459c3bf3804b056afcf9c33cc19c8abeea175836cbe742ba325d53ea9d2ab",
         "x-permission": "organization.layer.manage",
         "x-request-schema": "ProvisioningInstancesManageRequest",
         "x-requirements": [
