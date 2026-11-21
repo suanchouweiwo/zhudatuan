@@ -336,7 +336,10 @@ export class ProductionNodeActivationProvider {
       if (environmentFile === null) continue;
       const candidateFile = join(candidateDirectory, 'runtime', `${service}.env`);
       const generated = await readEnvironment(candidateFile);
-      const overrides = interpolateRecord(profile.services[service], interpolationValues(context, activeManifest));
+      const overrides = interpolateRecord(profile.services[service], {
+        ...interpolationValues(context, activeManifest),
+        object_store_port: String(resources.ports.object_store),
+      }, this.environment);
       const environment = {
         ...replaceDeep(generated, candidateDirectory, nodeDirectory),
         ...(SERVICE_CONSTANTS[service] ?? {}),
@@ -935,11 +938,13 @@ function interpolationValues(context, manifest) {
   });
 }
 
-function interpolateRecord(record, values) {
-  return Object.freeze(Object.fromEntries(Object.entries(record).map(([key, value]) => [
-    key,
-    value.replace(/\{([a-z_]+)\}/g, (match, name) => Object.hasOwn(values, name) ? values[name] : match),
-  ])));
+function interpolateRecord(record, values, environment) {
+  return Object.freeze(Object.fromEntries(Object.entries(record).map(([key, value]) => {
+    // Only explicit, whole-value references read from the AutoNode service environment.
+    const reference = environment && /^\{env:([A-Z][A-Z0-9_]*)\}$/.exec(value);
+    if (reference) return [key, requiredEnvironmentValue(environment, reference[1])];
+    return [key, value.replace(/\{([a-z_]+)\}/g, (match, name) => Object.hasOwn(values, name) ? values[name] : match)];
+  })));
 }
 
 function replaceDeep(value, from, to) {
