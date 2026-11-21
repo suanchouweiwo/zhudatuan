@@ -18,12 +18,18 @@ systemd 读取这个 `NAME=value` 文件，AutoNode 启动的激活子进程继�
 | --- | --- |
 | `AUTONODE_ZHUDUATUAN_CLOUDFLARE_TOKEN` | 读取 `/opt/sfl/control/autonode/cloudflare-token` 的现有令牌，ID 尾号 `c8773fd9`。原文件继续供实例生命周期入口使用。 |
 | `AUTONODE_ZHUDUATUAN_IDENTITY_DATABASE_URL` | 使用主打团 L0 开店服务的 `DATABASE_API_CONNECTION_REF`，从现有 Secret Store 取得 `zhudatuanprovisioningapi` 的连接值。 |
-| 对象存储、Secret Store、KMS 变量 | 在宿主机提供 profile 所列的服务凭据。子服务的 Secret Store 凭据须能读取对应的子节点绑定，对象存储服务端与其三个调用方使用同一个对象存储凭据。 |
+| KMS 变量 | 在宿主机沿用现有 L0 的 KMS 配置及工作负载凭据。 |
+| 微信和支付应用配置 | 优先读取 L0 Secret Store 对应条目。若 L0 目录尚无条目，可通过同一宿主机环境文件提供 L0 的配置。 |
 
-子服务按 `{node_token}` 生成自己的数据库、会话、微信和支付引用。填入环境变量
-只会提供访问凭据，对应的子节点条目仍由现有 Secret Store 和业务资源准备流程提供。
-共享回环服务的端口与证书路径沿用主打团 L0 配置，子店对象存储端口取 AutoNode
-为该任务分配的端口。
+首次激活把主打团 L0 当前使用的商城、服务、Console 和登录产物解析到实际版本目录，
+写入子店的 `targets/<target>/current`。后续重试沿用首次记录的产物目录。
+涉及支付的任务也会绑定支付回调和支付任务产物。
+
+子店 Secret Store 使用 AutoNode 分配的独立回环端口。首次激活把 L0 的数据库连接和任务
+需要继承的微信、支付配置映射到子节点自己的引用，并生成该店的会话、索引、报价密钥
+和服务 bearer。条目只写到子店 `runtime/secrets.json`，服务从该店的环境读取地址和
+凭据。对象存储端口与 bearer 也按子店分配。所需产物或继承条目缺失时，原任务回执
+会列出对应的外部依赖。
 
 ## 新店源站证书
 

@@ -80,10 +80,11 @@ const LOCK_STALE_MS = 30_000;
  * authority boundary: this engine never writes production resources or source trees.
  */
 export class FileNodeProvisioningEngine {
-  constructor(candidateRoot) {
+  constructor(candidateRoot, { allocateSecretStorePort = false } = {}) {
     this.root = candidateRootPath(candidateRoot);
     this.stateRoot = join(this.root, 'state');
     this.nodesRoot = join(this.root, 'nodes');
+    this.allocateSecretStorePort = allocateSecretStorePort;
   }
 
   async provision(input, options = {}) {
@@ -393,7 +394,7 @@ export class FileNodeProvisioningEngine {
   async #manifestReady(request) {
     const identity = requestIdentity(request);
     const business = await readRequiredJson(join(this.#nodeDirectory(request), 'business-core.json'));
-    const manifest = await generateNodeManifest(manifestSpec(request, identity, business));
+    const manifest = await generateNodeManifest(manifestSpec(request, identity, business, this.allocateSecretStorePort));
     const file = join(this.#nodeDirectory(request), 'manifest.json');
     await writeJsonAtomic(file, manifest);
     return await stepOutput('MANIFEST_READY', [file], this.root);
@@ -411,7 +412,7 @@ export class FileNodeProvisioningEngine {
     if (allocation === undefined) {
       const occupied = new Set(Object.values(registry.allocations)
         .flatMap((entry) => Object.values(entry.ports)));
-      const ports = allocatePorts(identity.nodeId, occupied);
+      const ports = allocatePorts(identity.nodeId, occupied, this.allocateSecretStorePort);
       allocation = {
         provisioning_request_id: request.provisioning_request_id,
         hosts: requestedHosts,
@@ -1028,7 +1029,7 @@ function stepIndex(state) {
   return index;
 }
 
-function manifestSpec(request, identity, business) {
+function manifestSpec(request, identity, business, childSecretStore) {
   const profile = 'operating_mall';
   const bindingSources = requestBindingSources(request);
   const mallId = profile === 'operating_mall' ? business.plan.mall : null;
@@ -1076,7 +1077,7 @@ function manifestSpec(request, identity, business) {
           ref: bindingSources.payment.effective_resource.ref,
           version: bindingSources.payment.effective_resource.version,
         }
-        : reference(`payment-binding:${identity.nodeToken}`),
+        : reference(childSecretStore ? `${nodeSecretPrefix(identity)}/payment` : `payment-binding:${identity.nodeToken}`),
     ] : [],
     callback_binding_refs: request.resources.callbacks ? [reference(`callback-binding:${identity.nodeToken}`)] : [],
     runtime_instance_id: `runtime:${identity.nodeToken}:commerce`,
@@ -1137,12 +1138,13 @@ function externalBindingPlan(request, identity) {
   return bindings;
 }
 
-function allocatePorts(nodeId, occupied) {
+function allocatePorts(nodeId, occupied, includeSecretStore) {
   const capacity = PORT_MAXIMUM - PORT_MINIMUM + 1;
   const start = Number.parseInt(sha256(nodeId).slice(0, 8), 16) % capacity;
   const ports = {};
   let cursor = start;
-  for (const name of AUTONODE_PORT_NAMES) {
+  const names = includeSecretStore ? [...AUTONODE_PORT_NAMES, 'secret_store'] : AUTONODE_PORT_NAMES;
+  for (const name of names) {
     let selected = null;
     for (let scanned = 0; scanned < capacity; scanned += 1) {
       const candidate = PORT_MINIMUM + (cursor % capacity);
