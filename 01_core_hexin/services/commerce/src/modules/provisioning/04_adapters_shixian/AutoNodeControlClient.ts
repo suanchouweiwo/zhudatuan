@@ -74,21 +74,29 @@ export class AutoNodeControlClient implements AutoNodeControlPort {
   }
 
   async submitMall(mall: CreatedMall, createdAt: string, access: AccessContext, idempotencyKey: string): Promise<AutoNodeTaskReceipt> {
-    const node = requireAccessNodeContext(access).manifest;
-    const level = nextLevel(node.signed_level);
-    const nodeSlug = mall.publicSlug.toLowerCase();
-    return await this.send('/v1/tasks', 'POST', {
-      schema_version: 'sfl.autonode-control-task-request.v1',
-      task_id: `task:${mall.mallId}`,
-      idempotency_key: `node:${idempotencyKey}`,
-      action: 'ACTIVATE',
-      node_id: `node:${nodeSlug}:${level.toLowerCase()}`,
-      requested_by: {
-        actor_id: access.actor.id,
-        membership_id: access.membership.id,
-      },
-      activation_request: activationRequest(mall, createdAt, node, level, this.sourceSha, access, idempotencyKey),
-    });
+    const taskId = `task:${mall.mallId}`;
+    try {
+      const node = requireAccessNodeContext(access).manifest;
+      const level = nextLevel(node.signed_level);
+      const nodeSlug = mall.publicSlug.toLowerCase();
+      return await this.send('/v1/tasks', 'POST', {
+        schema_version: 'sfl.autonode-control-task-request.v1',
+        task_id: taskId,
+        idempotency_key: `node:${idempotencyKey}`,
+        action: 'ACTIVATE',
+        node_id: `node:${nodeSlug}:${level.toLowerCase()}`,
+        requested_by: {
+          actor_id: access.actor.id,
+          membership_id: access.membership.id,
+        },
+        activation_request: activationRequest(mall, createdAt, node, level, this.sourceSha, access, idempotencyKey),
+      });
+    } catch (cause) {
+      // A lost reply or a newer release can leave the original task in the registry.
+      const task = await this.read(taskId).catch(() => null);
+      if (task?.task_id === taskId && task.action === 'ACTIVATE' && task.platform.mall_id === mall.mallId) return task;
+      throw cause;
+    }
   }
 
   async read(taskId: string): Promise<AutoNodeTaskReceipt> {

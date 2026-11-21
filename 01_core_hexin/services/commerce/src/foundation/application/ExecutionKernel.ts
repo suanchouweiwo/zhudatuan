@@ -131,6 +131,11 @@ export function markEnforcedWriteResult<T extends OperationResult>(result: T): T
   return result;
 }
 
+export function inheritEnforcedWriteResult(source: OperationResult, result: OperationResult): OperationResult {
+  if (enforcedResults.has(source)) enforcedResults.add(result);
+  return result;
+}
+
 export function assertEnforcedWriteResult(request: OperationRequest, result: OperationResult): void {
   const operation = OperationCatalog.get(request.type);
   if (operation.writePath !== 'none' && !enforcedResults.has(result)) throw new Error(`ENFORCED_WRITE_PATH_BYPASSED:${request.type}`);
