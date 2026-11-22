@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">主打团</string>
+    <string name="page_unavailable">暂时无法打开主打团</string>
+    <string name="retry">重试</string>
+    <string name="link_unavailable">无法打开此链接</string>
+</resources>
