@@ -32,7 +32,7 @@ export const LaptopTopSwitcher: React.FC<LaptopTopSwitcherProps> = ({ surface = 
   ];
 
   return (
-    <div className="bg-[var(--sw-brand-dark)] text-white border-b border-blue-900 shadow-md py-2 px-3 sm:px-6 sticky top-0 z-50 font-sans">
+    <div className="bg-[var(--sw-brand-dark)] text-white border-b border-blue-900 shadow-md py-2 px-3 sm:px-6 font-sans select-text">
       <div className="sw-web-switcher-container max-w-[1366px] mx-auto flex flex-col xl:flex-row items-center justify-between gap-2.5 text-xs">
         {/* Left Branding */}
         <div className="flex items-center gap-2.5">

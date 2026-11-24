@@ -55,9 +55,6 @@ export const StorefrontWebFrame: React.FC<StorefrontWebFrameProps> = ({ surface 
       data-storefront-web-standard={STOREFRONT_WEB_STANDARD_ID}
       data-storefront-web-surface={surface}
     >
-      {/* 1. 多端多视口顶栏切换器 */}
-      <LaptopTopSwitcher surface={surface} navigationBoundary={navigationBoundary} />
-
       {/* 2. 消费者 Web 标准页头；桌面仅改变密度，不改变组件与交互。 */}
       <LaptopHeader activeTab={laptopPage} onSelectTab={handleSelectTab} surface={surface} />
 
@@ -69,7 +66,7 @@ export const StorefrontWebFrame: React.FC<StorefrontWebFrameProps> = ({ surface 
       <ToastContainer />
 
       {/* 5. 底部版权与服务商标识 (雍彻科技) */}
-      <Footer />
+      <Footer switcher={<LaptopTopSwitcher surface={surface} navigationBoundary={navigationBoundary} />} />
     </div>
   );
 };

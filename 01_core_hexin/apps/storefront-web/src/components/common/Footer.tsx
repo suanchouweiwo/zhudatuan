@@ -9,7 +9,7 @@ import { useMall } from '../../context/MallContext';
 import { resolveStorefrontPresentationIdentity } from '../../config/storefrontIdentity';
 import { ShieldCheck, Truck, CreditCard, Headphones, Award, Building2, Lock, Sparkles } from 'lucide-react';
 
-export const Footer: React.FC = () => {
+export const Footer: React.FC<{ switcher?: React.ReactNode }> = ({ switcher }) => {
   const { currentMall, navigateTo } = useMall();
   const { brandName } = resolveStorefrontPresentationIdentity();
 
@@ -160,6 +160,8 @@ export const Footer: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {switcher}
 
       {/* 3. 版权、备案与技术服务方标志 */}
       <div className="border-t border-gray-800 bg-gray-950 py-5 text-center text-gray-500 text-[11px]">
