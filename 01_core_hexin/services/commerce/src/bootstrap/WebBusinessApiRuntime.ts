@@ -105,7 +105,16 @@ export async function createWebBusinessApiRuntime(
     new PgAccessVersionResolver(pool),
     new NodeBoundScopeResolver(
       scopeResolver,
-      manifest.signed_level === 'L0' ? (actor) => requireActorNodeContext(actor).scope.ref : manifest.data_scope_ref.ref,
+      manifest.signed_level === 'L0' ? (actor) => {
+        const node = requireActorNodeContext(actor);
+        // The operating node hosts storefront members while its manifest data scope stays at platform level.
+        if (actor.target === 'storefront' && manifest.mall_id
+          && actor.governanceOrganization === manifest.mall_id
+          && (node.node_id === manifest.node_id || node.host_node_id === manifest.node_id)) {
+          return manifest.mall_id;
+        }
+        return node.scope.ref;
+      } : manifest.data_scope_ref.ref,
       (actor) => scopeResolver.resolveStorefrontScope(actor),
     ),
     new PgCapabilityResolver(pool),
