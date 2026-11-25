@@ -137,7 +137,7 @@ export async function createCatalogJobsRuntime(environment: CatalogJobsEnvironme
     }
     return Object.freeze({
       jobs: createCatalogJobs(pool, objects, required(environment.JOB_WORKER_ID, 'JOB_WORKER_ID_MISSING'),
-        manifest.data_scope_ref.ref, mediaProcessor),
+        manifest.data_scope_ref.ref, mediaProcessor, manifest.signed_level === 'L0' ? manifest.mall_id : null),
       manifest,
       close: () => pool.end(),
     });
@@ -153,6 +153,7 @@ export function createCatalogJobs(
   worker: string,
   scope: string,
   mediaProcessor?: JobProcessor,
+  mallScope?: string | null,
 ): readonly Job<void>[] {
   const configuration: JobRunnerConfig = Object.freeze({
     worker,
@@ -179,23 +180,19 @@ export function createCatalogJobs(
     retryMinimum: 250,
     retryMaximum: 60_000,
   });
+  const catalogConfigurations = [configuration];
+  if (mallScope && mallScope !== scope) {
+    catalogConfigurations.push({ ...configuration, worker: `${worker}:mall`, scope: mallScope });
+  }
+  const importProcessor = new CatalogImportProcessor(pool, objects);
+  const publicationProcessor = new CatalogPublicationProcessor(pool);
   const jobs: Job<void>[] = [
-    new QueueJob(
-      'catalogimport',
-      pool,
-      configuration,
-      new CatalogImportProcessor(pool, objects),
-      undefined,
-      new JobMetrics(commerceTelemetry()),
-    ),
-    new QueueJob(
-      'catalogpublication',
-      pool,
-      configuration,
-      new CatalogPublicationProcessor(pool),
-      undefined,
-      new JobMetrics(commerceTelemetry()),
-    ),
+    ...catalogConfigurations.flatMap((catalogConfiguration) => [
+      new QueueJob('catalogimport', pool, catalogConfiguration, importProcessor,
+        undefined, new JobMetrics(commerceTelemetry())),
+      new QueueJob('catalogpublication', pool, catalogConfiguration, publicationProcessor,
+        undefined, new JobMetrics(commerceTelemetry())),
+    ]),
     new QueueJob(
       'export',
       pool,
