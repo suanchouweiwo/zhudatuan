@@ -2,7 +2,7 @@ import { boolean, nonNegativeInteger, optionalText, pageItems, record, text } fr
 import { ProductionApiError } from './productionApi.error';
 import type { ApiProduct } from './productionApi.types';
 
-export type PublicCatalogOptions = { category?: string; cursor?: string; limit?: number };
+export type PublicCatalogOptions = { category?: string; cursor?: string; limit?: number; q?: string; signal?: AbortSignal };
 
 declare global {
   interface Window {
@@ -14,12 +14,14 @@ export async function listPublicProducts(options: PublicCatalogOptions = {}): Pr
   const query = new URLSearchParams({ limit: String(options.limit ?? 100) });
   if (options.cursor) query.set('cursor', options.cursor);
   if (options.category) query.set('category', options.category);
+  if (options.q) query.set('q', options.q);
   const bootstrapResponse = takeBootstrapResponse(options);
   const response = await bootstrapResponse ?? await fetch(`/api/v1/catalog/public/products?${query}`, {
     method: 'GET',
     headers: { accept: 'application/json' },
     credentials: 'omit',
     redirect: 'error',
+    signal: options.signal,
   });
   const value = await response.json().catch(() => null) as unknown;
   if (!response.ok) {
@@ -34,7 +36,7 @@ export async function listPublicProducts(options: PublicCatalogOptions = {}): Pr
 }
 
 function takeBootstrapResponse(options: PublicCatalogOptions): Promise<Response | null> | null {
-  if (typeof window === 'undefined' || options.cursor || options.category || (options.limit ?? 100) !== 100) return null;
+  if (typeof window === 'undefined' || options.cursor || options.category || options.q || (options.limit ?? 100) !== 100) return null;
   const response = window.__SW_PUBLIC_CATALOG_RESPONSE__ ?? null;
   delete window.__SW_PUBLIC_CATALOG_RESPONSE__;
   return response;

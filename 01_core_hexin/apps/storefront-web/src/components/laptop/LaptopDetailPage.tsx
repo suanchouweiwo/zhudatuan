@@ -3,18 +3,20 @@ import { LaptopBreadcrumb } from './LaptopBreadcrumb';
 import { useMall, LaptopPage } from '../../context/MallContext';
 import { ShoppingCart, Zap, CreditCard, Gift, ShieldCheck, Truck, CheckCircle2, FileText, Star, MapPin, Minus, Plus, Building, Heart, Share2 } from 'lucide-react';
 import { defaultStorefrontWebPage, type StorefrontWebSurface } from './StorefrontWebStandard';
+import type { FrontendProduct } from '../../adapters/frontendData';
 
 interface LaptopDetailPageProps {
   onSelectTab: (tab: LaptopPage) => void;
   surface?: StorefrontWebSurface;
+  selectedProduct?: FrontendProduct;
 }
 
-export const LaptopDetailPage: React.FC<LaptopDetailPageProps> = ({ onSelectTab, surface = 'laptop' }) => {
+export const LaptopDetailPage: React.FC<LaptopDetailPageProps> = ({ onSelectTab, surface = 'laptop', selectedProduct }) => {
   const { user, addToCart, showToast, presentationProducts: MOCK_PRODUCTS } = useMall();
   const homePage = defaultStorefrontWebPage(surface);
 
   // Selected product (default to Lenovo ThinkPad or first product)
-  const product = MOCK_PRODUCTS[0];
+  const product = selectedProduct ?? MOCK_PRODUCTS[0];
   const [quantity, setQuantity] = useState<number>(1);
   const [selectedSpec, setSelectedSpec] = useState<string>('i7-13700H / 32G / 1TB');
   const [activeTab, setActiveTab] = useState<'detail' | 'spec' | 'reviews' | 'aftersale'>('detail');

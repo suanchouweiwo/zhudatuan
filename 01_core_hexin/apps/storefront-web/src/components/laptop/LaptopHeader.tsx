@@ -9,10 +9,11 @@ import { defaultStorefrontWebPage, STOREFRONT_WEB_SURFACE_COPY, type StorefrontW
 interface LaptopHeaderProps {
   activeTab?: LaptopPage;
   onSelectTab?: (tab: LaptopPage) => void;
+  onSearch?: (query: string) => void;
   surface?: StorefrontWebSurface;
 }
 
-export const LaptopHeader: React.FC<LaptopHeaderProps> = ({ activeTab, onSelectTab, surface = 'laptop' }) => {
+export const LaptopHeader: React.FC<LaptopHeaderProps> = ({ activeTab, onSelectTab, onSearch, surface = 'laptop' }) => {
   const { currentMall, user, cartCount, setLaptopPage, malls, switchMall, triggerPendingFeature } = useMall();
   const { brandName } = resolveStorefrontPresentationIdentity();
   const surfaceCopy = STOREFRONT_WEB_SURFACE_COPY[surface];
@@ -29,7 +30,9 @@ export const LaptopHeader: React.FC<LaptopHeaderProps> = ({ activeTab, onSelectT
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (onSelectTab) {
+    if (onSearch) {
+      onSearch(searchKw.trim());
+    } else if (onSelectTab) {
       onSelectTab('category');
     } else {
       setLaptopPage('category');

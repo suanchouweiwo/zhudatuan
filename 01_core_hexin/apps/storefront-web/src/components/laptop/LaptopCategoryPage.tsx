@@ -6,6 +6,9 @@ import { defaultStorefrontWebPage, type StorefrontWebSurface } from './Storefron
 interface LaptopCategoryPageProps {
   onSelectTab: (tab: LaptopPage) => void;
   surface?: StorefrontWebSurface;
+  searchResults?: readonly FrontendProduct[];
+  searchStatus?: 'loading' | 'error' | 'ready';
+  onOpenSearchProduct?: (product: FrontendProduct) => void;
 }
 
 export const DEFAULT_PRICE_RANGE = [0, null] as const;
@@ -17,7 +20,9 @@ export function productPriceInRange(
   return price >= minimum && (maximum === null || price <= maximum);
 }
 
-export const LaptopCategoryPage: React.FC<LaptopCategoryPageProps> = ({ onSelectTab, surface = 'laptop' }) => {
+export const LaptopCategoryPage: React.FC<LaptopCategoryPageProps> = ({
+  onSelectTab, surface = 'laptop', searchResults, searchStatus, onOpenSearchProduct,
+}) => {
   const { addToCart, showToast, presentationProducts: MOCK_PRODUCTS } = useMall();
   const homePage = defaultStorefrontWebPage(surface);
   const [filterCategory, setFilterCategory] = useState<string>('all');
@@ -27,7 +32,7 @@ export const LaptopCategoryPage: React.FC<LaptopCategoryPageProps> = ({ onSelect
   const [isFilterCollapsed, setIsFilterCollapsed] = useState<boolean>(false);
   const [priceRange, setPriceRange] = useState<[number, number | null]>(() => [...DEFAULT_PRICE_RANGE]);
   // Filter products
-  let filtered = MOCK_PRODUCTS.filter((p) => {
+  let filtered = (searchResults ?? MOCK_PRODUCTS).filter((p) => {
     if (filterCategory !== 'all' && p.category !== filterCategory) return false;
     if (allowMealCardOnly && !p.allowMealCard) return false;
     if (subsidyOnly && !p.isEnterpriseSubsidized) return false;
@@ -59,7 +64,9 @@ export const LaptopCategoryPage: React.FC<LaptopCategoryPageProps> = ({ onSelect
             <span className="font-bold text-gray-800">商品分类与企采搜索结果</span>
           </div>
           <div className="text-[11px] text-gray-400">
-            共找到 <span className="font-bold text-[var(--sw-brand)]">{filtered.length}</span> 件企采符合件
+            {searchStatus === 'loading' ? '正在搜索…' : searchStatus === 'error' ? '商品搜索暂时不可用，请重试' : (
+              <>共找到 <span className="font-bold text-[var(--sw-brand)]">{filtered.length}</span> 件企采符合件</>
+            )}
           </div>
         </div>
         <div className="flex gap-3 items-start">
@@ -179,7 +186,7 @@ export const LaptopCategoryPage: React.FC<LaptopCategoryPageProps> = ({ onSelect
               {filtered.map((product) => (
                 <div
                   key={product.id}
-                  onClick={() => onSelectTab('detail')}
+                  onClick={() => onOpenSearchProduct ? onOpenSearchProduct(product) : onSelectTab('detail')}
                   className="bg-white border border-gray-200 hover:border-[var(--sw-brand)] rounded-lg p-2.5 hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group relative"
                 >
                   <div className="absolute top-2 left-2 z-10 flex flex-col gap-1">

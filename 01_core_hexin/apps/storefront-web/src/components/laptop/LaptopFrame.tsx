@@ -1,5 +1,10 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useMall } from '../../context/MallContext';
+import { toFrontendProducts, type FrontendProduct } from '../../adapters/frontendData';
+import { mapApiProduct } from '../../context/mallMappers';
+import { loadProgressiveCatalog } from '../../context/useProductionSync';
+import { listPublicProducts } from '../../services/publicCatalogApi';
+import type { ApiProduct } from '../../services/productionApi.types';
 import type { LaptopPage } from '../../context/MallContext.types';
 import { LaptopTopSwitcher } from './LaptopTopSwitcher';
 import { LaptopHeader } from './LaptopHeader';
@@ -20,12 +25,61 @@ type StorefrontWebFrameProps = {
   navigationBoundary?: StorefrontWebNavigationBoundary;
 };
 
+type CatalogSearch = {
+  query: string;
+  status: 'loading' | 'error' | 'ready';
+  items: readonly ApiProduct[];
+};
+
 export const StorefrontWebFrame: React.FC<StorefrontWebFrameProps> = ({ surface = 'laptop', navigationBoundary = 'showcase' }) => {
-  const { laptopPage, setLaptopPage, activePaymentId, activePaymentSession } = useMall();
+  const { laptopPage, setLaptopPage, activePaymentId, activePaymentSession, presentationProducts } = useMall();
+  const [search, setSearch] = useState<CatalogSearch | null>(null);
+  const [searchProduct, setSearchProduct] = useState<FrontendProduct>();
+
+  useEffect(() => {
+    if (!search || search.status !== 'loading') return;
+    const controller = new AbortController();
+    const { query } = search;
+
+    void loadProgressiveCatalog(
+      (options) => listPublicProducts({ ...options, q: query, signal: controller.signal }),
+      () => {},
+      async () => {},
+      Infinity,
+    ).then((items) => {
+      if (!controller.signal.aborted) setSearch({ query, status: 'ready', items });
+    }, () => {
+      if (!controller.signal.aborted) setSearch({ query, status: 'error', items: [] });
+    });
+    return () => controller.abort();
+  }, [search]);
+
+  const searchResults = useMemo(() => {
+    if (!search) return undefined;
+    const productsById = new Map(presentationProducts.map((product) => [product.id, product]));
+    return toFrontendProducts(search.items.map(mapApiProduct))
+      .map((product) => productsById.get(product.id) ?? product);
+  }, [search, presentationProducts]);
 
   const handleSelectTab = (tab: LaptopPage) => {
+    setSearchProduct(undefined);
     setLaptopPage(tab);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleHeaderTab = (tab: LaptopPage) => {
+    setSearch(null);
+    handleSelectTab(tab);
+  };
+
+  const handleSearch = (query: string) => {
+    setSearch(query ? { query, status: 'loading', items: [] } : null);
+    handleSelectTab('category');
+  };
+
+  const openSearchProduct = (product: FrontendProduct) => {
+    handleSelectTab('detail');
+    setSearchProduct(product);
   };
 
   const renderLaptopContent = () => {
@@ -37,9 +91,15 @@ export const StorefrontWebFrame: React.FC<StorefrontWebFrameProps> = ({ surface 
       case 'home-1440':
         return <LaptopHomePage1440 onSelectTab={handleSelectTab} surface={surface} />;
       case 'category':
-        return <LaptopCategoryPage onSelectTab={handleSelectTab} surface={surface} />;
+        return <LaptopCategoryPage
+          onSelectTab={handleSelectTab}
+          surface={surface}
+          searchResults={searchResults}
+          searchStatus={search?.status}
+          onOpenSearchProduct={search ? openSearchProduct : undefined}
+        />;
       case 'detail':
-        return <LaptopDetailPage onSelectTab={handleSelectTab} surface={surface} />;
+        return <LaptopDetailPage onSelectTab={handleSelectTab} surface={surface} selectedProduct={searchProduct} />;
       case 'cart':
         return <LaptopCartCheckoutPage onSelectTab={handleSelectTab} surface={surface} />;
       case 'orders':
@@ -56,7 +116,12 @@ export const StorefrontWebFrame: React.FC<StorefrontWebFrameProps> = ({ surface 
       data-storefront-web-surface={surface}
     >
       {/* 2. 消费者 Web 标准页头；桌面仅改变密度，不改变组件与交互。 */}
-      <LaptopHeader activeTab={laptopPage} onSelectTab={handleSelectTab} surface={surface} />
+      <LaptopHeader
+        activeTab={laptopPage}
+        onSelectTab={handleHeaderTab}
+        onSearch={navigationBoundary === 'production' ? handleSearch : undefined}
+        surface={surface}
+      />
 
       {/* 3. 笔记本端核心 6 页面视图渲染区 */}
       <main className="flex-1 w-full overflow-x-hidden">{renderLaptopContent()}</main>
