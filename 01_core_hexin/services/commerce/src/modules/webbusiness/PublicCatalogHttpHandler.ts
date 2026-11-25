@@ -6,6 +6,7 @@ const PUBLIC_CATALOG_PATH = '/api/v1/catalog/public/products';
 interface CatalogRow {
   readonly id: string;
   readonly sku_id: string;
+  readonly sku_code?: string;
   readonly name: string;
   readonly subtitle: string | null;
   readonly product_type: string;
@@ -57,10 +58,17 @@ export class PublicCatalogHttpHandler implements HttpRequestHandler {
     if (limit === null || offset === null) return response(400, { code: 'PAGINATION_INVALID', requestId }, requestId, origin);
     const category = url.searchParams.get('category')?.trim() || null;
 
-    const result = await this.pool.workload('query').query<CatalogRow>(
-      'select * from catalog.public_storefront_catalog($1,$2,$3,$4)',
-      [applicationSlug, limit, offset, category],
-    );
+    const searchQuery = url.searchParams.get('q')?.normalize('NFKC').trim();
+    const database = this.pool.workload('query');
+    const result = searchQuery
+      ? await database.query<CatalogRow>(
+        'select * from catalog.search_public_storefront_catalog($1,$2,$3,$4,$5)',
+        [applicationSlug, limit, offset, category, searchQuery],
+      )
+      : await database.query<CatalogRow>(
+        'select * from catalog.public_storefront_catalog($1,$2,$3,$4)',
+        [applicationSlug, limit, offset, category],
+      );
     const items = result.rows.map((row) => product(row));
     return response(200, {
       items,
@@ -86,6 +94,7 @@ function product(row: CatalogRow) {
   return {
     id: row.id,
     skuId: row.sku_id,
+    ...(row.sku_code ? { skuCode: row.sku_code } : {}),
     name: row.name,
     subtitle: row.subtitle,
     categoryCode: row.product_type === 'virtual' || row.product_type === 'voucher' ? 'virtual-card'
