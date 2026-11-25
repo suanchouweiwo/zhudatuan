@@ -492,7 +492,7 @@ export function registrationOperations(runtime: RealmOperationContext): Operatio
               sourceNode: consumedIntent.source_node_id,
             }),
           });
-          const callback = await tickets.issue(database, session, realm.realmId, resolvedAccount,
+          const callback = await tickets.issue(database, session, accountRealm, resolvedAccount,
             applicationReturnTarget ?? requestedReturnTarget!, authorization);
           return {
             status: 201,
