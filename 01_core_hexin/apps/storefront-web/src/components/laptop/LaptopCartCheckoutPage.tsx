@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useMall, LaptopPage } from '../../context/MallContext';
 import { ShoppingCart, Trash2, Plus, Minus, CreditCard, Gift, ShieldCheck, CheckCircle2, Building, MapPin, FileText, Zap, ArrowRight } from 'lucide-react';
+import { getLoadedChinaRegions, loadChinaRegions } from '../../features/miniprogram/address/chinaRegions';
 import { STOREFRONT_WEB_SURFACE_COPY, type StorefrontWebSurface } from './StorefrontWebStandard';
 
 interface LaptopCartCheckoutPageProps {
@@ -15,6 +16,7 @@ export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ 
   const [useWelfareDeduction, setUseWelfareDeduction] = useState<boolean>(true);
   const [useMealDeduction, setUseMealDeduction] = useState<boolean>(true);
   const [invoiceHeader, setInvoiceHeader] = useState<string>(user.enterpriseName);
+  const [isAddingAddress, setIsAddingAddress] = useState(false);
   const defaultAddress = addresses.find((address) => address.isDefault) ?? addresses[0];
 
   // Calculate totals
@@ -124,8 +126,24 @@ export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ 
                       <div className="font-bold text-gray-800">{defaultAddress ? `${defaultAddress.name} ${defaultAddress.phone}` : '暂无收货人'}</div>
                       <div className="text-[11px] text-gray-600">{defaultAddress ? `${defaultAddress.province}${defaultAddress.city}${defaultAddress.district}${defaultAddress.detail}` : '请先新增收货地址'}</div>
                     </div>
-                    <span className="text-[10px] bg-[var(--sw-brand)] text-white px-1.5 py-0.5 rounded font-bold">默认办公地址</span>
+                    {defaultAddress ? (
+                      <span className="text-[10px] bg-[var(--sw-brand)] text-white px-1.5 py-0.5 rounded font-bold">默认办公地址</span>
+                    ) : (
+                      <button
+                        type="button"
+                        aria-expanded={isAddingAddress}
+                        disabled={isAddingAddress}
+                        onClick={() => setIsAddingAddress(true)}
+                        className="rounded bg-[var(--sw-brand)] px-2.5 py-1.5 text-[11px] font-bold text-white hover:bg-blue-700 cursor-pointer"
+                      >
+                        新增收货地址
+                      </button>
+                    )}
                   </div>
+
+                  {!defaultAddress && isAddingAddress && (
+                    <CheckoutAddressForm onClose={() => setIsAddingAddress(false)} />
+                  )}
 
                   <div className="p-2 bg-gray-50 border border-gray-200 rounded flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
@@ -206,3 +224,111 @@ export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ 
     </div>
   );
 };
+
+function CheckoutAddressForm({ onClose }: { onClose: () => void }) {
+  const { addAddress, addresses } = useMall();
+  const [regions, setRegions] = useState(getLoadedChinaRegions);
+  const [regionLoadFailed, setRegionLoadFailed] = useState(false);
+  const [provinceCode, setProvinceCode] = useState('');
+  const [cityCode, setCityCode] = useState('');
+  const [districtCode, setDistrictCode] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  React.useEffect(() => {
+    let active = true;
+    void loadChinaRegions().then(
+      (loaded) => { if (active) setRegions(loaded); },
+      () => { if (active) setRegionLoadFailed(true); },
+    );
+    return () => { active = false; };
+  }, []);
+
+  const province = regions?.find((region) => region.code === provinceCode);
+  const city = province?.cities.find((region) => region.code === cityCode);
+  const district = city?.districts.find((region) => region.code === districtCode);
+
+  const save = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (saving || !province || !city || !district) return;
+    const fields = new FormData(event.currentTarget);
+    const name = String(fields.get('name') ?? '').trim();
+    const phone = String(fields.get('phone') ?? '').trim();
+    const detail = String(fields.get('detail') ?? '').trim();
+    if (!name || !detail || !/^1[3-9]\d{9}$/.test(phone)) return;
+
+    setSaving(true);
+    try {
+      const saved = await addAddress({
+        name,
+        phone,
+        province: province.name,
+        city: city.name,
+        district: district.name,
+        detail,
+        isDefault: addresses.length === 0,
+        tag: '收货地址',
+      });
+      if (saved) onClose();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const fieldClass = 'w-full rounded border border-gray-200 bg-white px-2 py-1.5 text-xs text-gray-900';
+
+  return (
+    <form aria-label="新增收货地址" onSubmit={save} className="space-y-2.5 rounded border border-gray-200 bg-gray-50 p-3">
+      <div className="grid grid-cols-2 gap-2">
+        <label className="space-y-1 text-gray-700">
+          <span className="block">收货人</span>
+          <input name="name" autoComplete="shipping name" pattern={'.*\\S.*'} required className={fieldClass} />
+        </label>
+        <label className="space-y-1 text-gray-700">
+          <span className="block">手机号</span>
+          <input name="phone" type="tel" autoComplete="shipping tel-national" pattern="1[3-9][0-9]{9}" required className={fieldClass} />
+        </label>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <label className="space-y-1 text-gray-700">
+          <span className="block">省</span>
+          <select required disabled={!regions} className={fieldClass} value={provinceCode} onChange={(event) => {
+            setProvinceCode(event.target.value);
+            setCityCode('');
+            setDistrictCode('');
+          }}>
+            <option value="">选择省</option>
+            {regions?.map((region) => <option key={region.code} value={region.code}>{region.name}</option>)}
+          </select>
+        </label>
+        <label className="space-y-1 text-gray-700">
+          <span className="block">市</span>
+          <select required disabled={!province} className={fieldClass} value={cityCode} onChange={(event) => {
+            setCityCode(event.target.value);
+            setDistrictCode('');
+          }}>
+            <option value="">选择市</option>
+            {province?.cities.map((region) => <option key={region.code} value={region.code}>{region.name}</option>)}
+          </select>
+        </label>
+        <label className="space-y-1 text-gray-700">
+          <span className="block">区县</span>
+          <select required disabled={!city} className={fieldClass} value={districtCode} onChange={(event) => setDistrictCode(event.target.value)}>
+            <option value="">选择区县</option>
+            {city?.districts.map((region) => <option key={region.code} value={region.code}>{region.name}</option>)}
+          </select>
+        </label>
+      </div>
+      {regionLoadFailed && <p role="alert" className="text-red-700">地区列表加载失败，请刷新页面后重试。</p>}
+      <label className="block space-y-1 text-gray-700">
+        <span className="block">详细地址</span>
+        <input name="detail" autoComplete="shipping address-line1" pattern={'.*\\S.*'} required className={fieldClass} />
+      </label>
+      <div className="flex justify-end gap-2">
+        <button type="button" disabled={saving} onClick={onClose} className="rounded border border-gray-200 bg-white px-3 py-1.5 text-gray-700 hover:bg-gray-100">取消</button>
+        <button type="submit" disabled={saving || !district} className="rounded bg-[var(--sw-brand)] px-3 py-1.5 font-bold text-white hover:bg-blue-700 disabled:opacity-60">
+          {saving ? '正在保存…' : '保存收货地址'}
+        </button>
+      </div>
+    </form>
+  );
+}
