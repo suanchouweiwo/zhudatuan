@@ -100,7 +100,8 @@ export async function confirmCatalogImport(
     return { status: 409, body: { code: row.state === 'uploaded' || row.state === 'validating'
       ? 'CATALOG_IMPORT_VALIDATION_PENDING' : 'CATALOG_IMPORT_NOT_CONFIRMABLE' } };
   }
-  const updated = await database.query<ImportJobRow>(`update catalog.importjob set state='running',last_error=null,updated_at=clock_timestamp()
+  const updated = await database.query<ImportJobRow>(`update catalog.importjob set state='running',last_error=null,
+    validation_summary=validation_summary||jsonb_build_object('saveRequestedAt',clock_timestamp()),updated_at=clock_timestamp()
     where id=$1 and scope_id=$2 and state='ready'
     returning id,state,total_count,cursor_value,success_count,failure_count,created_at,updated_at`,
   [prepared.importId, prepared.access.scope.id]);

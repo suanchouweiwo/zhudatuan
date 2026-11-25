@@ -26,7 +26,8 @@ export class CatalogImportProcessor implements JobProcessor {
     try {
       let state = target.state;
       if (state === 'uploaded' || state === 'validating') {
-        await this.imports.stage(target, await readCatalogPackage(this.objects, target.reference, target.sha256));
+        await this.imports.beginValidation(target);
+        await this.imports.stage(target, await readCatalogPackage(this.objects, target.reference, target.sha256), signal);
         return;
       }
       if (state === 'ready') return;

@@ -20,14 +20,25 @@ export class PgCatalogImport {
     return row ? { id: row.id, scope: row.scope_id, reference: row.object_ref, sha256: row.sha256, state: row.state } : null;
   }
 
-  async stage(target: ImportTarget, document: CatalogPackageDocument): Promise<void> {
+  async beginValidation(target: ImportTarget): Promise<void> {
+    await workerTransaction(this.pool, target.scope, async (client) => {
+      await client.query(`update catalog.importjob set state='validating',last_error=null,total_count=0,cursor_value=0,
+        validation_summary=jsonb_build_object('validationStartedAt',
+          coalesce(validation_summary->'validationStartedAt',to_jsonb(clock_timestamp()))),updated_at=clock_timestamp()
+        where id=$1 and scope_id=$2 and state in ('uploaded','validating')`, [target.id, target.scope]);
+    });
+  }
+
+  async stage(target: ImportTarget, document: CatalogPackageDocument, signal: AbortSignal): Promise<void> {
     const rows = document.rows;
     await workerTransaction(this.pool, target.scope, async (client) => {
-      await client.query("update catalog.importjob set state='validating',last_error=null,updated_at=clock_timestamp() where id=$1 and scope_id=$2", [target.id, target.scope]);
       await client.query('delete from catalog.importrow where job_id=$1 and scope_id=$2', [target.id, target.scope]);
       await client.query('delete from catalog.importerror where job_id=$1 and scope_id=$2', [target.id, target.scope]);
+      await client.query('update catalog.importjob set total_count=$3,updated_at=clock_timestamp() where id=$1 and scope_id=$2',
+        [target.id, target.scope, rows.length]);
     });
     for (let offset = 0; offset < rows.length; offset += 500) {
+      signal.throwIfAborted();
       const batch = rows.slice(offset, offset + 500).map((payload, index) => ({
         row_number: offset + index + 2,
         payload: { ...payload, packageSha: target.sha256 },
@@ -40,10 +51,12 @@ export class PgCatalogImport {
     }
     let errorCount = 0;
     const seenSkuCodes = new Set<string>();
-    for (let offset = 0; offset < rows.length; offset += 500) {
-      const batch = rows.slice(offset, offset + 500);
+    const validationBatchSize = 50;
+    for (let offset = 0; offset < rows.length; offset += validationBatchSize) {
+      const batch = rows.slice(offset, offset + validationBatchSize);
       await workerTransaction(this.pool, target.scope, async (client) => {
         for (let index = 0; index < batch.length; index += 1) {
+          signal.throwIfAborted();
           const rowNumber = offset + index + 2;
           try {
             await validateCatalogProduct(client, target.scope, { ...batch[index]!, packageSha: target.sha256 }, seenSkuCodes);
@@ -56,11 +69,16 @@ export class PgCatalogImport {
             [target.id, target.scope, rowNumber, failure.reason, failure.field, failure.detail]);
           }
         }
+        const checked = offset + batch.length;
+        await client.query(`update catalog.importjob set cursor_value=$3,
+          validation_summary=validation_summary||jsonb_build_object('validCount',$3::integer-$4::integer,'errorCount',$4::integer),
+          updated_at=clock_timestamp() where id=$1 and scope_id=$2`, [target.id, target.scope, checked, errorCount]);
       });
     }
     await workerTransaction(this.pool, target.scope, async (client) => {
       await client.query(`update catalog.importjob set state='ready',total_count=$2,cursor_value=0,success_count=0,failure_count=0,
-        validation_summary=$3::jsonb||jsonb_build_object('shardSize',500),updated_at=clock_timestamp() where id=$1 and scope_id=$4`,
+        validation_summary=validation_summary||$3::jsonb||jsonb_build_object('shardSize',500,'validationFinishedAt',clock_timestamp()),
+        updated_at=clock_timestamp() where id=$1 and scope_id=$4`,
       [target.id, rows.length, JSON.stringify({ ...document.summary, validCount: rows.length - errorCount, errorCount }), target.scope]);
     });
   }
