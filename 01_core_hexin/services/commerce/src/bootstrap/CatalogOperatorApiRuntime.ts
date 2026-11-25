@@ -96,7 +96,12 @@ export async function createCatalogOperatorApiRuntime(
     new PgMembershipResolver(pool),
     new PgAccessVersionResolver(pool),
     new NodeBoundScopeResolver(new PgScopeResolver(pool),
-      manifest.signed_level === 'L0' ? (actor) => requireActorNodeContext(actor).scope.ref : manifest.data_scope_ref.ref),
+      manifest.signed_level === 'L0' ? (actor, scope) => {
+        const node = requireActorNodeContext(actor);
+        // The L0 manifest identifies both the platform data scope and its own storefront mall.
+        if (actor.target === 'console' && scope.kind === 'mall' && scope.id === node.mall_id) return scope.id;
+        return node.scope.ref;
+      } : manifest.data_scope_ref.ref),
     new PgCapabilityResolver(pool),
     new NodeOperationAvailabilityResolver(),
     new SystemClock(),

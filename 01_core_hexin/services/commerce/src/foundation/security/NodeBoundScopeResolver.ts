@@ -3,7 +3,7 @@ import type { Actor } from './AccessContext';
 import type { ScopeResolver } from './ScopeResolver';
 
 type OwnerNodeScopeResolver = (actor: Actor) => Promise<Scope>;
-type NodeScopeIdResolver = string | ((actor: Actor) => string);
+type NodeScopeIdResolver = string | ((actor: Actor, scope: Scope) => string);
 
 export class NodeBoundScopeResolver implements ScopeResolver {
   constructor(
@@ -13,8 +13,8 @@ export class NodeBoundScopeResolver implements ScopeResolver {
   ) {}
 
   async resolve(actor: Actor, operation: string, resource?: string, scopeHint?: string): Promise<Scope> {
-    const expectedScopeId = typeof this.scopeId === 'string' ? this.scopeId : this.scopeId(actor);
     const scope = await this.next.resolve(actor, operation, resource, scopeHint);
+    const expectedScopeId = typeof this.scopeId === 'string' ? this.scopeId : this.scopeId(actor, scope);
     let nodeScope = scope;
     if (scope.kind === 'owner') {
       if (!this.resolveOwnerNodeScope) throw new Error('NODE_SCOPE_MISMATCH');
