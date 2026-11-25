@@ -45,7 +45,7 @@ export const LaptopHeader: React.FC<LaptopHeaderProps> = ({ activeTab, onSelectT
   };
 
   return (
-    <header className="sw-web-header w-full bg-white border-b border-gray-200 sticky top-[48px] z-40 font-sans shadow-xs">
+    <header className="sw-web-header w-full bg-white border-b border-gray-200 sticky top-0 z-40 font-sans shadow-xs">
       {/* 第一层：企业身份、客服与账户快捷入口 (高度 26px) */}
       <div className="bg-[var(--sw-brand-dark)] text-white text-[11px] h-[26px] px-3 sm:px-4 flex items-center">
         <div className="sw-web-container max-w-[1240px] mx-auto w-full flex items-center justify-between">
