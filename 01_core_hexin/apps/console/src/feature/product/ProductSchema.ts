@@ -181,6 +181,9 @@ export const CatalogImportValidationSummarySchema = z.object({
   rows: z.optional(DatabaseIntegerSchema),
   validCount: z.optional(DatabaseIntegerSchema),
   errorCount: z.optional(DatabaseIntegerSchema),
+  validationStartedAt: z.optional(z.string()),
+  validationFinishedAt: z.optional(z.string()),
+  saveRequestedAt: z.optional(z.string()),
 });
 
 export const CatalogImportPreviewRowsSchema = z.array(z.object({

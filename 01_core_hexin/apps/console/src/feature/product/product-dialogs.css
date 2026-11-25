@@ -157,6 +157,21 @@
   color: var(--console-success-text);
 }
 .productimportresult { min-width: 0; }
+.productimportprogress { display: grid; gap: 12px; }
+.productimportprogresslabel {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+.productimportprogresslabel span { color: var(--console-text-secondary); }
+.productimportprogress progress {
+  display: block;
+  width: 100%;
+  height: 8px;
+  margin-top: 6px;
+  accent-color: var(--console-accent);
+}
 .productconfirmcard {
   justify-content: space-between;
   border: 1px solid var(--console-selected-border);
