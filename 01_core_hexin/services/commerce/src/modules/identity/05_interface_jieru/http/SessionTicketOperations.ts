@@ -186,6 +186,14 @@ export function sessionTicketOperations(runtime: RealmOperationContext): Operati
           access.actor.target === 'console' ? memberPort.currentProfile(database, access.membership.id) : undefined,
         ]);
         if (security === null) reject(403, 'REALM_ACCOUNT_INACTIVE');
+        let phoneMasked = security.phoneMasked;
+        if (access.actor.target === 'storefront' && security.mobileCiphertext) {
+          const mobile = await kms.decrypt('identity/mobile', security.mobileCiphertext, { principal: access.actor.id })
+            .catch(() => null);
+          if (mobile && /^\+861[3-9]\d{9}$/.test(mobile)) {
+            phoneMasked = `+86****${mobile.slice(-5)}`;
+          }
+        }
         return {
           status: 200,
           body: {
@@ -208,7 +216,7 @@ export function sessionTicketOperations(runtime: RealmOperationContext): Operati
             ...(security.displayName === null ? {} : {
               profile: profile ?? { display_name: security.displayName, employee_no: null },
             }),
-            security: { hasLocalCredential: security.hasLocalCredential, phoneMasked: security.phoneMasked,
+            security: { hasLocalCredential: security.hasLocalCredential, phoneMasked,
               passwordChangedAt: security.passwordChangedAt?.toISOString() ?? null },
             syncedAt: new Date().toISOString(),
             ...(csrf === undefined ? {} : { csrf }),

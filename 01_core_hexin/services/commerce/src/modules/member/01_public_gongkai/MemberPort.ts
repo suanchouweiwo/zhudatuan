@@ -100,11 +100,12 @@ export class MemberPort {
     displayName: string | null;
     hasLocalCredential: boolean;
     phoneMasked: string | null;
+    mobileCiphertext: string | null;
     passwordChangedAt: Date | null;
   }> | null> {
     const result = await database.query<{ display_name: string | null; has_local_credential: boolean;
-      mobile_masked: string | null; rotated_at: Date | null }>(`select profile.display_name,
-      credential.id is not null has_local_credential,account.mobile_masked,credential.rotated_at
+      mobile_masked: string | null; mobile_ciphertext: string | null; rotated_at: Date | null }>(`select profile.display_name,
+      credential.id is not null has_local_credential,account.mobile_masked,account.mobile_ciphertext,credential.rotated_at
       from identity.account account
       left join lateral(select profile.display_name from member.profile profile
         where profile.principal_id=$3 and profile.status='active' limit 1) profile on true
@@ -117,7 +118,7 @@ export class MemberPort {
     const found = result.rows[0];
     return found === undefined ? null : Object.freeze({ displayName: found.display_name,
       hasLocalCredential: found.has_local_credential, phoneMasked: found.mobile_masked,
-      passwordChangedAt: found.rotated_at });
+      mobileCiphertext: found.mobile_ciphertext, passwordChangedAt: found.rotated_at });
   }
 
   invite(database: OperationDatabase, token: string) {
