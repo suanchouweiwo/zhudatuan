@@ -96,6 +96,7 @@ export const MallProvider: React.FC<MallProviderProps> = ({ children, showcaseSe
   const refreshCartRequestRef = useRef<Promise<void> | null>(null);
   const activePaymentSessionRef = useRef<PaymentRecoveryRecord | null>(null);
   const paymentInFlightRef = useRef(false);
+  const verificationAddressRef = useRef<{ scope: string; addressId: string | undefined } | null>(null);
   const dismissedPaymentKeyRef = useRef<string | null>(null);
   const capturedPaymentsRef = useRef(new Set<string>());
   const { toasts, showToast, removeToast } = useToasts();
@@ -623,7 +624,7 @@ export const MallProvider: React.FC<MallProviderProps> = ({ children, showcaseSe
     if (progress.stage === 'opening-wechat') await afterPaymentCarrierPaint();
   };
 
-  const submitSelectedCart = async (checkoutUser: UserProfile): Promise<boolean> => {
+  const submitSelectedCart = async (checkoutUser: UserProfile, addressId?: string): Promise<boolean> => {
     if (sessionStatus !== 'authenticated') {
       showToast('请先登录账户，再提交订单', 'warning');
       return false;
@@ -631,7 +632,7 @@ export const MallProvider: React.FC<MallProviderProps> = ({ children, showcaseSe
     if (!tryBeginPaymentSubmission(paymentInFlightRef)) return activePaymentSessionRef.current !== null;
     setIsSubmittingOrder(true);
     try {
-      const selection = prepareCheckoutSelection(cart, addresses, checkoutUser);
+      const selection = prepareCheckoutSelection(cart, addresses, checkoutUser, addressId);
       const fingerprint = paymentCartFingerprint(selection.address.id, selection.selectedItems.map((item) => ({
         cartItemId: item.id, listingId: item.product.id, quantity: item.quantity,
       })));
@@ -651,6 +652,7 @@ export const MallProvider: React.FC<MallProviderProps> = ({ children, showcaseSe
         currency: 'CNY',
         mallName: currentMall.mallName,
         cartFingerprint: fingerprint,
+        ...(addressId === undefined ? {} : { checkoutAddressId: addressId }),
         cartItemIds: selection.selectedItems.map((item) => item.id),
       });
       dismissedPaymentKeyRef.current = null;
@@ -661,6 +663,7 @@ export const MallProvider: React.FC<MallProviderProps> = ({ children, showcaseSe
       }
       patchActivePaymentSession({ stage: 'creating-order' });
       const checkout = await checkoutSelectedCartRequest(cart, addresses, checkoutUser, {
+        ...(addressId === undefined ? {} : { addressId }),
         idempotencyKey: recovery.idempotencyKey,
         onPaymentProgress: paymentProgress,
       });
@@ -670,6 +673,7 @@ export const MallProvider: React.FC<MallProviderProps> = ({ children, showcaseSe
       return true;
     } catch (error) {
       if (error instanceof PaymentPhoneVerificationRequired) {
+        verificationAddressRef.current = { scope: currentPaymentScope, addressId };
         activatePaymentSession(null);
         clearPaymentRecovery(currentPaymentScope);
         setPaymentPhoneVerificationOpen(true);
@@ -706,7 +710,7 @@ export const MallProvider: React.FC<MallProviderProps> = ({ children, showcaseSe
     const current = activePaymentSessionRef.current;
     if (!current) return;
     if (!current.orderId) {
-      await submitSelectedCart(user);
+      await submitSelectedCart(user, current.checkoutAddressId);
       return;
     }
     if (!tryBeginPaymentSubmission(paymentInFlightRef)) return;
@@ -755,7 +759,10 @@ export const MallProvider: React.FC<MallProviderProps> = ({ children, showcaseSe
     }
   };
 
-  const checkoutSelectedCart = (): Promise<boolean> => submitSelectedCart(user);
+  const checkoutSelectedCart = (addressId?: string): Promise<boolean> => submitSelectedCart(user, addressId);
+  const refreshCheckoutAddresses = async (): Promise<void> => {
+    if (!showcaseService && sessionStatus === 'authenticated') await refreshServerAddresses();
+  };
 
   const completePaymentPhoneVerification = async (): Promise<void> => {
     const verifiedUser: UserProfile = {
@@ -766,7 +773,9 @@ export const MallProvider: React.FC<MallProviderProps> = ({ children, showcaseSe
     };
     setUser(verifiedUser);
     setPaymentPhoneVerificationOpen(false);
-    await submitSelectedCart(verifiedUser);
+    const verification = verificationAddressRef.current;
+    verificationAddressRef.current = null;
+    if (verification?.scope === currentPaymentScope) await submitSelectedCart(verifiedUser, verification.addressId);
   };
 
   const handleToggleFavorite = (productId: string) => {
@@ -868,6 +877,7 @@ export const MallProvider: React.FC<MallProviderProps> = ({ children, showcaseSe
         continueActivePayment,
         recordPaymentResult,
         checkoutSelectedCart,
+        refreshCheckoutAddresses,
         cart,
         cartCount,
         addToCart: handleAddToCart,
@@ -893,7 +903,10 @@ export const MallProvider: React.FC<MallProviderProps> = ({ children, showcaseSe
         <React.Suspense fallback={null}>
           <PaymentPhoneVerificationModal
             phone={user.phone}
-            onClose={() => setPaymentPhoneVerificationOpen(false)}
+            onClose={() => {
+              verificationAddressRef.current = null;
+              setPaymentPhoneVerificationOpen(false);
+            }}
             onVerified={completePaymentPhoneVerification}
           />
         </React.Suspense>

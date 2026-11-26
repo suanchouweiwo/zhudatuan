@@ -102,7 +102,8 @@ export interface MallContextType {
   closePaymentResult: () => void;
   continueActivePayment: () => Promise<void>;
   recordPaymentResult: (result: ApiPaymentResult) => void;
-  checkoutSelectedCart: () => Promise<boolean>;
+  checkoutSelectedCart: (addressId?: string) => Promise<boolean>;
+  refreshCheckoutAddresses: () => Promise<void>;
   cart: CartItem[];
   cartCount: number;
   addToCart: (product: Product, quantity?: number, selectedSpec?: Record<string, string>) => boolean;

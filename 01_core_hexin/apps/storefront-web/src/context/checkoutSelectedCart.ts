@@ -27,19 +27,21 @@ export interface PreparedCheckoutSelection {
 }
 
 interface CheckoutSelectedCartOptions {
+  readonly addressId?: string;
   readonly idempotencyKey?: string;
   readonly onPaymentProgress?: (progress: CanonicalPaymentProgress) => void | Promise<void>;
 }
 
-export function checkoutDeliveryAddress(addresses: readonly DeliveryAddress[]): DeliveryAddress | undefined {
+export function checkoutDeliveryAddress(addresses: readonly DeliveryAddress[], addressId?: string): DeliveryAddress | undefined {
+  if (addressId !== undefined) return addresses.find(item => item.id === addressId);
   return addresses.find((item) => item.isDefault) ?? addresses[0];
 }
 
-export function prepareCheckoutSelection(cart: CartItem[], addresses: DeliveryAddress[], user: UserProfile): PreparedCheckoutSelection {
+export function prepareCheckoutSelection(cart: CartItem[], addresses: DeliveryAddress[], user: UserProfile, addressId?: string): PreparedCheckoutSelection {
   const selectedItems = cart.filter((item) => item.selected);
-  const address = checkoutDeliveryAddress(addresses);
+  const address = checkoutDeliveryAddress(addresses, addressId);
   if (!selectedItems.length) throw new Error('请先选择需要结算的商品');
-  if (!address) throw new Error('请先设置有效的收货地址');
+  if (!address) throw new Error(addressId ? '所选收货地址已不可用，请重新选择' : '请先设置有效的收货地址');
   if (!user.phoneVerified || !user.paymentEligible) {
     throw new PaymentPhoneVerificationRequired();
   }
@@ -68,7 +70,7 @@ export async function checkoutSelectedCartRequest(
   user: UserProfile,
   options: CheckoutSelectedCartOptions = {},
 ): Promise<CheckoutResult> {
-  const selection = prepareCheckoutSelection(cart, addresses, user);
+  const selection = prepareCheckoutSelection(cart, addresses, user, options.addressId);
   const productionApi = await loadProductionApi();
   const checkout = await productionApi.checkout({
     addressId: selection.address.id,

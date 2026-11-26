@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useId, useState } from 'react';
 import { useMall, LaptopPage } from '../../context/MallContext';
 import { ShoppingCart, Trash2, Plus, Minus, CreditCard, Gift, ShieldCheck, CheckCircle2, Building, MapPin, FileText, Zap, ArrowRight } from 'lucide-react';
 import { getLoadedChinaRegions, loadChinaRegions } from '../../features/miniprogram/address/chinaRegions';
 import { STOREFRONT_WEB_SURFACE_COPY, type StorefrontWebSurface } from './StorefrontWebStandard';
+import { checkoutDeliveryAddress } from '../../context/checkoutSelectedCart';
 
 interface LaptopCartCheckoutPageProps {
   onSelectTab: (tab: LaptopPage) => void;
@@ -10,14 +11,35 @@ interface LaptopCartCheckoutPageProps {
 }
 
 export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ onSelectTab, surface = 'laptop' }) => {
-  const { cart, updateCartQuantity, removeCartItem, user, addresses, showToast, navigateTo, checkoutSelectedCart, isSubmittingOrder } = useMall();
+  const { cart, updateCartQuantity, removeCartItem, user, addresses, showToast, navigateTo, checkoutSelectedCart,
+    refreshCheckoutAddresses, sessionStatus, isSubmittingOrder } = useMall();
   const surfaceCopy = STOREFRONT_WEB_SURFACE_COPY[surface];
 
   const [useWelfareDeduction, setUseWelfareDeduction] = useState<boolean>(true);
   const [useMealDeduction, setUseMealDeduction] = useState<boolean>(true);
   const [invoiceHeader, setInvoiceHeader] = useState<string>(user.enterpriseName);
   const [isAddingAddress, setIsAddingAddress] = useState(false);
-  const defaultAddress = addresses.find((address) => address.isDefault) ?? addresses[0];
+  const [addressId, setAddressId] = useState<string>();
+  const [addressChooserOpen, setAddressChooserOpen] = useState(false);
+  const [refreshingAddresses, setRefreshingAddresses] = useState(false);
+  const [addressRefreshFailed, setAddressRefreshFailed] = useState(false);
+  const chooserId = useId();
+  const selectedAddress = checkoutDeliveryAddress(addresses, addressId);
+
+  const toggleAddressChooser = async () => {
+    if (addressChooserOpen) { setAddressChooserOpen(false); return; }
+    setAddressChooserOpen(true);
+    setIsAddingAddress(false);
+    setAddressRefreshFailed(false);
+    setRefreshingAddresses(true);
+    try {
+      await refreshCheckoutAddresses();
+    } catch {
+      setAddressRefreshFailed(true);
+    } finally {
+      setRefreshingAddresses(false);
+    }
+  };
 
   // Calculate totals
   const subtotal = cart.reduce((sum, item) => sum + item.product.priceWelfare * item.quantity, 0);
@@ -33,7 +55,7 @@ export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ 
   const gapPayment = Math.max(0, subtotal - totalDeduction);
 
   const handleCheckout = async () => {
-    if (await checkoutSelectedCart()) {
+    if (await checkoutSelectedCart(addressId)) {
       onSelectTab('orders');
     }
   };
@@ -122,26 +144,62 @@ export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ 
 
                 <div className="space-y-1.5">
                   <div className="p-2 bg-blue-50/60 border border-blue-200 rounded flex items-center justify-between">
-                    <div>
-                      <div className="font-bold text-gray-800">{defaultAddress ? `${defaultAddress.name} ${defaultAddress.phone}` : '暂无收货人'}</div>
-                      <div className="text-[11px] text-gray-600">{defaultAddress ? `${defaultAddress.province}${defaultAddress.city}${defaultAddress.district}${defaultAddress.detail}` : '请先新增收货地址'}</div>
+                    <div className="min-w-0">
+                      <div className="font-bold text-gray-800">{selectedAddress ? `${selectedAddress.name} ${selectedAddress.phone}` : '暂无收货人'}</div>
+                      <div className="text-[11px] text-gray-600">{selectedAddress
+                        ? `${selectedAddress.province}${selectedAddress.city}${selectedAddress.district}${selectedAddress.detail}`
+                        : addressId ? '所选地址已不可用，请重新选择' : '请先新增收货地址'}</div>
                     </div>
-                    {defaultAddress ? (
-                      <span className="text-[10px] bg-[var(--sw-brand)] text-white px-1.5 py-0.5 rounded font-bold">默认办公地址</span>
-                    ) : (
-                      <button
-                        type="button"
-                        aria-expanded={isAddingAddress}
-                        disabled={isAddingAddress}
-                        onClick={() => setIsAddingAddress(true)}
-                        className="rounded bg-[var(--sw-brand)] px-2.5 py-1.5 text-[11px] font-bold text-white hover:bg-blue-700 cursor-pointer"
-                      >
-                        新增收货地址
-                      </button>
-                    )}
+                    <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5 pl-2">
+                      {selectedAddress && (
+                        <span className="text-[10px] bg-[var(--sw-brand)] text-white px-1.5 py-0.5 rounded font-bold">
+                          {selectedAddress.isDefault ? '默认办公地址' : '本单使用'}
+                        </span>
+                      )}
+                      {(addresses.length > 0 || sessionStatus === 'authenticated') && (
+                        <button type="button" aria-expanded={addressChooserOpen} aria-controls={addressChooserOpen ? chooserId : undefined}
+                          onClick={() => void toggleAddressChooser()}
+                          className="rounded border border-blue-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-[var(--sw-brand)] hover:bg-blue-50 cursor-pointer">
+                          {addressChooserOpen ? '收起地址' : '切换收货地址'}
+                        </button>
+                      )}
+                      {addresses.length === 0 && (
+                        <button
+                          type="button"
+                          aria-expanded={isAddingAddress}
+                          disabled={isAddingAddress}
+                          onClick={() => { setAddressChooserOpen(false); setIsAddingAddress(true); }}
+                          className="rounded bg-[var(--sw-brand)] px-2.5 py-1.5 text-[11px] font-bold text-white hover:bg-blue-700 cursor-pointer"
+                        >
+                          新增收货地址
+                        </button>
+                      )}
+                    </div>
                   </div>
 
-                  {!defaultAddress && isAddingAddress && (
+                  {addressChooserOpen && <fieldset id={chooserId} aria-busy={refreshingAddresses}
+                    className="min-w-0 space-y-1.5 rounded border border-gray-200 bg-gray-50 p-2">
+                    <legend className="px-1 font-bold text-gray-800">本单收货地址</legend>
+                    {refreshingAddresses && <p role="status" className="text-gray-600">正在同步地址簿…</p>}
+                    {addressRefreshFailed && <p role="status" className="text-gray-600">暂时无法同步，请收起后重新打开地址列表。</p>}
+                    {!refreshingAddresses && !addressRefreshFailed && !addresses.length &&
+                      <p className="text-gray-600">暂无已保存的收货地址。</p>}
+                    {addresses.map(address => (
+                      <label key={address.id} className="flex cursor-pointer items-center gap-2 rounded border border-gray-200 bg-white px-2.5 py-2 hover:bg-blue-50">
+                        <input type="radio" name={chooserId} checked={selectedAddress?.id === address.id}
+                          onChange={() => setAddressId(address.id)} className="shrink-0 accent-[var(--sw-brand)]" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block font-bold text-gray-800">{address.name} {address.phone}</span>
+                          <span className="block break-words text-[11px] text-gray-600">
+                            {address.province}{address.city === address.province ? '' : address.city}{address.district}{address.detail}
+                          </span>
+                        </span>
+                        {address.isDefault && <span className="shrink-0 text-[10px] text-[var(--sw-brand)]">默认</span>}
+                      </label>
+                    ))}
+                  </fieldset>}
+
+                  {addresses.length === 0 && isAddingAddress && (
                     <CheckoutAddressForm onClose={() => setIsAddingAddress(false)} />
                   )}
 

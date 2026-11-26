@@ -25,6 +25,7 @@ export interface PaymentRecoveryRecord {
   readonly updatedAt: string;
   readonly idempotencyKey: string;
   readonly cartFingerprint: string;
+  readonly checkoutAddressId?: string;
   readonly cartItemIds: readonly string[];
   readonly stage: PaymentFlowStage;
   readonly retryCount: number;
@@ -42,6 +43,7 @@ interface BeginPaymentRecoveryInput {
   readonly currency: string;
   readonly mallName: string;
   readonly cartFingerprint: string;
+  readonly checkoutAddressId?: string;
   readonly cartItemIds: readonly string[];
 }
 
@@ -99,6 +101,7 @@ export function beginPaymentRecovery(input: BeginPaymentRecoveryInput, options: 
     updatedAt: now,
     idempotencyKey: `checkout-${(options.createId ?? createSecureId)()}`,
     cartFingerprint: input.cartFingerprint,
+    ...(input.checkoutAddressId === undefined ? {} : { checkoutAddressId: input.checkoutAddressId }),
     cartItemIds: Object.freeze([...input.cartItemIds]),
     stage: 'validating',
     retryCount: 0,
@@ -177,6 +180,7 @@ function parseRecord(value: unknown): PaymentRecoveryRecord | null {
     || typeof record.currency !== 'string' || typeof record.mallName !== 'string'
     || typeof record.createdAt !== 'string' || typeof record.updatedAt !== 'string'
     || typeof record.idempotencyKey !== 'string' || typeof record.cartFingerprint !== 'string'
+    || (record.checkoutAddressId !== undefined && typeof record.checkoutAddressId !== 'string')
     || !Array.isArray(record.cartItemIds) || record.cartItemIds.some((item) => typeof item !== 'string')
     || typeof record.stage !== 'string' || !STAGES.has(record.stage as PaymentFlowStage)
     || !Number.isSafeInteger(record.retryCount) || Number(record.retryCount) < 0) return null;
