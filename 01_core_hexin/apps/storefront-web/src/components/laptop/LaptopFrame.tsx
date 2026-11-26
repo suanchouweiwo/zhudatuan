@@ -12,7 +12,7 @@ import { LaptopHomePage1366 } from './LaptopHomePage1366';
 import { LaptopHomePage1440 } from './LaptopHomePage1440';
 import { LaptopCategoryPage } from './LaptopCategoryPage';
 import { LaptopDetailPage } from './LaptopDetailPage';
-import { LaptopCartCheckoutPage } from './LaptopCartCheckoutPage';
+import { CheckoutAddressForm, LaptopCartCheckoutPage } from './LaptopCartCheckoutPage';
 import { LaptopOrdersPage } from './LaptopOrdersPage';
 import { QuickViewModal } from '../common/QuickViewModal';
 import { ToastContainer } from '../common/ToastContainer';
@@ -35,6 +35,17 @@ export const StorefrontWebFrame: React.FC<StorefrontWebFrameProps> = ({ surface 
   const { laptopPage, setLaptopPage, activePaymentId, activePaymentSession, presentationProducts } = useMall();
   const [search, setSearch] = useState<CatalogSearch | null>(null);
   const [searchProduct, setSearchProduct] = useState<FrontendProduct>();
+  const [showShippingAddress, setShowShippingAddress] = useState(() =>
+    navigationBoundary === 'production' && typeof window !== 'undefined'
+    && new URLSearchParams(window.location.search).get('view') === 'shipping-address');
+
+  const closeShippingAddress = () => {
+    if (!showShippingAddress) return;
+    setShowShippingAddress(false);
+    const url = new URL(window.location.href);
+    url.searchParams.delete('view');
+    window.history.replaceState(window.history.state, '', url);
+  };
 
   useEffect(() => {
     if (!search || search.status !== 'loading') return;
@@ -62,6 +73,7 @@ export const StorefrontWebFrame: React.FC<StorefrontWebFrameProps> = ({ surface 
   }, [search, presentationProducts]);
 
   const handleSelectTab = (tab: LaptopPage) => {
+    closeShippingAddress();
     setSearchProduct(undefined);
     setLaptopPage(tab);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -85,6 +97,16 @@ export const StorefrontWebFrame: React.FC<StorefrontWebFrameProps> = ({ surface 
   const renderLaptopContent = () => {
     if (activePaymentSession) return <PaymentResultPage session={activePaymentSession} />;
     if (activePaymentId) return <PaymentResultPage paymentId={activePaymentId} />;
+    if (showShippingAddress) {
+      return (
+        <section className="sw-web-container mx-auto max-w-[1240px] px-3 py-6">
+          <div className="max-w-xl space-y-3 rounded-lg border border-gray-200 bg-white p-4 text-xs">
+            <h1 className="text-sm font-extrabold text-gray-900">新增收货地址</h1>
+            <CheckoutAddressForm onClose={closeShippingAddress} />
+          </div>
+        </section>
+      );
+    }
     switch (laptopPage) {
       case 'home-1366':
         return <LaptopHomePage1366 onSelectTab={handleSelectTab} />;

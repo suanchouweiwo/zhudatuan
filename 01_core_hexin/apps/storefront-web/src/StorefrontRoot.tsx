@@ -2,6 +2,7 @@
 
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { ProductionMobileFrame } from './components/mobile/ProductionMobileFrame';
+import { MobileShippingAddressEntry } from './components/mobile/MobileShippingAddressEntry';
 import { MallProvider, useMall } from './context/MallContext';
 
 const StorefrontWebFrame = lazy(() => import('./components/laptop/LaptopFrame')
@@ -15,6 +16,7 @@ function ProductionStorefrontFrame() {
   return (
     <>
       <div className="md:hidden">
+        <MobileShippingAddressEntry responsive />
         <ProductionMobileFrame />
       </div>
       <div className="hidden md:block">

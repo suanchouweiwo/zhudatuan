@@ -225,7 +225,7 @@ export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ 
   );
 };
 
-function CheckoutAddressForm({ onClose }: { onClose: () => void }) {
+export function CheckoutAddressForm({ onClose }: { onClose: () => void }) {
   const { addAddress, addresses } = useMall();
   const [regions, setRegions] = useState(getLoadedChinaRegions);
   const [regionLoadFailed, setRegionLoadFailed] = useState(false);
