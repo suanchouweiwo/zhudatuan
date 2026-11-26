@@ -2,6 +2,7 @@ import type { UserProfile } from '../types';
 import type { ApiBootstrap } from '../services/productionApi.types';
 
 export function mergeAuthenticatedMemberProfile(previous: UserProfile, bootstrap: ApiBootstrap): UserProfile {
+  const accountSettingsPhone = bootstrap.actor.phoneMasked ?? '未绑定';
   return {
     ...previous,
     id: bootstrap.actor.userId,
@@ -9,7 +10,8 @@ export function mergeAuthenticatedMemberProfile(previous: UserProfile, bootstrap
     employeeId: bootstrap.actor.employeeNo,
     name: bootstrap.actor.displayName,
     avatar: '',
-    phone: bootstrap.actor.phoneMasked ?? '未绑定',
+    phone: accountSettingsPhone.replace(/^(\+86\*{4})\d(\d{4})$/, '$1$2'),
+    accountSettingsPhone,
     jobTitle: '员工会员',
     department: bootstrap.actor.departmentName ?? '未分配部门',
     enterpriseId: bootstrap.scope.enterpriseId,

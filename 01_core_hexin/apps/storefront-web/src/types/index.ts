@@ -256,6 +256,7 @@ export interface UserProfile {
   name: string;
   avatar: string;
   phone: string;
+  accountSettingsPhone?: string;
   jobTitle: string;
   department: string;
   enterpriseId: string;
