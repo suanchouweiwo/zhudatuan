@@ -1,5 +1,6 @@
 @import '../../../packages/design-system/src/tokens.css';
 @import 'tailwindcss';
+@import '../src/memberIdentityShell.css';
 
 @keyframes paymentCarrierIn {
   from { opacity: 0; transform: translateY(5px); }
