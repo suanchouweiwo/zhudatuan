@@ -1,6 +1,6 @@
 'use client';
 
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { ProductionMobileFrame } from './components/mobile/ProductionMobileFrame';
 import { MallProvider, useMall } from './context/MallContext';
 
@@ -11,10 +11,26 @@ export function H5StorefrontRoot() {
   return (
     <MallProvider initialPath="/mini-program">
       <H5DocumentTitle />
+      <H5ShippingAddressEntry />
       <DeferredWechatIdentityBridge />
       <ProductionMobileFrame />
     </MallProvider>
   );
+}
+
+function H5ShippingAddressEntry() {
+  const { setMpPage } = useMall();
+  const handled = useRef(false);
+
+  useEffect(() => {
+    if (handled.current) return;
+    handled.current = true;
+    if (new URLSearchParams(window.location.search).get('view') === 'shipping-address') {
+      setMpPage('address');
+    }
+  }, [setMpPage]);
+
+  return null;
 }
 
 function DeferredWechatIdentityBridge() {
