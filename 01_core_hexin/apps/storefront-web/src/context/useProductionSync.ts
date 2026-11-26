@@ -131,11 +131,13 @@ export function authenticatedMall(bootstrap: ApiBootstrap): EnterpriseMall {
 export function useProductionSync(setters: ProductionSyncSetters, enabled = true) {
   const syncVersionRef = useRef(0);
   const productionRefreshRef = useRef<Promise<void> | null>(null);
+  const publicCatalogRef = useRef<ApiProduct[] | null>(null);
 
   const closeMemberData = () => {
     setters.setUser({ ...EMPTY_GUEST_PROFILE });
     setters.setCurrentMall({ ...UNRESOLVED_MALL });
     setters.setMalls([]);
+    setters.setProducts(publicCatalogRef.current?.map(mapApiProduct) ?? []);
     setters.setOrders([]);
     setters.setAccountLogs([]);
     setters.setCart([]);
@@ -158,12 +160,15 @@ export function useProductionSync(setters: ProductionSyncSetters, enabled = true
     setters.setSessionStatus('authenticated');
   };
 
-  const refreshPublicCatalog = async () => {
+  const refreshPublicCatalog = async (restorePublicSnapshot = false) => {
     const syncVersion = ++syncVersionRef.current;
+    if (restorePublicSnapshot) setters.setProducts(publicCatalogRef.current?.map(mapApiProduct) ?? []);
     setters.setCatalogSyncStatus('syncing');
     try {
       await loadProgressiveCatalog(listPublicProducts, (items) => {
-        if (syncVersion === syncVersionRef.current) publishCatalog(items);
+        if (syncVersion !== syncVersionRef.current) return;
+        publicCatalogRef.current = items;
+        publishCatalog(items);
       });
     } catch (error) {
       if (syncVersion === syncVersionRef.current) setters.setCatalogSyncStatus('error');
@@ -178,7 +183,11 @@ export function useProductionSync(setters: ProductionSyncSetters, enabled = true
     // upgrades this snapshot with member pricing and purchase qualification.
     setters.setCatalogSyncStatus('syncing');
     const publisher = createCatalogPublisher(() => syncVersion === syncVersionRef.current, publishCatalog);
-    const publicCatalogRequest = loadProgressiveCatalog(listPublicProducts, publisher.commitPublic);
+    const publicCatalogRequest = loadProgressiveCatalog(listPublicProducts, (items) => {
+      if (syncVersion !== syncVersionRef.current) return;
+      publicCatalogRef.current = items;
+      publisher.commitPublic(items);
+    });
     const productionApiRequest = loadProductionApi();
     void publicCatalogRequest.catch(() => undefined);
     let bootstrap: ApiBootstrap;

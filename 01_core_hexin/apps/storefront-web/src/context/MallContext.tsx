@@ -373,7 +373,7 @@ export const MallProvider: React.FC<MallProviderProps> = ({ children, showcaseSe
     setUser(guestStorefrontProfile());
     setCurrentMall({ ...UNRESOLVED_MALL });
     setMalls([]);
-    setProducts([]);
+    void refreshPublicCatalog(true).catch(() => showToast('公开商品目录同步失败，请稍后重试', 'error'));
     setCart([]);
     setOrders([]);
     setAccountLogs([]);
@@ -389,7 +389,6 @@ export const MallProvider: React.FC<MallProviderProps> = ({ children, showcaseSe
     } catch {
       showToast('页面已退出；服务器会话撤销失败，请刷新页面确认', 'warning');
     }
-    void refreshPublicCatalog().catch(() => showToast('公开商品目录同步失败，请稍后重试', 'error'));
   };
 
   const switchMall = (mallId: string) => {

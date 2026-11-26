@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useMall } from '../../context/MallContext';
 import type { LaptopPage } from '../../context/MallContext.types';
 import { Search, ShoppingCart, Building2, ChevronDown, User, CreditCard, Headphones, FileText, MapPin, Ticket, Zap, Gift, Menu, ShieldCheck } from 'lucide-react';
@@ -19,14 +19,10 @@ export const LaptopHeader: React.FC<LaptopHeaderProps> = ({ activeTab, onSelectT
   const surfaceCopy = STOREFRONT_WEB_SURFACE_COPY[surface];
   const homePage = defaultStorefrontWebPage(surface);
   const isGuest = user.id === 'guest';
+  const authHref = isGuest ? storefrontAuthHref() : undefined;
 
   const [searchKw, setSearchKw] = useState('');
   const [showMallMenu, setShowMallMenu] = useState(false);
-  const [authHref, setAuthHref] = useState<string | undefined>(undefined);
-
-  useEffect(() => {
-    setAuthHref(storefrontAuthHref(window.location.hostname));
-  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
