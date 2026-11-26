@@ -106,10 +106,12 @@ export async function completeCriticalWrite(database: OperationDatabase, request
   assertExecutionTransition('started', 'completed');
   const key = scopedIdempotencyKey(request, request.input.idempotency ?? providerBusinessKey(request));
   const eventId = `event:operation:${digest(`${claim.scope}:${claim.actor}:${key}`).slice(0, 40)}`;
+  // The outbox primary key already deduplicates the event. Omitting the conflict
+  // target lets insert-only workloads publish without SELECT access to the outbox.
   await database.query(`insert into runtime.outbox(
       id,event_type,event_version,aggregate_type,aggregate_id,scope_id,payload,trace_id,occurred_at,available_at
     ) values($1,'runtime.operation.completed',1,'operation',$2,$3,$4::jsonb,$5,clock_timestamp(),clock_timestamp())
-    on conflict(id) do nothing`, [eventId, claim.businessNumber, claim.scope, JSON.stringify({
+    on conflict do nothing`, [eventId, claim.businessNumber, claim.scope, JSON.stringify({
     operation: request.type, operationHash: OperationCatalog.get(request.type).operationHash, businessNumber: claim.businessNumber,
     requestHash: claim.requestHash, status: result.status,
   }), request.access?.trace ?? request.input.headers['request-id'] ?? claim.requestHash]);
