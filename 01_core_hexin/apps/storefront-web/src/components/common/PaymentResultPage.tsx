@@ -187,7 +187,7 @@ export function PaymentResultPage({ paymentId, session, compact = false }: Payme
 
   const orderDetails = (orderId || resolvedPaymentId) ? (
     <details className={compact ? 'group mt-2 border-t border-[#e2eaf3] text-left' : 'group mt-4 rounded-2xl border border-slate-100 bg-white text-left'}>
-      <summary className={`flex cursor-pointer list-none items-center justify-between text-xs font-medium text-slate-500 ${compact ? 'min-h-8 pt-1' : 'min-h-11 px-4'}`}>
+      <summary className={`flex cursor-pointer list-none items-center justify-between text-xs font-medium text-slate-500 ${compact ? 'sw-checkout-order-details min-h-8 pt-1' : 'min-h-11 px-4'}`}>
         <span>订单详情</span><ChevronDown className="h-4 w-4 transition-transform duration-150 group-open:rotate-180 motion-reduce:transition-none" />
       </summary>
       <div className={compact ? 'pb-1 pt-2' : 'border-t border-slate-100 px-4 py-3'}>

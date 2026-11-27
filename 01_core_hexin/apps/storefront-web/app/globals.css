@@ -27,23 +27,25 @@
     align-self: start;
     justify-self: start;
     inline-size: anchor-size(width);
-    max-block-size: min(320px, 48vh, calc(100% - 8px));
-    min-block-size: 100px;
+    max-block-size: min(256px, 44vh, calc(100% - 8px));
+    min-block-size: 80px;
     margin-block: 4px;
-    padding: 6px;
+    padding: 4px;
     overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #bdc8d6 transparent;
     border: 1px solid #e2e8f0;
-    border-radius: 10px;
+    border-radius: 8px;
     background: #fff;
-    box-shadow: 0 8px 24px rgb(15 23 42 / 18%);
+    box-shadow: 0 4px 14px rgb(15 23 42 / 10%);
   }
 
   .sw-checkout-region option {
     display: flex;
     align-items: center;
-    min-block-size: 36px;
-    padding: 6px 12px;
-    border-radius: 5px;
+    min-block-size: 28px;
+    padding: 3px 9px;
+    border-radius: 4px;
     color: #475569;
   }
 
@@ -61,6 +63,12 @@
     outline: 1px solid #93c5fd;
     outline-offset: -1px;
   }
+}
+
+.sw-checkout-order-details:focus {
+  outline: 1px solid var(--sw-brand);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 * {

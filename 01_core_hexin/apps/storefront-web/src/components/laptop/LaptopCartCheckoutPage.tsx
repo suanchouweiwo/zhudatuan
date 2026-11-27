@@ -11,6 +11,11 @@ interface LaptopCartCheckoutPageProps {
   surface?: StorefrontWebSurface;
 }
 
+function formatDeduction(amount: number): string {
+  const display = amount.toFixed(2);
+  return display === '0.00' ? '¥0.00' : `-¥${display}`;
+}
+
 export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ onSelectTab, surface = 'laptop' }) => {
   const { cart, updateCartQuantity, removeCartItem, user, addresses, showToast, navigateTo, checkoutSelectedCart,
     refreshCheckoutAddresses, sessionStatus, isSubmittingOrder, activePaymentSession,
@@ -253,7 +258,7 @@ export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ 
                     <CreditCard className="w-3.5 h-3.5 text-[var(--sw-brand)]" />
                     <span className="font-bold text-gray-800">福利卡抵扣</span>
                   </div>
-                  <span className="font-bold text-[var(--sw-brand-dark)]">-¥{maxWelfareDeduction.toFixed(2)}</span>
+                  <span className={`font-bold tabular-nums ${maxWelfareDeduction ? 'text-[var(--sw-brand-dark)]' : 'text-gray-500'}`}>{formatDeduction(maxWelfareDeduction)}</span>
                 </label>
 
                 <label className="p-2 bg-emerald-50/80 rounded border border-emerald-200 flex items-center justify-between cursor-pointer">
@@ -262,23 +267,23 @@ export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ 
                     <Gift className="w-3.5 h-3.5 text-emerald-600" />
                     <span className="font-bold text-gray-800">餐卡抵扣</span>
                   </div>
-                  <span className="font-bold text-emerald-700">-¥{maxMealDeduction.toFixed(2)}</span>
+                  <span className={`font-bold tabular-nums ${maxMealDeduction ? 'text-emerald-700' : 'text-gray-500'}`}>{formatDeduction(maxMealDeduction)}</span>
                 </label>
               </div>
 
               {/* 金额拆解明细 */}
-              <div className="space-y-1.5 text-xs text-gray-600 border-t border-gray-100 pt-2.5">
+              <div className="space-y-1.5 border-t border-gray-100 px-2 pt-2.5 text-xs tabular-nums text-gray-600">
                 <div className="flex justify-between">
                   <span>商品金额小计:</span>
                   <span className="font-bold text-gray-800">¥{subtotal.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between text-[var(--sw-brand)]">
+                <div className={`flex justify-between ${maxWelfareDeduction ? 'text-[var(--sw-brand)]' : 'text-gray-500'}`}>
                   <span>福利卡抵扣:</span>
-                  <span>-¥{maxWelfareDeduction.toFixed(2)}</span>
+                  <span>{formatDeduction(maxWelfareDeduction)}</span>
                 </div>
-                <div className="flex justify-between text-emerald-700">
+                <div className={`flex justify-between ${maxMealDeduction ? 'text-emerald-700' : 'text-gray-500'}`}>
                   <span>餐卡抵扣:</span>
-                  <span>-¥{maxMealDeduction.toFixed(2)}</span>
+                  <span>{formatDeduction(maxMealDeduction)}</span>
                 </div>
                 <div className="flex justify-between font-bold text-gray-900 pt-1 border-t border-gray-100 text-sm">
                   <span>需补差额支付:</span>
