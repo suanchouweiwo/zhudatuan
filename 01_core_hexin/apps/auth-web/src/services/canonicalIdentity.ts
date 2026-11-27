@@ -191,9 +191,20 @@ export async function loginCanonicalStorefrontEntry(
   signal?: AbortSignal,
   membership?: string,
 ): Promise<CanonicalStorefrontLoginResult | Readonly<{ kind: 'selection'; memberships: readonly string[] }>> {
+  return loginStorefrontEntry({ provider: 'password', subject: canonicalPasswordSubject(subject), password }, application, signal, membership);
+}
+
+export async function loginCanonicalStorefrontWithOtp(
+  phone: string, challenge: string, code: string, application: string, signal?: AbortSignal, membership?: string,
+) {
+  return loginStorefrontEntry(otpCredential(phone, challenge, code), application, signal, membership);
+}
+
+async function loginStorefrontEntry(credential: LoginCredential, application: string, signal?: AbortSignal, membership?: string):
+  Promise<CanonicalStorefrontLoginResult | Readonly<{ kind: 'selection'; memberships: readonly string[] }>> {
   const target = canonicalStorefrontAuthTarget(application);
   const result = await authorizeCanonicalCredential(
-    { provider: 'password', subject: canonicalPasswordSubject(subject), password },
+    credential,
     target,
     membership,
     signal,
@@ -263,16 +274,20 @@ export async function loginCanonicalConsoleWithOtp(
   membership?: string,
   signal?: AbortSignal,
 ): Promise<CanonicalConsoleLoginResult> {
+  return loginCanonicalConsoleWithCredential(otpCredential(phone, challenge, code), membership, signal);
+}
+
+function otpCredential(phone: string, challenge: string, code: string): LoginCredential {
   const normalizedChallenge = challenge.trim();
   const normalizedCode = code.trim();
   if (!/^challenge:[A-Za-z0-9:-]{16,128}$/.test(normalizedChallenge)) throw new Error('请先获取短信验证码');
   if (!/^\d{6}$/.test(normalizedCode)) throw new Error('请输入 6 位短信验证码');
-  return loginCanonicalConsoleWithCredential({
+  return {
     provider: 'phone_otp',
     subject: canonicalMobile(phone),
     challenge: normalizedChallenge,
     code: normalizedCode,
-  }, membership, signal);
+  };
 }
 
 async function loginCanonicalConsoleWithCredential(
@@ -327,7 +342,7 @@ async function authorizeCanonicalCredential(
     ...(context.application === undefined ? {} : { application: context.application }),
     ...(loginIntent === undefined ? {} : { loginIntent }),
     authorization: authorization.request,
-  }, signal, { origin });
+  }, signal, { origin, invalidSmsCode: credential.provider === 'phone_otp' && context.expectedSessionTarget === 'storefront' });
   void LoginResultSchema.safeParse(sessionResponse);
   const output = sessionResponse as z.infer<typeof LoginResultSchema>;
   if ('memberships' in output) return Object.freeze({ kind: 'selection', selection: output });
@@ -384,7 +399,7 @@ async function identityRequest(
   path: string,
   body: Readonly<Record<string, unknown>>,
   signal?: AbortSignal,
-  options: Readonly<{ credentials?: RequestCredentials; action?: string; origin?: string }> = {},
+  options: Readonly<{ credentials?: RequestCredentials; action?: string; origin?: string; invalidSmsCode?: boolean }> = {},
 ): Promise<unknown> {
   const credentials = options.credentials ?? 'include';
   const csrf = credentials === 'include' ? csrfToken() : null;
@@ -408,7 +423,12 @@ async function identityRequest(
     response = await request();
     payload = await response.json().catch(() => null);
   }
-  if (!response.ok) throw new Error(identityError(payload, response.status, options.action ?? '登录'));
+  if (!response.ok) {
+    if (options.invalidSmsCode && responseCode(payload, response.status) === 'CREDENTIAL_INVALID') {
+      throw new Error('验证码错误或已经失效');
+    }
+    throw new Error(identityError(payload, response.status, options.action ?? '登录'));
+  }
   return payload;
 }
 

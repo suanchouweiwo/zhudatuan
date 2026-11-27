@@ -3,8 +3,10 @@ import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, PASSWORD_POLICY_HINT, PASSWOR
 import { AlertCircle, ArrowLeft, CheckCircle2, ChevronRight, Eye, EyeOff, FileText, KeyRound, LoaderCircle, LogIn, ShieldCheck, Smartphone, UserPlus, X } from 'lucide-react';
 import { automaticL6DisplayName } from '../services/consumerRegistration';
 import {
+  createCanonicalLoginChallenge,
   createCanonicalPasswordResetChallenge,
   loginCanonicalStorefrontEntry,
+  loginCanonicalStorefrontWithOtp,
   resetCanonicalPassword,
 } from '../services/canonicalIdentity';
 import {
@@ -20,7 +22,7 @@ import { MorviaIdentityShell } from './MorviaIdentityShell';
 
 type IdentityMode = 'login' | 'register' | 'reset';
 type RecoveryStep = 'account' | 'verify' | 'password' | 'success';
-type ConsumerActionKey = 'consumer-login' | 'consumer-register' | 'consumer-registration-code' | 'consumer-reset-code' | 'consumer-reset';
+type ConsumerActionKey = 'consumer-login' | 'consumer-login-code' | 'consumer-register' | 'consumer-registration-code' | 'consumer-reset-code' | 'consumer-reset';
 
 export const ConsumerIdentityPage: React.FC<{
   application: string;
@@ -39,6 +41,9 @@ export const ConsumerIdentityPage: React.FC<{
   const [contextError, setContextError] = useState('');
   const [mobile, setMobile] = useState('');
   const [password, setPassword] = useState('');
+  const [useSmsLogin, setUseSmsLogin] = useState(false);
+  const [loginCode, setLoginCode] = useState('');
+  const [loginChallenge, setLoginChallenge] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [resetCode, setResetCode] = useState('');
   const [resetChallenge, setResetChallenge] = useState('');
@@ -73,7 +78,14 @@ export const ConsumerIdentityPage: React.FC<{
   useEffect(() => {
     identityActions.cancel('consumer-login');
     setMemberships([]);
-  }, [mobile, password, mode, identityActions.cancel]);
+  }, [mobile, password, loginCode, mode, useSmsLogin, identityActions.cancel]);
+
+  useEffect(() => {
+    identityActions.cancel('consumer-login-code');
+    setLoginChallenge('');
+    setLoginCode('');
+    if (useSmsLogin) setNotice('');
+  }, [mobile, mode, useSmsLogin, identityActions.cancel]);
 
   useEffect(() => {
     identityActions.cancel('consumer-registration-code');
@@ -85,6 +97,7 @@ export const ConsumerIdentityPage: React.FC<{
   const switchMode = (next: IdentityMode) => {
     identityActions.cancel();
     setMode(next);
+    setUseSmsLogin(false);
     setFormError('');
     setNotice('');
     setConfirmPassword('');
@@ -100,11 +113,18 @@ export const ConsumerIdentityPage: React.FC<{
   const submitLogin = (membership?: string) => {
     const loginMobile = mobile.trim();
     if (!loginMobile) return setFormError('请输入登录手机号');
-    if (!password) return setFormError('请输入密码');
+    if (useSmsLogin) {
+      if (!loginChallenge) return setFormError('请先获取短信验证码');
+      if (loginCode.length !== 6) return setFormError('请输入完整的 6 位短信验证码');
+    } else if (!password) {
+      return setFormError('请输入密码');
+    }
     setFormError('');
     identityActions.run(
       'consumer-login',
-      (signal) => loginCanonicalStorefrontEntry(loginMobile, password, application, signal, membership),
+      (signal) => useSmsLogin
+        ? loginCanonicalStorefrontWithOtp(loginMobile, loginChallenge, loginCode, application, signal, membership)
+        : loginCanonicalStorefrontEntry(loginMobile, password, application, signal, membership),
       {
         completionStages: (result) => 'kind' in result ? ['server-response'] : ['server-response', 'session-exchange', 'redirect'],
         onSuccess: (result) => {
@@ -114,6 +134,20 @@ export const ConsumerIdentityPage: React.FC<{
         onError: (error) => setFormError(messageOf(error)),
       },
     );
+  };
+
+  const sendLoginCode = () => {
+    setFormError('');
+    setNotice('');
+    identityActions.run('consumer-login-code', (signal) => createCanonicalLoginChallenge(mobile, signal), {
+      onSuccess: (challenge) => {
+        setLoginChallenge(challenge.challengeId);
+        setLoginCode('');
+        setMemberships([]);
+        setNotice(`验证码已发送至 ${maskMobile(mobile)}`);
+      },
+      onError: (error) => setFormError(messageOf(error)),
+    });
   };
 
   const sendRegistrationCode = () => {
@@ -213,6 +247,7 @@ export const ConsumerIdentityPage: React.FC<{
 
   const organizationName = mallName ?? context?.organizationName ?? brandName ?? (brand === 'hongtai' ? '宏泰甄选' : '主打团');
   const submitting = identityActions.isBusy(mode === 'login' ? 'consumer-login' : mode === 'register' ? 'consumer-register' : 'consumer-reset');
+  const loginCodeBusy = identityActions.isBusy('consumer-login-code');
   const resetCodeBusy = identityActions.isBusy('consumer-reset-code');
   const maskedMobile = maskMobile(mobile);
   const modeTitle = mode === 'login'
@@ -270,7 +305,18 @@ export const ConsumerIdentityPage: React.FC<{
               {mode === 'register' && !inviteCode ? '登录手机号（付款时验证）' : '登录手机号'}
               <input type="tel" inputMode="tel" autoComplete="tel" required value={mobile} onChange={(event) => setMobile(event.target.value)} placeholder="请输入 11 位手机号" className="w-full rounded-xl border border-slate-200 px-3.5 py-3 text-sm outline-none transition focus:border-[var(--sw-brand)] focus:ring-2 focus:ring-blue-100" />
             </label>
-            {!(mode === 'register' && registrationIdentityExists) && <div className="block space-y-1.5 text-xs font-semibold text-slate-700">
+            {mode === 'login' && useSmsLogin ? <div className="space-y-1.5 text-xs font-semibold text-slate-700">
+              <label htmlFor="member-login-code">短信验证码</label>
+              <div className="flex items-center gap-2">
+                <input id="member-login-code" inputMode="numeric" autoComplete="one-time-code" required maxLength={6}
+                  value={loginCode} onChange={(event) => setLoginCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="请输入 6 位验证码" className="min-w-0 flex-1 rounded-xl border border-slate-200 px-3.5 py-3 text-sm outline-none transition focus:border-[var(--sw-brand)] focus:ring-2 focus:ring-blue-100" />
+                <button type="button" onClick={sendLoginCode} disabled={loginCodeBusy || submitting || !mobile.trim()}
+                  className="shrink-0 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-2 text-[11px] font-bold text-[var(--sw-brand)] disabled:opacity-50">
+                  {loginCodeBusy ? '正在发送…' : loginChallenge ? '重新获取' : '获取验证码'}
+                </button>
+              </div>
+            </div> : !(mode === 'register' && registrationIdentityExists) && <div className="block space-y-1.5 text-xs font-semibold text-slate-700">
               <span className="flex items-center justify-between">
                 <span>{mode === 'register' ? '设置密码' : '密码'}</span>
                 {mode === 'login' && <button type="button" onClick={() => switchMode('reset')} className="rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-[11px] font-bold text-[var(--sw-brand)] shadow-sm transition hover:border-blue-300 hover:bg-blue-100">忘记密码？</button>}
@@ -303,7 +349,7 @@ export const ConsumerIdentityPage: React.FC<{
 
             <button
               type={mode === 'login' ? 'button' : 'submit'}
-              disabled={submitting || (mode === 'register' && (context === null || !acceptedTerms))}
+              disabled={submitting || (mode === 'login' && loginCodeBusy) || (mode === 'register' && (context === null || !acceptedTerms))}
               onPointerDown={() => identityActions.pointerDown(mode === 'login' ? 'consumer-login' : 'consumer-register')}
               onClick={mode === 'login' ? () => submitLogin() : undefined}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--sw-brand)] px-4 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/15 transition hover:bg-[var(--sw-brand-dark)] disabled:cursor-not-allowed disabled:bg-slate-300"
@@ -311,6 +357,13 @@ export const ConsumerIdentityPage: React.FC<{
               {submitting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : mode === 'login' ? <LogIn className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}
               {submitting ? busyLabel : mode === 'login' ? '登录并进入商城' : '创建账号并进入商城'}
             </button>
+            {mode === 'login' && <button type="button" disabled={submitting} onClick={() => {
+              setUseSmsLogin((previous) => !previous);
+              setFormError('');
+              setNotice('');
+            }} className="block w-full text-center text-xs font-semibold text-[var(--sw-brand)] hover:underline">
+              {useSmsLogin ? '使用密码登录' : '短信验证码登录'}
+            </button>}
             {mode === 'login' && memberships.length > 0 && <div className="space-y-2" role="group" aria-label="选择会员身份">
               <p className="text-xs text-slate-500">请选择本次使用的会员身份</p>
               {memberships.map((membership, index) => <button key={membership} type="button" disabled={submitting} onClick={() => submitLogin(membership)} className="w-full rounded-xl border border-blue-200 px-3 py-2 text-left text-xs text-[var(--sw-brand)]">会员身份 {index + 1} · {membership}</button>)}
