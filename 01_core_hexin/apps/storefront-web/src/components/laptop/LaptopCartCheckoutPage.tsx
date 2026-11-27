@@ -18,7 +18,7 @@ function formatDeduction(amount: number): string {
 
 export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ onSelectTab, surface = 'laptop' }) => {
   const { cart, updateCartQuantity, removeCartItem, user, addresses, showToast, navigateTo, checkoutSelectedCart,
-    refreshCheckoutAddresses, sessionStatus, isSubmittingOrder, activePaymentSession,
+    refreshCheckoutAddresses, isSubmittingOrder, activePaymentSession,
     refreshCheckoutAfterCartChange, checkoutPublicationError } = useMall();
   const surfaceCopy = STOREFRONT_WEB_SURFACE_COPY[surface];
 
@@ -34,6 +34,7 @@ export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ 
   const [checkoutRefreshFailed, setCheckoutRefreshFailed] = useState(false);
   const checkoutStatusId = useId();
   const chooserId = useId();
+  const hasAddresses = addresses.length > 0;
   const selectedAddress = checkoutDeliveryAddress(addresses, addressId);
   const cartChanged = activePaymentSession?.checkoutFailure === 'cart-changed';
   const waitingForOrder = isSubmittingOrder && activePaymentSession?.orderId === null
@@ -185,7 +186,7 @@ export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ 
                           {selectedAddress.isDefault ? '默认办公地址' : '本单使用'}
                         </span>
                       )}
-                      {(addresses.length > 0 || sessionStatus === 'authenticated') && (
+                      {hasAddresses && (
                         <button type="button" aria-expanded={addressChooserOpen} aria-controls={addressChooserOpen ? chooserId : undefined}
                           onClick={() => void toggleAddressChooser()}
                           className="rounded border border-blue-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-[var(--sw-brand)] hover:bg-blue-50 cursor-pointer">
@@ -204,13 +205,11 @@ export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ 
                     </div>
                   </div>
 
-                  {addressChooserOpen && <fieldset id={chooserId} aria-busy={refreshingAddresses}
+                  {hasAddresses && addressChooserOpen && <fieldset id={chooserId} aria-busy={refreshingAddresses}
                     className="min-w-0 space-y-1.5 rounded border border-gray-200 bg-gray-50 p-2">
                     <legend className="px-1 font-bold text-gray-800">本单收货地址</legend>
                     {refreshingAddresses && <p role="status" className="text-gray-600">正在同步地址簿…</p>}
                     {addressRefreshFailed && <p role="status" className="text-gray-600">暂时无法同步，请收起后重新打开地址列表。</p>}
-                    {!refreshingAddresses && !addressRefreshFailed && !addresses.length &&
-                      <p className="text-gray-600">暂无已保存的收货地址。</p>}
                     {addresses.map(address => (
                       <label key={address.id} className="flex cursor-pointer items-center gap-2 rounded border border-gray-200 bg-white px-2.5 py-2 hover:bg-blue-50">
                         <input type="radio" name={chooserId} checked={selectedAddress?.id === address.id}
@@ -270,7 +269,7 @@ export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ 
               </div>
 
               {/* 金额拆解明细 */}
-              <div className="space-y-1.5 border-t border-gray-100 px-2 pt-2.5 text-xs tabular-nums text-gray-600">
+              <div className="space-y-1.5 border-t border-gray-100 pl-7 pr-2 pt-2.5 text-xs tabular-nums text-gray-600">
                 <div className="flex justify-between">
                   <span>商品金额小计:</span>
                   <span className="font-bold text-gray-800">¥{subtotal.toFixed(2)}</span>
