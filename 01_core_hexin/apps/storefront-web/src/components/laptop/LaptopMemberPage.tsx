@@ -1,15 +1,27 @@
 import { ArrowLeft, ChevronRight, CreditCard, Gift, UserRound } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useMall } from '../../context/MallContext';
 import type { LaptopPage } from '../../context/MallContext.types';
 import { MemberAccountSettings } from '../MemberAccountSettings';
 import { MemberProfileDetails } from '../MemberProfileDetails';
 import { defaultStorefrontWebPage, type StorefrontWebSurface } from './StorefrontWebStandard';
 
-export function LaptopMemberEntry({ onSelectTab }: { onSelectTab: (page: LaptopPage) => void }) {
+export function LaptopAccountIdentity({ onSelectTab, children }: {
+  onSelectTab: (page: LaptopPage) => void;
+  children: ReactNode;
+}) {
+  const { sessionStatus } = useMall();
+  if (sessionStatus === 'checking') {
+    return <div aria-hidden="true" className="border-b border-gray-100 pb-3"><div className="h-10" /></div>;
+  }
+  return sessionStatus === 'authenticated' ? <LaptopMemberEntry onSelectTab={onSelectTab} /> : children;
+}
+
+function LaptopMemberEntry({ onSelectTab }: { onSelectTab: (page: LaptopPage) => void }) {
   const { user } = useMall();
   return (
     <button type="button" onClick={() => onSelectTab('member')} className="flex w-full items-center gap-2.5 border-b border-gray-100 pb-3 text-left">
-      <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-teal-800 to-teal-600 text-white shadow-2xs">
+      <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--sw-brand-dark)] text-white shadow-2xs">
         <UserRound className="h-5 w-5" />
       </span>
       <span className="min-w-0 flex-1">
