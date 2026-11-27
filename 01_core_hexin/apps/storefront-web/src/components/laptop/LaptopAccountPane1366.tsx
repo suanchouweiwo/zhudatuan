@@ -1,27 +1,28 @@
 import React from 'react';
-import { MemberAccountSettings } from '../MemberAccountSettings';
+import { LaptopMemberEntry } from './LaptopMemberPage';
 import { ArrowRight, Award, CheckCircle2, Clock, CreditCard, FileText, Gift, ShieldCheck, ShoppingCart, Truck } from 'lucide-react';
 import { useMall, type LaptopPage } from '../../context/MallContext';
 
 export const LaptopAccountPane1366: React.FC<{
   onSelectTab: (tab: LaptopPage) => void;
 }> = ({ onSelectTab }) => {
-  const { user, triggerPendingFeature } = useMall();
+  const { user, triggerPendingFeature, sessionStatus } = useMall();
   return (
     <>
       {/* 右侧：员工福利账户与操作中心 (宽度 240px) */}
       <div className="sw-web-account-sidebar w-[240px] flex-shrink-0 space-y-2.5">
         {/* 员工账户与余额卡 */}
         <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-2xs">
-          <div className="flex items-center gap-2.5 pb-2.5 border-b border-gray-100">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[var(--sw-brand-dark)] to-[var(--sw-brand)] text-white flex items-center justify-center font-bold text-sm shadow-2xs">{user.name[0]}</div>
-            <div className="min-w-0 flex-1">
-              <div className="font-extrabold text-xs text-gray-900 truncate">{user.name}</div>
-              <div className="text-[10px] text-gray-500 truncate">{user.department}</div>
-              {user.identityCode && <div className="text-[9px] text-[var(--sw-brand)] font-bold mt-0.5">会员身份码：{user.identityCode}</div>}
-              <MemberAccountSettings />
+          {sessionStatus === 'authenticated' ? <LaptopMemberEntry onSelectTab={onSelectTab} /> : (
+            <div className="flex items-center gap-2.5 pb-2.5 border-b border-gray-100">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[var(--sw-brand-dark)] to-[var(--sw-brand)] text-white flex items-center justify-center font-bold text-sm shadow-2xs">{user.name[0]}</div>
+              <div className="min-w-0 flex-1">
+                <div className="font-extrabold text-xs text-gray-900 truncate">{user.name}</div>
+                <div className="text-[10px] text-gray-500 truncate">{user.department}</div>
+                {user.identityCode && <div className="text-[9px] text-[var(--sw-brand)] font-bold mt-0.5">会员身份码：{user.identityCode}</div>}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* 福利卡余额明细 */}
           <div className="mt-2.5 space-y-2">

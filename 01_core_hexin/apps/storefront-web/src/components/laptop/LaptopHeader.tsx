@@ -96,12 +96,12 @@ export const LaptopHeader: React.FC<LaptopHeaderProps> = ({ activeTab, onSelectT
                 <span>登录 / 注册</span>
               </a>
             ) : (
-              <div className="flex items-center gap-1 text-yellow-300 font-medium">
+              <button type="button" onClick={() => handleNavClick('member')} aria-label={`我的会员，${user.name}`} className="flex items-center gap-1 text-yellow-300 font-medium hover:text-yellow-200 transition-colors cursor-pointer">
                 <User className="w-3 h-3" />
                 <span>
                   {user.name} ({user.department})
                 </span>
-              </div>
+              </button>
             )}
           </div>
         </div>

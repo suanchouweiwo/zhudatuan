@@ -13,7 +13,7 @@ export type MiniProgramPage = 'home' | 'category' | 'welfare' | 'detail' | 'cart
 export type AndroidAppPage = 'home' | 'search' | 'detail' | 'checkout' | 'orders' | 'profile';
 export type TabletPage = 'home' | 'category' | 'detail' | 'cart' | 'orders' | 'profile';
 export type TabletOrientation = 'landscape' | 'portrait';
-export type LaptopPage = 'home-1366' | 'home-1440' | 'category' | 'detail' | 'cart' | 'orders';
+export type LaptopPage = 'home-1366' | 'home-1440' | 'category' | 'detail' | 'cart' | 'orders' | 'member';
 export type MobileFulfillmentStage = 'processing' | 'shipped' | 'received';
 
 export interface PendingFeatureInfo {

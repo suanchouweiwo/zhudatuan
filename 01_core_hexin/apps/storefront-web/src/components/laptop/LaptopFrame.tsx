@@ -14,10 +14,11 @@ import { LaptopCategoryPage } from './LaptopCategoryPage';
 import { LaptopDetailPage } from './LaptopDetailPage';
 import { CheckoutAddressForm, LaptopCartCheckoutPage } from './LaptopCartCheckoutPage';
 import { LaptopOrdersPage } from './LaptopOrdersPage';
+import { LaptopMemberPage } from './LaptopMemberPage';
 import { QuickViewModal } from '../common/QuickViewModal';
 import { ToastContainer } from '../common/ToastContainer';
 import { Footer } from '../common/Footer';
-import { STOREFRONT_WEB_STANDARD_ID, type StorefrontWebNavigationBoundary, type StorefrontWebSurface } from './StorefrontWebStandard';
+import { defaultStorefrontWebPage, STOREFRONT_WEB_STANDARD_ID, type StorefrontWebNavigationBoundary, type StorefrontWebSurface } from './StorefrontWebStandard';
 import { PaymentResultPage } from '../common/PaymentResultPage';
 
 type StorefrontWebFrameProps = {
@@ -32,7 +33,7 @@ type CatalogSearch = {
 };
 
 export const StorefrontWebFrame: React.FC<StorefrontWebFrameProps> = ({ surface = 'laptop', navigationBoundary = 'showcase' }) => {
-  const { laptopPage, setLaptopPage, activePaymentId, activePaymentSession, presentationProducts } = useMall();
+  const { laptopPage, setLaptopPage, activePaymentId, activePaymentSession, presentationProducts, sessionStatus } = useMall();
   const [search, setSearch] = useState<CatalogSearch | null>(null);
   const [searchProduct, setSearchProduct] = useState<FrontendProduct>();
   const [showShippingAddress, setShowShippingAddress] = useState(() =>
@@ -107,7 +108,8 @@ export const StorefrontWebFrame: React.FC<StorefrontWebFrameProps> = ({ surface 
         </section>
       );
     }
-    switch (laptopPage) {
+    const visiblePage = laptopPage === 'member' && sessionStatus !== 'authenticated' ? defaultStorefrontWebPage(surface) : laptopPage;
+    switch (visiblePage) {
       case 'home-1366':
         return <LaptopHomePage1366 onSelectTab={handleSelectTab} />;
       case 'home-1440':
@@ -126,6 +128,8 @@ export const StorefrontWebFrame: React.FC<StorefrontWebFrameProps> = ({ surface 
         return <LaptopCartCheckoutPage onSelectTab={handleSelectTab} surface={surface} />;
       case 'orders':
         return <LaptopOrdersPage onSelectTab={handleSelectTab} surface={surface} />;
+      case 'member':
+        return <LaptopMemberPage onSelectTab={handleSelectTab} surface={surface} />;
       default:
         return <LaptopHomePage1366 onSelectTab={handleSelectTab} />;
     }

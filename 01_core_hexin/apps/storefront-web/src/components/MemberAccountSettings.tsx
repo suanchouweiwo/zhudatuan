@@ -6,8 +6,9 @@ import { useMall } from '../context/MallContext';
 import { productionApi } from '../services/productionApi';
 import { PaymentPhoneVerificationModal } from './mobile/PaymentPhoneVerificationModal';
 import { MemberIdentityShell } from './MemberIdentityShell';
+import { MemberProfileDetails } from './MemberProfileDetails';
 
-export function MemberAccountSettings() {
+export function MemberAccountSettings({ showMemberProfile = true }: { showMemberProfile?: boolean } = {}) {
   const { user, sessionStatus, logout, refreshProductionData } = useMall();
   const trigger = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
@@ -55,25 +56,11 @@ export function MemberAccountSettings() {
           ['password', '修改密码'],
           ['mobile', '绑定／更换手机'],
           ['profile', '会员资料'],
-        ] as const).map(([value, label]) => (
+        ] as const).filter(([value]) => showMemberProfile || value !== 'profile').map(([value, label]) => (
           <button key={value} type="button" disabled={busy} aria-pressed={mode === value} onClick={() => { setMode(value); setMessage(''); setChallenge(''); setCode(''); }} className="rounded-xl border border-blue-200 bg-white px-3 py-2 text-xs font-bold text-[var(--sw-brand)] shadow-sm transition hover:border-blue-300 hover:bg-blue-50 aria-pressed:bg-[var(--sw-brand-light)]">{label}</button>
         ))}</div>
         {mode === 'profile' ? (
-          <dl aria-label="当前会员资料" className="divide-y divide-slate-100 rounded-xl border border-slate-200 px-3 text-xs">
-            {[
-              ['会员名称', user.name],
-              ['会员身份码', user.identityCode ?? '暂未显示'],
-              ['登录手机号', user.accountSettingsPhone ?? user.phone],
-              ['手机号验证', user.phoneVerified ? '已验证' : '待验证'],
-              ['所属企业', user.enterpriseName],
-              ['所属部门', user.department],
-            ].map(([label, value]) => (
-              <div key={label} className="grid grid-cols-[6rem_minmax(0,1fr)] gap-3 py-2.5">
-                <dt className="font-semibold text-slate-600">{label}</dt>
-                <dd className="break-words text-slate-900">{value || '暂未显示'}</dd>
-              </div>
-            ))}
-          </dl>
+          <MemberProfileDetails user={user} />
         ) : <>
         <p className="text-xs text-gray-500">当前手机：{user.accountSettingsPhone ?? user.phone}</p>
         <button type="button" disabled={busy} onClick={() => setVerifyPhone(true)} className="text-xs text-[var(--sw-brand)]">验证当前手机号</button>
