@@ -185,6 +185,22 @@ export function PaymentResultPage({ paymentId, session, compact = false }: Payme
     closePaymentResult();
   };
 
+  const orderDetails = (orderId || resolvedPaymentId) ? (
+    <details className={compact ? 'group mt-2 border-t border-[#e2eaf3] text-left' : 'group mt-4 rounded-2xl border border-slate-100 bg-white text-left'}>
+      <summary className={`flex cursor-pointer list-none items-center justify-between text-xs font-medium text-slate-500 ${compact ? 'min-h-8 pt-1' : 'min-h-11 px-4'}`}>
+        <span>订单详情</span><ChevronDown className="h-4 w-4 transition-transform duration-150 group-open:rotate-180 motion-reduce:transition-none" />
+      </summary>
+      <div className={compact ? 'pb-1 pt-2' : 'border-t border-slate-100 px-4 py-3'}>
+        {orderId ? <ResultRow label="订单编号" value={orderId} /> : null}
+        {resolvedPaymentId ? <ResultRow label="支付记录" value={resolvedPaymentId} /> : null}
+        {compact && captured ? <ResultRow label="已支付金额" value={amount} /> : null}
+        {compact && pending && error ? (
+          <button type="button" onClick={() => setCycle((value) => value + 1)} disabled={refreshing} className="mt-2 text-xs font-medium text-[#426b9b]">继续确认支付结果</button>
+        ) : null}
+      </div>
+    </details>
+  ) : null;
+
   return (
     <section className={compact
       ? 'motion-safe:animate-[paymentCarrierIn_160ms_ease-out]'
@@ -200,43 +216,35 @@ export function PaymentResultPage({ paymentId, session, compact = false }: Payme
           <span className="shrink-0 rounded-full bg-[#f4f8ff] px-3 py-1 text-[11px] font-medium text-[#5175a4]">{orderId ? '微信支付' : '安全结算'}</span>
         </div>}
 
-        <div className={compact ? 'p-3' : 'px-5 pb-7 pt-8 text-center md:px-10 md:pb-10 md:pt-10'} aria-live="polite">
+        <div className={compact ? 'flex flex-col p-3' : 'px-5 pb-7 pt-8 text-center md:px-10 md:pb-10 md:pt-10'} aria-live="polite">
           <div className={compact ? 'flex items-center gap-3' : undefined}>
             <PaymentStatusMark stage={stage} refreshing={refreshing} compact={compact} />
             <div>
-              <p className={`text-xs font-semibold tracking-[0.14em] text-[#6483a8] ${compact ? '' : 'mt-5'}`}>{copy.eyebrow}</p>
-              <h1 className={`font-bold tracking-tight text-[#13233a] ${compact ? 'mt-0.5 text-lg' : 'mt-2 text-[25px] md:text-[30px]'}`}>{copy.title}</h1>
+              {!compact && <p className="mt-5 text-xs font-semibold tracking-[0.14em] text-[#6483a8]">{copy.eyebrow}</p>}
+              <h1 className={`font-bold tracking-tight text-[#13233a] ${compact ? 'text-sm' : 'mt-2 text-[25px] md:text-[30px]'}`}>{copy.title}</h1>
             </div>
           </div>
-          <p className={`mt-2 text-sm text-slate-500 ${compact ? 'leading-5' : 'mx-auto max-w-[480px] leading-6'}`}>{error ?? copy.detail}</p>
+          <p className={`mt-2 text-slate-500 ${compact ? 'text-xs leading-5' : 'mx-auto max-w-[480px] text-sm leading-6'}`}>
+            {error ?? (compact && stage === 'recovery' && orderId ? '订单已保留，确认期间请勿重复付款。' : copy.detail)}
+          </p>
 
-          <div className={`border border-[#e9f1fb] bg-[linear-gradient(145deg,#f9fcff_0%,#f2f7fd_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] ${compact ? 'mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-xl px-3 py-2.5' : 'mt-7 rounded-[22px] px-5 py-5'}`}>
-            <div className={compact ? 'flex flex-wrap items-baseline gap-x-2' : undefined}>
+          {!compact && <div className="mt-7 rounded-[22px] border border-[#e9f1fb] bg-[linear-gradient(145deg,#f9fcff_0%,#f2f7fd_100%)] px-5 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+            <div>
               <p className="text-[11px] font-medium tracking-[0.08em] text-slate-400">{orderId ? '本次支付' : '本次结算'}</p>
-              <p className={`font-bold tabular-nums tracking-[-0.04em] text-[#14243b] ${compact ? 'text-lg' : 'mt-1 text-[38px]'}`}>{amount}</p>
+              <p className="mt-1 text-[38px] font-bold tabular-nums tracking-[-0.04em] text-[#14243b]">{amount}</p>
             </div>
-            <div className={`flex w-fit items-center gap-2 rounded-full bg-white/90 px-3 py-1.5 text-xs text-slate-500 shadow-[0_1px_5px_rgba(35,75,120,0.06)] ${compact ? '' : 'mx-auto mt-3'}`}>
+            <div className="mx-auto mt-3 flex w-fit items-center gap-2 rounded-full bg-white/90 px-3 py-1.5 text-xs text-slate-500 shadow-[0_1px_5px_rgba(35,75,120,0.06)]">
               <ReceiptText className="h-3.5 w-3.5 text-[#2a75df]" /><span>{paymentOrderStatusLabel(stage, orderId)}</span>
             </div>
-          </div>
+          </div>}
 
-          {stage === 'recovery' || error ? (
+          {!compact && (stage === 'recovery' || error) ? (
             <div className="mt-4 rounded-2xl border border-[#e7eef7] bg-[#f8fafc] px-4 py-3 text-left text-xs leading-5 text-[#5e6f84]">{orderId ? '无需重复付款。连接恢复后，页面会继续确认本次支付结果。' : '订单尚未确认创建。请勿重复提交，可返回购物车检查商品信息。'}</div>
           ) : null}
 
-          {(orderId || resolvedPaymentId) ? (
-            <details className="group mt-4 rounded-2xl border border-slate-100 bg-white text-left">
-              <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between px-4 text-xs font-medium text-slate-500">
-                <span>订单详情</span><ChevronDown className="h-4 w-4 transition-transform duration-150 group-open:rotate-180 motion-reduce:transition-none" />
-              </summary>
-              <div className="border-t border-slate-100 px-4 py-3">
-                {orderId ? <ResultRow label="订单编号" value={orderId} /> : null}
-                {resolvedPaymentId ? <ResultRow label="支付记录" value={resolvedPaymentId} /> : null}
-              </div>
-            </details>
-          ) : null}
+          {!compact && orderDetails}
 
-          <div className={compact ? 'mt-3 flex flex-wrap gap-2 empty:hidden' : 'mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center'}>
+          <div className={compact ? 'mt-1 flex flex-wrap gap-2 empty:hidden' : 'mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center'}>
             {captured ? (
               <><PrimaryButton onClick={goToOrders}>查看订单<ArrowRight className="h-4 w-4" /></PrimaryButton><SecondaryButton onClick={goHome}><Home className="h-4 w-4" />返回首页</SecondaryButton></>
             ) : null}
@@ -244,12 +252,13 @@ export function PaymentResultPage({ paymentId, session, compact = false }: Payme
               <><PrimaryButton onClick={() => void continueActivePayment()} disabled={isSubmittingOrder}>{isSubmittingOrder ? <LoaderCircle className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : <RefreshCw className="h-4 w-4" />}{stage === 'cancelled' ? '继续付款' : '重新支付'}</PrimaryButton><SecondaryButton onClick={goToOrders}>查看订单</SecondaryButton></>
             ) : null}
             {retryPayment && !orderId ? <PrimaryButton onClick={goToCart}>返回购物车确认</PrimaryButton> : null}
-            {pending && (showStatusAction || error) ? (
-              <button type="button" onClick={goToOrders} className="mx-auto inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full px-4 text-xs font-semibold text-[#426b9b] transition-colors duration-150 hover:bg-blue-50 active:bg-blue-100 motion-reduce:transition-none">查看订单状态<ArrowRight className="h-3.5 w-3.5" /></button>
+            {pending && (showStatusAction || error || (compact && orderId)) ? (
+              <button type="button" onClick={goToOrders} className={`inline-flex items-center justify-center gap-1.5 rounded-full text-xs font-semibold text-[#426b9b] transition-colors duration-150 hover:bg-blue-50 active:bg-blue-100 motion-reduce:transition-none ${compact ? 'min-h-8' : 'mx-auto min-h-10 px-4'}`}>查看订单状态<ArrowRight className="h-3.5 w-3.5" /></button>
             ) : null}
           </div>
+          {compact && orderDetails}
 
-          {pending && error ? (
+          {!compact && pending && error ? (
             <button type="button" onClick={() => setCycle((value) => value + 1)} disabled={refreshing} className="mt-3 inline-flex min-h-9 items-center gap-1.5 px-3 text-xs font-medium text-slate-400 active:text-[#1769e8] disabled:opacity-50"><RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin motion-reduce:animate-none' : ''}`} />继续确认支付结果</button>
           ) : null}
         </div>

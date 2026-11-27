@@ -373,6 +373,7 @@ export function CheckoutAddressForm({ onClose }: { onClose: () => void }) {
   };
 
   const fieldClass = 'w-full rounded border border-gray-200 bg-white px-2 py-1.5 text-xs text-gray-900';
+  const regionFieldClass = `${fieldClass} sw-checkout-region`;
 
   return (
     <form aria-label="新增收货地址" onSubmit={save} className="space-y-2.5 rounded border border-gray-200 bg-gray-50 p-3">
@@ -389,7 +390,7 @@ export function CheckoutAddressForm({ onClose }: { onClose: () => void }) {
       <div className="grid grid-cols-3 gap-2">
         <label className="space-y-1 text-gray-700">
           <span className="block">省</span>
-          <select required disabled={!regions} className={fieldClass} value={provinceCode} onChange={(event) => {
+          <select required disabled={!regions} className={regionFieldClass} value={provinceCode} onChange={(event) => {
             setProvinceCode(event.target.value);
             setCityCode('');
             setDistrictCode('');
@@ -400,7 +401,7 @@ export function CheckoutAddressForm({ onClose }: { onClose: () => void }) {
         </label>
         <label className="space-y-1 text-gray-700">
           <span className="block">市</span>
-          <select required disabled={!province} className={fieldClass} value={cityCode} onChange={(event) => {
+          <select required disabled={!province} className={regionFieldClass} value={cityCode} onChange={(event) => {
             setCityCode(event.target.value);
             setDistrictCode('');
           }}>
@@ -410,7 +411,7 @@ export function CheckoutAddressForm({ onClose }: { onClose: () => void }) {
         </label>
         <label className="space-y-1 text-gray-700">
           <span className="block">区县</span>
-          <select required disabled={!city} className={fieldClass} value={districtCode} onChange={(event) => setDistrictCode(event.target.value)}>
+          <select required disabled={!city} className={regionFieldClass} value={districtCode} onChange={(event) => setDistrictCode(event.target.value)}>
             <option value="">选择区县</option>
             {city?.districts.map((region) => <option key={region.code} value={region.code}>{region.name}</option>)}
           </select>
