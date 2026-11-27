@@ -24,7 +24,7 @@ export function createRealmOperationContext(context: ModuleContext, registration
     stepup: new StepupPolicy(),
     tickets: new PgAuthTicket(new ReturnTargetSigner(keys.session)),
     registrationOnly,
-    notificationScope: manifest?.parent_node_id ? manifest.node_id : undefined,
+    notificationScope: manifest?.node_id,
     digest: (value: string) => createHmac('sha256', keys.identity).update(value.trim().toLowerCase()).digest('hex'),
     codeDigest: (challenge: string, code: string) => createHmac('sha256', keys.session).update(`${challenge}:${code}`).digest('hex'),
     sessionDigest: (session: string) => createHash('sha256').update(session).digest('hex'),
