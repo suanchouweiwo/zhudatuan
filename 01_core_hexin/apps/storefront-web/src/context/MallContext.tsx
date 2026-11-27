@@ -27,6 +27,7 @@ import {
   paymentCartFingerprint,
   paymentRecoveryScope,
   paymentRetryIdempotencyKey,
+  resumeOrderPaymentRecovery,
   tryBeginPaymentSubmission,
   updatePaymentRecovery,
   type PaymentRecoveryRecord,
@@ -86,6 +87,7 @@ export const MallProvider: React.FC<MallProviderProps> = ({ children, showcaseSe
   const activePaymentId = activePaymentSession?.paymentId ?? null;
   const [favorites, setFavorites] = useState<string[]>(() => (showcaseService ? showcaseService.getFavorites() : []));
   const [addresses, setAddresses] = useState<DeliveryAddress[]>(() => (showcaseService ? showcaseService.getAddresses() : []));
+  const addressReadVersionRef = useRef(0);
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
   const sessionGenerationRef = useRef(0);
   const sessionStatusRef = useRef(sessionStatus);
@@ -224,9 +226,12 @@ export const MallProvider: React.FC<MallProviderProps> = ({ children, showcaseSe
   }, []);
   const refreshServerAddresses = useCallback(async () => {
     const sessionGeneration = sessionGenerationRef.current;
+    const version = ++addressReadVersionRef.current;
     const productionApi = await loadProductionApi();
     const response = await productionApi.listAddresses();
-    if (sessionGeneration === sessionGenerationRef.current) setAddresses(response.items);
+    if (sessionGeneration === sessionGenerationRef.current && version === addressReadVersionRef.current) {
+      setAddresses(response.items);
+    }
   }, []);
   const { refreshProductionData, refreshPublicCatalog, cancelProductionSync } = useProductionSync(
     {
@@ -575,7 +580,8 @@ export const MallProvider: React.FC<MallProviderProps> = ({ children, showcaseSe
 
   const recordPaymentResult = useCallback((result: ApiPaymentResult) => {
     const current = activePaymentSessionRef.current;
-    if (!current || (current.paymentId !== null && current.paymentId !== result.intentId)) return;
+    if (!current || (current.orderId !== null && current.orderId !== result.orderId)
+      || (current.paymentId !== null && current.paymentId !== result.intentId)) return;
     if (result.state === 'captured') {
       completeCapturedPayment(result.intentId);
       return;
@@ -782,10 +788,31 @@ export const MallProvider: React.FC<MallProviderProps> = ({ children, showcaseSe
     }
   };
 
-  const checkoutSelectedCart = (addressId?: string): Promise<boolean> => submitSelectedCart(user, addressId);
-  const refreshCheckoutAddresses = async (): Promise<void> => {
-    if (!showcaseService && sessionStatus === 'authenticated') await refreshServerAddresses();
+  const continueOrderPayment = async (orderId: string): Promise<void> => {
+    if (showcaseService || sessionStatus !== 'authenticated' || paymentInFlightRef.current) return;
+    const order = orders.find((candidate) => candidate.id === orderId && candidate.status === 'pending_payment');
+    if (!order) return;
+    const current = activePaymentSessionRef.current;
+    const saved = loadPaymentRecovery(currentPaymentScope);
+    if (current?.orderId !== orderId || current.scope !== currentPaymentScope) {
+      dismissedPaymentKeyRef.current = null;
+      activatePaymentSession(saved?.orderId === orderId ? saved : resumeOrderPaymentRecovery({
+        orderId,
+        scope: currentPaymentScope,
+        amountMinor: order.payment.personalPayableCents ?? Math.round((order.payment.payableAmount ?? order.payment.totalGoodsAmount) * 100),
+        currency: 'CNY',
+        mallName: order.mallName,
+      }));
+    }
+    navigation.setLaptopPage('cart');
+    navigation.navigateTo('cart');
+    await continueActivePayment();
   };
+
+  const checkoutSelectedCart = (addressId?: string): Promise<boolean> => submitSelectedCart(user, addressId);
+  const refreshCheckoutAddresses = useCallback(async (): Promise<void> => {
+    if (!showcaseService && sessionStatus === 'authenticated') await refreshServerAddresses();
+  }, [refreshServerAddresses, sessionStatus, showcaseService]);
   const refreshCheckoutAfterCartChange = async (): Promise<boolean> => {
     const current = activePaymentSessionRef.current;
     if (sessionStatus !== 'authenticated' || current?.checkoutFailure !== 'cart-changed') return false;
@@ -909,6 +936,7 @@ export const MallProvider: React.FC<MallProviderProps> = ({ children, showcaseSe
         refreshCheckoutAfterCartChange,
         checkoutPublicationError: checkoutPublicationFailure?.scope === currentPaymentScope ? checkoutPublicationFailure.message : null,
         continueActivePayment,
+        continueOrderPayment,
         recordPaymentResult,
         checkoutSelectedCart,
         refreshCheckoutAddresses,

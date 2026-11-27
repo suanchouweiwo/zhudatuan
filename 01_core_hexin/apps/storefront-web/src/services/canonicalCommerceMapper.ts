@@ -71,6 +71,7 @@ function mapOrder(item: Record<string, unknown>): ApiOrder {
   const paymentState = optionalText(item.payment_state) ?? 'unpaid';
   const lines = records(item.lines ?? [], 'order.lines');
   const benefitPaid = paymentState === 'paid' ? benefitTenderAmount(item.evidence, total) : 0;
+  const personalPayableCents = personalTenderAmount(item.evidence);
   return {
     id: text(item.id, 'order.id'),
     orderNo: text(item.order_number, 'order.order_number'),
@@ -78,6 +79,7 @@ function mapOrder(item: Record<string, unknown>): ApiOrder {
     goodsAmountCents: lines.reduce((sum, line) => sum + nonNegativeInteger(line.totalMinor, 'order.line.totalMinor'), 0),
     discountCents: lines.reduce((sum, line) => sum + nonNegativeInteger(line.discountMinor, 'order.line.discountMinor'), 0),
     payableCents: total,
+    ...(personalPayableCents === undefined ? {} : { personalPayableCents }),
     paidCents: paymentState === 'paid' || paymentState.includes('refund') ? total : 0,
     welfarePaidCents: benefitPaid,
     mealPaidCents: 0,
@@ -106,6 +108,20 @@ function orderStatus(item: Record<string, unknown>): string {
   if (fulfillment === 'shipped') return 'shipped';
   if (fulfillment === 'delivered' || lifecycle === 'completed') return 'completed';
   return 'paid';
+}
+
+function personalTenderAmount(value: unknown): number | undefined {
+  if (value === null || typeof value !== 'object' || !('tenders' in value)) return undefined;
+  const tenders = value.tenders;
+  if (!Array.isArray(tenders) || tenders.length === 0) return undefined;
+  let total = 0;
+  for (const tender of tenders) {
+    if (tender?.kind !== 'wechat') continue;
+    const amount = tender.amountMinor;
+    if (typeof amount !== 'number' || !Number.isSafeInteger(amount) || amount < 0) return undefined;
+    total += amount;
+  }
+  return Number.isSafeInteger(total) ? total : undefined;
 }
 
 function benefitTenderAmount(value: unknown, fallback: number): number {

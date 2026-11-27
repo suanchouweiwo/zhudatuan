@@ -103,6 +103,7 @@ export interface MallContextType {
   refreshCheckoutAfterCartChange: () => Promise<boolean>;
   checkoutPublicationError: string | null;
   continueActivePayment: () => Promise<void>;
+  continueOrderPayment: (orderId: string) => Promise<void>;
   recordPaymentResult: (result: ApiPaymentResult) => void;
   checkoutSelectedCart: (addressId?: string) => Promise<boolean>;
   refreshCheckoutAddresses: () => Promise<void>;

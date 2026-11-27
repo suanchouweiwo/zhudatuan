@@ -19,9 +19,10 @@ const orderFilters: ReadonlyArray<{ id: OrderFilter; name: string; statuses: rea
 ];
 
 export const LaptopOrdersPage: React.FC<LaptopOrdersPageProps> = ({ onReturnToCheckout, surface = 'laptop' }) => {
-  const { triggerPendingFeature, presentationOrders } = useMall();
+  const { triggerPendingFeature, presentationOrders, continueOrderPayment, isSubmittingOrder } = useMall();
   const surfaceCopy = STOREFRONT_WEB_SURFACE_COPY[surface];
   const [activeStatus, setActiveStatus] = useState<OrderFilter>('all');
+  const [orderToPay, setOrderToPay] = useState<string>();
 
   const tabs = orderFilters.map((filter) => ({
     ...filter,
@@ -119,7 +120,12 @@ export const LaptopOrdersPage: React.FC<LaptopOrdersPageProps> = ({ onReturnToCh
                     <span className="text-[var(--sw-brand-dark)] font-bold">福利卡扣减: -¥{order.welfareDeduction.toFixed(2)}</span>
                   </div>
 
-                  {order.status !== 'pending_payment' && <div className="flex items-center gap-2">
+                  {order.status === 'pending_payment' ? (
+                    <button type="button" aria-expanded={orderToPay === order.orderId} onClick={() => setOrderToPay(order.orderId)}
+                      className="rounded bg-[var(--sw-brand)] px-2.5 py-1 font-bold text-white hover:bg-blue-700">
+                      继续付款
+                    </button>
+                  ) : <div className="flex items-center gap-2">
                     <button
                       onClick={() => triggerPendingFeature('电子发票下载', '专票PDF已生成，支持直接存入发票抬头库')}
                       className="bg-white border border-gray-300 hover:border-[var(--sw-brand)] text-gray-700 hover:text-[var(--sw-brand)] font-bold px-2.5 py-1 rounded flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
@@ -137,6 +143,20 @@ export const LaptopOrdersPage: React.FC<LaptopOrdersPageProps> = ({ onReturnToCh
                     </button>
                   </div>}
                 </div>
+                {order.status === 'pending_payment' && orderToPay === order.orderId && (
+                  <section aria-label="继续结算原订单" className="flex flex-wrap items-center justify-between gap-2 border-t border-blue-100 bg-blue-50/60 px-3 py-2.5">
+                    <div className="space-y-0.5">
+                      <h2 className="font-bold text-gray-900">继续结算原订单</h2>
+                      <p className="text-[11px] text-gray-600">订单 {order.orderNo} · 订单总额 ¥{(order.payment.payableAmount ?? order.totalAmount).toFixed(2)}</p>
+                    </div>
+                    <div className="flex items-center gap-2 text-[11px]">
+                      <button type="button" onClick={() => setOrderToPay(undefined)}
+                        className="rounded border border-gray-300 bg-white px-2.5 py-1 font-bold text-gray-700">取消</button>
+                      <button type="button" disabled={isSubmittingOrder} onClick={() => void continueOrderPayment(order.orderId)}
+                        className="rounded bg-[var(--sw-brand)] px-2.5 py-1 font-bold text-white hover:bg-blue-700 disabled:opacity-50">确认继续付款</button>
+                    </div>
+                  </section>
+                )}
               </div>
             ))}
           </div>

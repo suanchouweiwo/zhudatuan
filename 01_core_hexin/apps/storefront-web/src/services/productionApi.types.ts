@@ -36,6 +36,7 @@ export interface ApiOrder {
   goodsAmountCents: number;
   discountCents: number;
   payableCents: number;
+  personalPayableCents?: number;
   paidCents: number;
   welfarePaidCents?: number;
   mealPaidCents?: number;

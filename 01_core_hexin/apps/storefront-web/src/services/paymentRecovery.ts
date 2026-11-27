@@ -110,6 +110,24 @@ export function beginPaymentRecovery(input: BeginPaymentRecoveryInput, options: 
   return persist(record, options.storage);
 }
 
+export function resumeOrderPaymentRecovery(input: Pick<PaymentRecoveryRecord, 'scope' | 'amountMinor' | 'currency' | 'mallName'> & {
+  readonly orderId: string;
+}): PaymentRecoveryRecord {
+  const now = new Date().toISOString();
+  return persist(Object.freeze({
+    schema: 'storefront.payment-recovery.v1',
+    ...input,
+    paymentId: null,
+    createdAt: now,
+    updatedAt: now,
+    idempotencyKey: `resume:${input.orderId}`,
+    cartFingerprint: '',
+    cartItemIds: [],
+    stage: 'recovery',
+    retryCount: 0,
+  }));
+}
+
 export function updatePaymentRecovery(
   current: PaymentRecoveryRecord,
   patch: Partial<Pick<PaymentRecoveryRecord, 'orderId' | 'paymentId' | 'amountMinor' | 'currency' | 'stage' | 'retryCount' | 'checkoutFailure'>>,

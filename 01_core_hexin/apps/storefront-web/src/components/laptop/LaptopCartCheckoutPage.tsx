@@ -1,4 +1,4 @@
-import React, { useId, useState } from 'react';
+import React, { useEffect, useId, useState } from 'react';
 import { useMall, LaptopPage } from '../../context/MallContext';
 import { ShoppingCart, Trash2, Plus, Minus, CreditCard, Gift, ShieldCheck, CheckCircle2, Building, MapPin, FileText, Zap, ArrowRight, RefreshCw } from 'lucide-react';
 import { getLoadedChinaRegions, loadChinaRegions } from '../../features/miniprogram/address/chinaRegions';
@@ -19,7 +19,7 @@ function formatDeduction(amount: number): string {
 
 export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ onSelectTab, onViewCheckoutOrder, surface = 'laptop' }) => {
   const { cart, updateCartQuantity, removeCartItem, user, addresses, showToast, navigateTo, checkoutSelectedCart,
-    refreshCheckoutAddresses, isSubmittingOrder, activePaymentSession,
+    refreshCheckoutAddresses, isSubmittingOrder, activePaymentSession, sessionStatus, currentMall,
     refreshCheckoutAfterCartChange, checkoutPublicationError } = useMall();
   const surfaceCopy = STOREFRONT_WEB_SURFACE_COPY[surface];
 
@@ -31,6 +31,8 @@ export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ 
   const [addressChooserOpen, setAddressChooserOpen] = useState(false);
   const [refreshingAddresses, setRefreshingAddresses] = useState(false);
   const [addressRefreshFailed, setAddressRefreshFailed] = useState(false);
+  const [addressRead, setAddressRead] = useState<'loading' | 'ready' | 'failed'>('loading');
+  const [addressReadAttempt, setAddressReadAttempt] = useState(0);
   const [refreshingCheckout, setRefreshingCheckout] = useState(false);
   const [checkoutRefreshFailed, setCheckoutRefreshFailed] = useState(false);
   const checkoutStatusId = useId();
@@ -44,6 +46,21 @@ export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ 
   const checkoutStatus = cartChanged
     ? (checkoutRefreshFailed ? '暂时无法刷新结算信息，请重试。' : '购物车有变化，本次未创建订单。刷新后请重新核对结算信息。')
     : checkoutPublicationError;
+
+  useEffect(() => {
+    if (sessionStatus !== 'authenticated') return;
+    let active = true;
+    setAddressRead('loading');
+    void refreshCheckoutAddresses().then(
+      () => { if (active) setAddressRead('ready'); },
+      () => { if (active) setAddressRead('failed'); },
+    );
+    return () => { active = false; };
+  }, [addressReadAttempt, currentMall.id, refreshCheckoutAddresses, sessionStatus, user.id]);
+
+  const addressLoading = !hasAddresses && (sessionStatus === 'checking'
+    || (sessionStatus === 'authenticated' && addressRead === 'loading'));
+  const addressUnavailable = !hasAddresses && sessionStatus === 'authenticated' && addressRead === 'failed';
 
   const toggleAddressChooser = async () => {
     if (addressChooserOpen) { setAddressChooserOpen(false); return; }
@@ -176,10 +193,12 @@ export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ 
                 <div className="space-y-1.5">
                   <div className="p-2 bg-blue-50/60 border border-blue-200 rounded flex items-center justify-between">
                     <div className="min-w-0">
-                      <div className="font-bold text-gray-800">{selectedAddress ? `${selectedAddress.name} ${selectedAddress.phone}` : '暂无收货人'}</div>
+                      <div className="font-bold text-gray-800">{selectedAddress ? `${selectedAddress.name} ${selectedAddress.phone}`
+                        : addressLoading ? '正在读取收货地址' : addressUnavailable ? '暂时无法读取收货地址' : '暂无收货人'}</div>
                       <div className="text-[11px] text-gray-600">{selectedAddress
                         ? `${selectedAddress.province}${selectedAddress.city}${selectedAddress.district}${selectedAddress.detail}`
-                        : addressId ? '所选地址已不可用，请重新选择' : '请先新增收货地址'}</div>
+                        : addressLoading ? '正在同步已保存的地址' : addressUnavailable ? '请重试读取地址簿'
+                          : addressId ? '所选地址已不可用，请重新选择' : '请先新增收货地址'}</div>
                     </div>
                     <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5 pl-2">
                       {selectedAddress && (
@@ -192,6 +211,12 @@ export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ 
                           onClick={() => void toggleAddressChooser()}
                           className="rounded border border-blue-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-[var(--sw-brand)] hover:bg-blue-50 cursor-pointer">
                           {addressChooserOpen ? '收起地址' : '切换收货地址'}
+                        </button>
+                      )}
+                      {addressUnavailable && (
+                        <button type="button" onClick={() => setAddressReadAttempt((attempt) => attempt + 1)}
+                          className="rounded border border-blue-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-[var(--sw-brand)] hover:bg-blue-50">
+                          重试读取地址
                         </button>
                       )}
                       <button
