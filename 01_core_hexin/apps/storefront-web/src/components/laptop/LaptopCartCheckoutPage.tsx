@@ -192,17 +192,15 @@ export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ 
                           {addressChooserOpen ? '收起地址' : '切换收货地址'}
                         </button>
                       )}
-                      {addresses.length === 0 && (
-                        <button
-                          type="button"
-                          aria-expanded={isAddingAddress}
-                          disabled={isAddingAddress}
-                          onClick={() => { setAddressChooserOpen(false); setIsAddingAddress(true); }}
-                          className="rounded bg-[var(--sw-brand)] px-2.5 py-1.5 text-[11px] font-bold text-white hover:bg-blue-700 cursor-pointer"
-                        >
-                          新增收货地址
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        aria-expanded={isAddingAddress}
+                        disabled={isAddingAddress}
+                        onClick={() => { setAddressChooserOpen(false); setIsAddingAddress(true); }}
+                        className="rounded bg-[var(--sw-brand)] px-2.5 py-1.5 text-[11px] font-bold text-white hover:bg-blue-700 cursor-pointer"
+                      >
+                        新增收货地址
+                      </button>
                     </div>
                   </div>
 
@@ -228,7 +226,7 @@ export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ 
                     ))}
                   </fieldset>}
 
-                  {addresses.length === 0 && isAddingAddress && (
+                  {isAddingAddress && (
                     <CheckoutAddressForm onClose={() => setIsAddingAddress(false)} />
                   )}
 
@@ -328,7 +326,7 @@ export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ 
   );
 };
 
-export function CheckoutAddressForm({ onClose }: { onClose: () => void }) {
+function CheckoutAddressForm({ onClose }: { onClose: () => void }) {
   const { addAddress, addresses } = useMall();
   const [regions, setRegions] = useState(getLoadedChinaRegions);
   const [regionLoadFailed, setRegionLoadFailed] = useState(false);
