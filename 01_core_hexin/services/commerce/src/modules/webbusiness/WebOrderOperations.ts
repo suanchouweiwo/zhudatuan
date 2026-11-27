@@ -41,13 +41,20 @@ export function webOrderOperations(context: ModuleContext): ModuleOperations {
           or ($13='aftersale' and orders.aftersale_state<>'none')
           or ($13='exception' and (orders.payment_state='failed' or orders.lifecycle_state='cancelled' or orders.aftersale_state='rejected')))
         order by orders.created_at desc,orders.id desc limit $14
-      ) select orders.*,coalesce(lines.items,'[]'::jsonb) lines,lines.summary product_summary,
+      ) select orders.*,shipment.tracking_no,coalesce(lines.items,'[]'::jsonb) lines,lines.summary product_summary,
         coalesce(legs.items,'[]'::jsonb) economic_legs,coalesce(inventory.items,'[]'::jsonb) inventory_reservations,
         inventory.summary inventory_summary,
         coalesce(fulfillments.items,'[]'::jsonb) fulfillments,paymentfact.item payment_fact,
         coalesce(financefacts.items,'[]'::jsonb) finance_facts,coalesce(aftersales.items,'[]'::jsonb) aftersales,
         coalesce(operations.items,'[]'::jsonb) operations
         from selected_orders orders
+        left join lateral(select nullif(btrim(milestone.external_id),'') tracking_no
+          from fulfillment.fulfillmentorder fulfillment
+          join fulfillment.milestone milestone on milestone.fulfillment_id=fulfillment.id and milestone.mall_id=fulfillment.mall_id
+          where $1::boolean and fulfillment.order_id=orders.id and fulfillment.mall_id=orders.mall_id
+          and fulfillment.member_id=orders.member_id and milestone.kind='shipment' and milestone.state='shipped'
+          and nullif(btrim(milestone.external_id),'') is not null
+          order by milestone.occurred_at desc,milestone.id desc limit 1) shipment on true
         left join lateral(select coalesce(jsonb_agg((jsonb_build_object('id',line.id,'sku',line.sku_id,'listing',line.listing_id,'title',line.title_snapshot,
           'quantity',line.quantity,'unitMinor',line.unit_minor,'totalMinor',line.total_minor,'discountMinor',line.discount_minor,
           'payableMinor',line.payable_minor)
