@@ -8,6 +8,7 @@ import { PaymentResultPage } from '../common/PaymentResultPage';
 
 interface LaptopCartCheckoutPageProps {
   onSelectTab: (tab: LaptopPage) => void;
+  onViewCheckoutOrder: (orderId: string | null) => void;
   surface?: StorefrontWebSurface;
 }
 
@@ -16,7 +17,7 @@ function formatDeduction(amount: number): string {
   return display === '0.00' ? '¥0.00' : `-¥${display}`;
 }
 
-export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ onSelectTab, surface = 'laptop' }) => {
+export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ onSelectTab, onViewCheckoutOrder, surface = 'laptop' }) => {
   const { cart, updateCartQuantity, removeCartItem, user, addresses, showToast, navigateTo, checkoutSelectedCart,
     refreshCheckoutAddresses, isSubmittingOrder, activePaymentSession,
     refreshCheckoutAfterCartChange, checkoutPublicationError } = useMall();
@@ -291,7 +292,7 @@ export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ 
               </>}
 
               {paymentResult ? (
-                <PaymentResultPage key={paymentResult.idempotencyKey} session={paymentResult} compact />
+                <PaymentResultPage key={paymentResult.idempotencyKey} session={paymentResult} compact onViewCheckoutOrder={onViewCheckoutOrder} />
               ) : (
                 <button
                   onClick={cartChanged ? refreshCheckout : handleCheckout}

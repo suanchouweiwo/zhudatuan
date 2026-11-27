@@ -33,7 +33,8 @@ type CatalogSearch = {
 };
 
 export const StorefrontWebFrame: React.FC<StorefrontWebFrameProps> = ({ surface = 'laptop', navigationBoundary = 'showcase' }) => {
-  const { laptopPage, setLaptopPage, activePaymentSession, presentationProducts, sessionStatus } = useMall();
+  const { laptopPage, setLaptopPage, navigateTo, activePaymentSession, presentationProducts, sessionStatus } = useMall();
+  const [ordersOpenedFromCheckout, setOrdersOpenedFromCheckout] = useState(false);
   const paymentSessionSeen = useRef<string | null>(null);
   const [search, setSearch] = useState<CatalogSearch | null>(null);
   const [searchProduct, setSearchProduct] = useState<FrontendProduct>();
@@ -78,6 +79,7 @@ export const StorefrontWebFrame: React.FC<StorefrontWebFrameProps> = ({ surface 
   }, [search, presentationProducts]);
 
   const handleSelectTab = (tab: LaptopPage) => {
+    setOrdersOpenedFromCheckout(false);
     setSearchProduct(undefined);
     setLaptopPage(tab);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -85,7 +87,19 @@ export const StorefrontWebFrame: React.FC<StorefrontWebFrameProps> = ({ surface 
 
   const handleHeaderTab = (tab: LaptopPage) => {
     setSearch(null);
+    if (ordersOpenedFromCheckout && tab === 'orders') navigateTo('orders');
     handleSelectTab(tab);
+  };
+
+  const viewCheckoutOrder = (orderId: string | null) => {
+    handleSelectTab('orders');
+    setOrdersOpenedFromCheckout(true);
+    navigateTo('orders', orderId ? { orderId } : {});
+  };
+
+  const returnToCheckout = () => {
+    handleSelectTab('cart');
+    navigateTo('cart');
   };
 
   const handleSearch = (query: string) => {
@@ -117,9 +131,9 @@ export const StorefrontWebFrame: React.FC<StorefrontWebFrameProps> = ({ surface 
       case 'detail':
         return <LaptopDetailPage onSelectTab={handleSelectTab} surface={surface} selectedProduct={searchProduct} />;
       case 'cart':
-        return <LaptopCartCheckoutPage onSelectTab={handleSelectTab} surface={surface} />;
+        return <LaptopCartCheckoutPage onSelectTab={handleSelectTab} onViewCheckoutOrder={viewCheckoutOrder} surface={surface} />;
       case 'orders':
-        return <LaptopOrdersPage onSelectTab={handleSelectTab} surface={surface} />;
+        return <LaptopOrdersPage onReturnToCheckout={ordersOpenedFromCheckout ? returnToCheckout : undefined} surface={surface} />;
       case 'member':
         return <LaptopMemberPage onSelectTab={handleSelectTab} surface={surface} />;
       case 'account-security':

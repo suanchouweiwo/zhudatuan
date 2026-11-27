@@ -10,6 +10,7 @@ interface PaymentResultPageProps {
   readonly paymentId?: string;
   readonly session?: PaymentRecoveryRecord;
   readonly compact?: boolean;
+  readonly onViewCheckoutOrder?: (orderId: string | null) => void;
 }
 
 type PaymentDisplayStage = PaymentFlowStage | 'preparing';
@@ -86,7 +87,7 @@ export function paymentOrderStatusLabel(stage: PaymentDisplayStage, orderId: str
   return ['failed', 'expired', 'cancelled'].includes(stage) ? '尚未确认订单' : '正在建立订单';
 }
 
-export function PaymentResultPage({ paymentId, session, compact = false }: PaymentResultPageProps) {
+export function PaymentResultPage({ paymentId, session, compact = false, onViewCheckoutOrder }: PaymentResultPageProps) {
   const {
     closePaymentResult,
     continueActivePayment,
@@ -161,6 +162,10 @@ export function PaymentResultPage({ paymentId, session, compact = false }: Payme
   const pending = !retryPayment && !captured;
 
   const goToOrders = () => {
+    if (onViewCheckoutOrder) {
+      onViewCheckoutOrder(orderId);
+      return;
+    }
     setMpPage('orders');
     setAndroidPage('orders');
     setTabletPage('orders');

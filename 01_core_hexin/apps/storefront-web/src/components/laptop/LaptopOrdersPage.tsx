@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
-import { useMall, LaptopPage } from '../../context/MallContext';
-import { FileText, Search, Truck, CheckCircle2, Clock, Download, ShieldCheck, Building, CreditCard, RefreshCw } from 'lucide-react';
+import { useMall } from '../../context/MallContext';
+import { ArrowLeft, FileText, Truck, Download } from 'lucide-react';
 import { STOREFRONT_WEB_SURFACE_COPY, type StorefrontWebSurface } from './StorefrontWebStandard';
 
 interface LaptopOrdersPageProps {
-  onSelectTab: (tab: LaptopPage) => void;
+  onReturnToCheckout?: () => void;
   surface?: StorefrontWebSurface;
 }
 
-export const LaptopOrdersPage: React.FC<LaptopOrdersPageProps> = ({ onSelectTab, surface = 'laptop' }) => {
-  const { user, triggerPendingFeature, showToast, presentationOrders: MOCK_ORDERS } = useMall();
+export const LaptopOrdersPage: React.FC<LaptopOrdersPageProps> = ({ onReturnToCheckout, surface = 'laptop' }) => {
+  const { triggerPendingFeature, presentationOrders: MOCK_ORDERS } = useMall();
   const surfaceCopy = STOREFRONT_WEB_SURFACE_COPY[surface];
   const [activeStatus, setActiveStatus] = useState<string>('all');
 
@@ -24,6 +24,11 @@ export const LaptopOrdersPage: React.FC<LaptopOrdersPageProps> = ({ onSelectTab,
   return (
     <div className="w-full bg-[#F5F7FA] min-h-[80vh] pb-8 font-sans">
       <div className="sw-web-container max-w-[1240px] mx-auto pt-3 px-3 space-y-3">
+        {onReturnToCheckout && (
+          <button type="button" onClick={onReturnToCheckout} className="flex items-center gap-1.5 rounded-sm text-xs font-semibold text-[var(--sw-brand)] hover:underline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-[var(--sw-brand)]">
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />返回结算页
+          </button>
+        )}
         {/* 页头标题 */}
         <div className="flex items-center justify-between text-xs border-b border-gray-200 pb-2">
           <div className="flex items-center gap-2">
