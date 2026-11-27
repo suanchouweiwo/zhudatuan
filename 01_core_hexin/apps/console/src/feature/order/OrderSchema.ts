@@ -150,7 +150,9 @@ export const OrderSchema = z.object({
     storeId: z.nullable(z.string()), kind: z.string(), state: z.string(), externalReference: z.nullable(z.string()),
     paymentId: z.nullable(z.string()), amountMinor: z.nullable(DatabaseIntegerSchema), createdAt: z.nullable(z.string()),
     updatedAt: z.nullable(z.string()), lines: z.array(z.object({ lineId: z.string(), quantity: DatabaseIntegerSchema })),
-    milestones: z.array(z.object({ id: z.string(), kind: z.string(), state: z.string(), occurredAt: z.string() })),
+    milestones: z.array(z.object({
+      id: z.string(), kind: z.string(), state: z.string(), occurredAt: z.string(), tracking: z.optional(z.nullable(z.string())),
+    })),
   }))),
   payment_fact: z.optional(z.nullable(z.object({
     intentId: z.string(), intentState: z.string(), amountMinor: DatabaseIntegerSchema, currency: z.string(),

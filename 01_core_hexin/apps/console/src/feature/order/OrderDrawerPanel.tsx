@@ -238,7 +238,12 @@ function ProductsPanel({ order, productDirectoryPath }: Readonly<{ order: OrderR
           </div>
         )}
       </DetailSection>
-      <Unavailable text="运单与完整履约里程碑尚未进入统一订单读模型。" />
+      <DetailSection title="发货运单">
+        {(order.fulfillments ?? []).flatMap((item) => item.milestones.filter((step) => step.kind === 'shipment' && step.tracking)
+          .map((step) => <Info key={step.id} label="运单号" value={step.tracking!} />))}
+        {!(order.fulfillments ?? []).some((item) => item.milestones.some((step) => step.kind === 'shipment' && step.tracking))
+          ? <Unavailable text="暂无发货运单。" /> : null}
+      </DetailSection>
     </div>
   );
 }

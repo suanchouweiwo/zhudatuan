@@ -10,6 +10,7 @@ import { OrderDrawerPanel } from './OrderDrawerPanel';
 import { OrderIcon } from './OrderIcon';
 import { aftersaleLabel, aftersaleTone, formatOrderTime, fulfillmentLabel, fulfillmentTone, lifecycleLabel, paymentLabel, paymentTone } from './OrderPresentation';
 import { OrderPreviewAction } from './OrderPreviewAction';
+import { OrderShipmentAction } from './OrderShipmentAction';
 import type { OrderDetailTab, OrderRecord } from './OrderSchema';
 
 export function OrderDrawer({
@@ -170,23 +171,8 @@ export function OrderDrawer({
                 </div>
               )}
             </OrderPreviewAction>
-            <OrderPreviewAction
-              ariaLabel="确认发货"
-              title="确认发货预览"
-              disabled={!previewEnabled || order === undefined}
-              describedBy="orderactionboundary"
-              placement="top end"
-              triggerClassName="orderconfirmbutton"
-              triggerTitle={previewEnabled ? '查看发货前安全校验' : '等待最终动作合同'}
-              trigger={
-                <>
-                  <OrderIcon name="truck" />
-                  确认发货
-                </>
-              }
-            >
-              {() => <p className="orderpreviewdetail">订单版本 {order?.version ?? '不可用'} 已读取；正式执行仍需 Preview → Confirm → Step-up → Execute → Reread → Receipt。</p>}
-            </OrderPreviewAction>
+            <OrderShipmentAction key={orderId} order={order} refreshed={query.isSuccess && !query.isPlaceholderData}
+              onShipped={() => onTab('products')} />
           </footer>
     </aside>
   );

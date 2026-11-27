@@ -69,3 +69,22 @@
   border-color: var(--sw-brand);
   color: var(--sw-brand);
 }
+
+.ordershipmentform label {
+  display: grid;
+  gap: var(--sw-space-0-5);
+}
+
+.ordershipmentform input,
+.ordershipmentform select {
+  min-height: 2.25rem;
+  border: 0.0625rem solid var(--sw-border-strong);
+  border-radius: var(--sw-radius-sm);
+  background: var(--sw-surface);
+  color: var(--sw-text);
+  padding: 0 var(--sw-space-1);
+}
+
+.ordershipmentform .orderpreviewdialogactions {
+  gap: var(--sw-space-1);
+}
