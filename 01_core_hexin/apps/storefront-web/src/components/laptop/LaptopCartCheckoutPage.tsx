@@ -4,6 +4,7 @@ import { ShoppingCart, Trash2, Plus, Minus, CreditCard, Gift, ShieldCheck, Check
 import { getLoadedChinaRegions, loadChinaRegions } from '../../features/miniprogram/address/chinaRegions';
 import { STOREFRONT_WEB_SURFACE_COPY, type StorefrontWebSurface } from './StorefrontWebStandard';
 import { checkoutDeliveryAddress } from '../../context/checkoutSelectedCart';
+import { PaymentResultPage } from '../common/PaymentResultPage';
 
 interface LaptopCartCheckoutPageProps {
   onSelectTab: (tab: LaptopPage) => void;
@@ -30,6 +31,9 @@ export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ 
   const chooserId = useId();
   const selectedAddress = checkoutDeliveryAddress(addresses, addressId);
   const cartChanged = activePaymentSession?.checkoutFailure === 'cart-changed';
+  const waitingForOrder = isSubmittingOrder && activePaymentSession?.orderId === null
+    && (activePaymentSession.stage === 'validating' || activePaymentSession.stage === 'creating-order');
+  const paymentResult = cartChanged || waitingForOrder ? null : activePaymentSession;
   const checkoutStatus = cartChanged
     ? (checkoutRefreshFailed ? '暂时无法刷新结算信息，请重试。' : '购物车有变化，本次未创建订单。刷新后请重新核对结算信息。')
     : checkoutPublicationError;
@@ -62,11 +66,7 @@ export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ 
   const totalDeduction = maxWelfareDeduction + maxMealDeduction;
   const gapPayment = Math.max(0, subtotal - totalDeduction);
 
-  const handleCheckout = async () => {
-    if (await checkoutSelectedCart(addressId)) {
-      onSelectTab('orders');
-    }
-  };
+  const handleCheckout = () => void checkoutSelectedCart(addressId);
 
   const refreshCheckout = async () => {
     setRefreshingCheckout(true);
@@ -81,6 +81,15 @@ export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ 
     }
   };
 
+  const emptyCart = (
+    <div className="bg-white border border-gray-200 rounded-lg p-8 text-center space-y-3">
+      <div className="text-gray-400">您的企采购物车内暂无商品</div>
+      <button onClick={() => onSelectTab('category')} className="bg-[var(--sw-brand)] text-white text-xs font-bold px-4 py-2 rounded-md hover:bg-blue-700 cursor-pointer">
+        选购企业福利商品
+      </button>
+    </div>
+  );
+
   return (
     <div className="w-full bg-[#F5F7FA] min-h-[80vh] pb-10 font-sans">
       <div className="sw-web-container max-w-[1240px] mx-auto pt-3 px-3 space-y-3">
@@ -94,18 +103,12 @@ export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ 
         </div>
 
         {/* 购物车为空处理 */}
-        {cart.length === 0 ? (
-          <div className="bg-white border border-gray-200 rounded-lg p-8 text-center space-y-3">
-            <div className="text-gray-400">您的企采购物车内暂无商品</div>
-            <button onClick={() => onSelectTab('category')} className="bg-[var(--sw-brand)] text-white text-xs font-bold px-4 py-2 rounded-md hover:bg-blue-700 cursor-pointer">
-              选购企业福利商品
-            </button>
-          </div>
-        ) : (
+        {cart.length === 0 && !paymentResult ? emptyCart : (
           /* 主体两栏：左侧商品表格与订单配置 (~65%) | 右侧固定结算卡片 (~35%) */
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-start">
             {/* 左侧区域 (8列) */}
             <div className="md:col-span-8 space-y-3">
+              {cart.length === 0 ? emptyCart : <>
               {/* 商品列表（按仓库分组紧凑展示） */}
               <div className="bg-white border border-gray-200 rounded-lg shadow-2xs overflow-hidden">
                 <div className="bg-gray-100 text-gray-700 px-3 py-2 text-xs font-bold flex items-center justify-between border-b border-gray-200">
@@ -234,12 +237,14 @@ export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ 
                   </div>
                 </div>
               </div>
+              </>}
             </div>
 
             {/* 右侧：固定卡片与结算扣减算术明细 (4列) */}
             <div className="sw-web-checkout-summary md:col-span-4 bg-white border border-gray-200 rounded-lg p-3.5 shadow-xs space-y-3 sticky top-[100px]">
               <div className="font-extrabold text-sm text-gray-900 border-b border-gray-100 pb-2">结算汇总与福利卡扣减</div>
 
+              {cart.length > 0 && <>
               {/* 抵扣勾选项 */}
               <div className="space-y-2 text-xs">
                 <label className="p-2 bg-blue-50/80 rounded border border-blue-200 flex items-center justify-between cursor-pointer">
@@ -281,18 +286,24 @@ export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ 
                 </div>
               </div>
 
-              <button
-                onClick={cartChanged ? refreshCheckout : handleCheckout}
-                disabled={isSubmittingOrder || refreshingCheckout}
-                aria-describedby={checkoutStatus ? checkoutStatusId : undefined}
-                className="w-full bg-[var(--sw-brand)] hover:bg-blue-700 text-white font-extrabold py-3 rounded-lg text-xs transition-all cursor-pointer shadow-md flex items-center justify-center gap-1.5"
-              >
-                {cartChanged ? <RefreshCw className="w-4 h-4" /> : <Zap className="w-4 h-4 text-yellow-300" />}
-                {cartChanged
-                  ? (refreshingCheckout ? '正在刷新…' : '刷新购物车并继续')
-                  : (isSubmittingOrder ? '安全提交中…' : '确认并提交真实订单')}
-                <ArrowRight className="w-4 h-4" />
-              </button>
+              </>}
+
+              {paymentResult ? (
+                <PaymentResultPage key={paymentResult.idempotencyKey} session={paymentResult} compact />
+              ) : (
+                <button
+                  onClick={cartChanged ? refreshCheckout : handleCheckout}
+                  disabled={isSubmittingOrder || refreshingCheckout}
+                  aria-describedby={checkoutStatus ? checkoutStatusId : undefined}
+                  className="w-full bg-[var(--sw-brand)] hover:bg-blue-700 text-white font-extrabold py-3 rounded-lg text-xs transition-all cursor-pointer shadow-md flex items-center justify-center gap-1.5"
+                >
+                  {cartChanged ? <RefreshCw className="w-4 h-4" /> : <Zap className="w-4 h-4 text-yellow-300" />}
+                  {cartChanged
+                    ? (refreshingCheckout ? '正在刷新…' : '刷新购物车并继续')
+                    : (isSubmittingOrder ? '安全提交中…' : '确认并提交真实订单')}
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              )}
 
               {checkoutStatus && (
                 <div id={checkoutStatusId} role="status" className="rounded border border-blue-200 bg-blue-50/60 px-2.5 py-2 text-[11px] leading-relaxed text-gray-700">

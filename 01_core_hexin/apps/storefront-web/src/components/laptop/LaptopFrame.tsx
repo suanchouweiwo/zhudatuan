@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useMall } from '../../context/MallContext';
 import { toFrontendProducts, type FrontendProduct } from '../../adapters/frontendData';
 import { mapApiProduct } from '../../context/mallMappers';
 import { loadProgressiveCatalog } from '../../context/useProductionSync';
 import { listPublicProducts } from '../../services/publicCatalogApi';
 import type { ApiProduct } from '../../services/productionApi.types';
+import { isPaymentRecoveryPending } from '../../services/paymentRecovery';
 import type { LaptopPage } from '../../context/MallContext.types';
 import { LaptopTopSwitcher } from './LaptopTopSwitcher';
 import { LaptopHeader } from './LaptopHeader';
@@ -19,7 +20,6 @@ import { QuickViewModal } from '../common/QuickViewModal';
 import { ToastContainer } from '../common/ToastContainer';
 import { Footer } from '../common/Footer';
 import { defaultStorefrontWebPage, STOREFRONT_WEB_STANDARD_ID, type StorefrontWebNavigationBoundary, type StorefrontWebSurface } from './StorefrontWebStandard';
-import { PaymentResultPage } from '../common/PaymentResultPage';
 
 type StorefrontWebFrameProps = {
   surface?: StorefrontWebSurface;
@@ -33,12 +33,19 @@ type CatalogSearch = {
 };
 
 export const StorefrontWebFrame: React.FC<StorefrontWebFrameProps> = ({ surface = 'laptop', navigationBoundary = 'showcase' }) => {
-  const { laptopPage, setLaptopPage, activePaymentId, activePaymentSession, presentationProducts, sessionStatus } = useMall();
+  const { laptopPage, setLaptopPage, activePaymentSession, presentationProducts, sessionStatus } = useMall();
+  const paymentSessionSeen = useRef<string | null>(null);
   const [search, setSearch] = useState<CatalogSearch | null>(null);
   const [searchProduct, setSearchProduct] = useState<FrontendProduct>();
   const [showShippingAddress, setShowShippingAddress] = useState(() =>
     navigationBoundary === 'production' && typeof window !== 'undefined'
     && new URLSearchParams(window.location.search).get('view') === 'shipping-address');
+
+  useEffect(() => {
+    if (!isPaymentRecoveryPending(activePaymentSession) || paymentSessionSeen.current === activePaymentSession.idempotencyKey) return;
+    paymentSessionSeen.current = activePaymentSession.idempotencyKey;
+    if (laptopPage !== 'cart' && !showShippingAddress) setLaptopPage('cart');
+  }, [activePaymentSession, laptopPage, setLaptopPage, showShippingAddress]);
 
   const closeShippingAddress = () => {
     if (!showShippingAddress) return;
@@ -96,11 +103,6 @@ export const StorefrontWebFrame: React.FC<StorefrontWebFrameProps> = ({ surface 
   };
 
   const renderLaptopContent = () => {
-    const checkoutInPlace = activePaymentSession?.checkoutFailure === 'cart-changed'
-      || (laptopPage === 'cart' && !showShippingAddress && !activePaymentSession?.orderId
-        && (activePaymentSession?.stage === 'validating' || activePaymentSession?.stage === 'creating-order'));
-    if (activePaymentSession && !checkoutInPlace) return <PaymentResultPage session={activePaymentSession} compact />;
-    if (activePaymentId) return <PaymentResultPage paymentId={activePaymentId} compact />;
     if (showShippingAddress) {
       return (
         <section className="sw-web-container mx-auto max-w-[1240px] px-3 py-6">

@@ -186,17 +186,21 @@ export function PaymentResultPage({ paymentId, session, compact = false }: Payme
   };
 
   return (
-    <section className={`bg-[radial-gradient(circle_at_50%_-8%,rgba(210,232,255,0.95)_0%,rgba(244,248,252,0.98)_36%,#f5f7fa_72%)] px-4 motion-safe:animate-[paymentCarrierIn_160ms_ease-out] ${compact ? 'py-5 md:py-7' : 'min-h-[72vh] py-8 md:py-14'}`}>
-      <div className={`mx-auto overflow-hidden border border-white/90 bg-white/95 shadow-[0_24px_72px_rgba(31,78,126,0.11),0_2px_12px_rgba(36,102,170,0.06)] backdrop-blur-sm ${compact ? 'max-w-[440px] rounded-2xl' : 'max-w-[680px] rounded-[30px]'}`}>
-        <div className={`flex items-center justify-between border-b border-slate-100/80 px-5 ${compact ? 'py-2.5' : 'py-4 md:px-8'}`}>
+    <section className={compact
+      ? 'motion-safe:animate-[paymentCarrierIn_160ms_ease-out]'
+      : 'min-h-[72vh] bg-[radial-gradient(circle_at_50%_-8%,rgba(210,232,255,0.95)_0%,rgba(244,248,252,0.98)_36%,#f5f7fa_72%)] px-4 py-8 motion-safe:animate-[paymentCarrierIn_160ms_ease-out] md:py-14'}>
+      <div className={compact
+        ? 'rounded-lg border border-[#dce7f3] bg-[#f8fafc]'
+        : 'mx-auto max-w-[680px] overflow-hidden rounded-[30px] border border-white/90 bg-white/95 shadow-[0_24px_72px_rgba(31,78,126,0.11),0_2px_12px_rgba(36,102,170,0.06)] backdrop-blur-sm'}>
+        {!compact && <div className="flex items-center justify-between border-b border-slate-100/80 px-5 py-4 md:px-8">
           <div className="flex min-w-0 items-center gap-2.5">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-[#1769e8]"><ShieldCheck className="h-[18px] w-[18px]" strokeWidth={2} /></span>
             <span className="truncate text-sm font-semibold text-slate-700">{session?.mallName ?? '安心支付'}</span>
           </div>
           <span className="shrink-0 rounded-full bg-[#f4f8ff] px-3 py-1 text-[11px] font-medium text-[#5175a4]">{orderId ? '微信支付' : '安全结算'}</span>
-        </div>
+        </div>}
 
-        <div className={`px-5 ${compact ? 'py-4' : 'pb-7 pt-8 text-center md:px-10 md:pb-10 md:pt-10'}`} aria-live="polite">
+        <div className={compact ? 'p-3' : 'px-5 pb-7 pt-8 text-center md:px-10 md:pb-10 md:pt-10'} aria-live="polite">
           <div className={compact ? 'flex items-center gap-3' : undefined}>
             <PaymentStatusMark stage={stage} refreshing={refreshing} compact={compact} />
             <div>
@@ -232,7 +236,7 @@ export function PaymentResultPage({ paymentId, session, compact = false }: Payme
             </details>
           ) : null}
 
-          <div className={`flex flex-col gap-3 sm:flex-row sm:justify-center ${compact ? 'mt-3 empty:hidden' : 'mt-6'}`}>
+          <div className={compact ? 'mt-3 flex flex-wrap gap-2 empty:hidden' : 'mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center'}>
             {captured ? (
               <><PrimaryButton onClick={goToOrders}>查看订单<ArrowRight className="h-4 w-4" /></PrimaryButton><SecondaryButton onClick={goHome}><Home className="h-4 w-4" />返回首页</SecondaryButton></>
             ) : null}
