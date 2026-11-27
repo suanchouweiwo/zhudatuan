@@ -207,24 +207,23 @@ export function credentialOperations(runtime: RealmOperationContext): OperationA
           return { body, challenge, hash };
         },
         execute: async (request, database, { body, challenge, hash }) => atomicIdentityMutation(database, async () => {
-          const realm = await resolveRealmNode(database, request.input.headers.host);
-          const consumed = await consumeChallenge(database, challenge, textField(body, 'code'), codeDigest, undefined,
-            { purpose: 'password_reset', realmId: realm.realmId });
-          const principal = consumed.principal_id;
-          const account = consumed.account_id;
-          if (!principal || !account || consumed.realm_id !== realm.realmId) reject(400, 'CHALLENGE_PRINCIPAL_MISSING');
+          const entryRealm = await resolveRealmNode(database, request.input.headers.host);
+          const { principal_id: principal, account_id: account, realm_id: accountRealmId } =
+            await consumeChallenge(database, challenge, textField(body, 'code'), codeDigest, undefined,
+              { purpose: 'password_reset', entryRealmId: entryRealm.realmId });
+          if (!principal || !account || !accountRealmId) reject(400, 'CHALLENGE_PRINCIPAL_MISSING');
           const ownerRotation = await database.query<{ result: Readonly<Record<string, unknown>> | null }>(
             `select identity.rotate_zhudatuan_owner_password($1,null::text,$2,$3,'credential_reset') result`,
             [principal, challenge, hash]
           );
           const ownerResult = ownerRotation.rows[0]?.result;
           if (ownerResult) return { status: 200, body: ownerResult, headers: sessionCookies('', '', 0) };
-          await database.query("update identity.credential set secret_hash=$3,rotated_at=clock_timestamp() where account_id=$1 and realm_id=$2 and provider='password' and status='active'", [account, realm.realmId, hash]);
+          await database.query("update identity.credential set secret_hash=$3,rotated_at=clock_timestamp() where account_id=$1 and realm_id=$2 and provider='password' and status='active'", [account, accountRealmId, hash]);
           const result = await database.query(`update identity.account set credential_version=credential_version+1,
-            updated_at=clock_timestamp(),version=version+1 where id=$1 and realm_id=$2 returning credential_version,version`, [account, realm.realmId]);
+            updated_at=clock_timestamp(),version=version+1 where id=$1 and realm_id=$2 returning credential_version,version`, [account, accountRealmId]);
           await database.query(`update identity.session session set revoked_at=clock_timestamp(),revoked_reason='credential_reset'
             where session.revoked_at is null and exists(select 1 from access.membership membership
-              where membership.id=session.membership_id and membership.account_id=$1 and membership.realm_id=$2)`, [account, realm.realmId]);
+              where membership.id=session.membership_id and membership.account_id=$1 and membership.realm_id=$2)`, [account, accountRealmId]);
           return rowResult(result);
         }),
       }),
