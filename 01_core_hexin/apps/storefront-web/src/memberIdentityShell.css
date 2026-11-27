@@ -6,11 +6,15 @@
   font-display: swap;
 }
 
-.morvia-auth-page {
+.morvia-auth-page,
+.laptop-account-security {
   --sw-brand: #143a8f;
   --sw-brand-hover: #0d2d72;
   --sw-brand-dark: #0d2d72;
   --sw-brand-light: #eef2fb;
+}
+
+.morvia-auth-page {
   min-height: 100vh;
   display: flex;
   align-items: center;
@@ -103,26 +107,31 @@
 
 .morvia-auth-body h1,
 .morvia-auth-body h2,
-.morvia-auth-body h3 {
+.morvia-auth-body h3,
+.laptop-account-security h1 {
   font-family: 'MORVIA Title', 'Noto Sans SC', 'PingFang SC', sans-serif;
 }
 
-.morvia-auth-body input {
+.morvia-auth-body input,
+.laptop-account-security input {
   border-color: #d7dbe5;
   border-radius: 12px;
 }
 
-.morvia-auth-body input:focus {
+.morvia-auth-body input:focus,
+.laptop-account-security input:focus {
   border-color: #143a8f;
   box-shadow: 0 0 0 3px rgb(20 58 143 / 10%);
 }
 
-.morvia-auth-body button[type='submit'] {
+.morvia-auth-body button[type='submit'],
+.laptop-account-security button[type='submit'] {
   background: var(--sw-brand);
   box-shadow: 0 8px 20px color-mix(in srgb, var(--sw-brand) 16%, transparent);
 }
 
-.morvia-auth-body button[type='submit']:hover:not(:disabled) {
+.morvia-auth-body button[type='submit']:hover:not(:disabled),
+.laptop-account-security button[type='submit']:hover:not(:disabled) {
   background: var(--sw-brand-dark);
 }
 

@@ -14,7 +14,7 @@ import { LaptopCategoryPage } from './LaptopCategoryPage';
 import { LaptopDetailPage } from './LaptopDetailPage';
 import { CheckoutAddressForm, LaptopCartCheckoutPage } from './LaptopCartCheckoutPage';
 import { LaptopOrdersPage } from './LaptopOrdersPage';
-import { LaptopMemberPage } from './LaptopMemberPage';
+import { LaptopAccountSecurityPage, LaptopMemberPage } from './LaptopMemberPage';
 import { QuickViewModal } from '../common/QuickViewModal';
 import { ToastContainer } from '../common/ToastContainer';
 import { Footer } from '../common/Footer';
@@ -108,7 +108,8 @@ export const StorefrontWebFrame: React.FC<StorefrontWebFrameProps> = ({ surface 
         </section>
       );
     }
-    const visiblePage = laptopPage === 'member' && sessionStatus !== 'authenticated' ? defaultStorefrontWebPage(surface) : laptopPage;
+    const isMemberPage = laptopPage === 'member' || laptopPage === 'account-security';
+    const visiblePage = isMemberPage && sessionStatus !== 'authenticated' ? defaultStorefrontWebPage(surface) : laptopPage;
     switch (visiblePage) {
       case 'home-1366':
         return <LaptopHomePage1366 onSelectTab={handleSelectTab} />;
@@ -130,6 +131,8 @@ export const StorefrontWebFrame: React.FC<StorefrontWebFrameProps> = ({ surface 
         return <LaptopOrdersPage onSelectTab={handleSelectTab} surface={surface} />;
       case 'member':
         return <LaptopMemberPage onSelectTab={handleSelectTab} surface={surface} />;
+      case 'account-security':
+        return <LaptopAccountSecurityPage onSelectTab={handleSelectTab} />;
       default:
         return <LaptopHomePage1366 onSelectTab={handleSelectTab} />;
     }

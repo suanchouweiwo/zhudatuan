@@ -8,7 +8,7 @@ import { PaymentPhoneVerificationModal } from './mobile/PaymentPhoneVerification
 import { MemberIdentityShell } from './MemberIdentityShell';
 import { MemberProfileDetails } from './MemberProfileDetails';
 
-export function MemberAccountSettings({ showMemberProfile = true }: { showMemberProfile?: boolean } = {}) {
+export function MemberAccountSettings({ embedded = false }: { embedded?: boolean } = {}) {
   const { user, sessionStatus, logout, refreshProductionData } = useMall();
   const trigger = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
@@ -47,16 +47,13 @@ export function MemberAccountSettings({ showMemberProfile = true }: { showMember
   };
   const inputClass = 'w-full rounded-xl border border-slate-200 px-3.5 py-3 text-sm outline-none transition focus:border-[var(--sw-brand)] focus:ring-2 focus:ring-blue-100';
   const passwordLabelClass = 'block space-y-1.5 text-xs font-semibold text-slate-700';
-  return <>
-    <button ref={trigger} type="button" onClick={() => setOpen(true)} className="mt-2 rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs font-bold text-[var(--sw-brand)]">账号设置</button>
-    {open && createPortal(<>
-      <MemberIdentityShell closeDisabled={busy} onClose={close}>
+  const form = (
       <form onSubmit={save} className="space-y-4">
         <div className="flex flex-wrap gap-2">{([
           ['password', '修改密码'],
           ['mobile', '绑定／更换手机'],
           ['profile', '会员资料'],
-        ] as const).filter(([value]) => showMemberProfile || value !== 'profile').map(([value, label]) => (
+        ] as const).filter(([value]) => !embedded || value !== 'profile').map(([value, label]) => (
           <button key={value} type="button" disabled={busy} aria-pressed={mode === value} onClick={() => { setMode(value); setMessage(''); setChallenge(''); setCode(''); }} className="rounded-xl border border-blue-200 bg-white px-3 py-2 text-xs font-bold text-[var(--sw-brand)] shadow-sm transition hover:border-blue-300 hover:bg-blue-50 aria-pressed:bg-[var(--sw-brand-light)]">{label}</button>
         ))}</div>
         {mode === 'profile' ? (
@@ -80,8 +77,16 @@ export function MemberAccountSettings({ showMemberProfile = true }: { showMember
         </>}
         <button type="button" disabled={busy} onClick={() => { close(); void logout(); }} className="flex w-full items-center justify-center gap-2 rounded-xl border border-blue-200 bg-white px-4 py-3 text-sm font-bold text-[var(--sw-brand)] shadow-sm transition hover:border-blue-300 hover:bg-blue-50">退出登录</button>
       </form>
-      </MemberIdentityShell>
-      {verifyPhone && <PaymentPhoneVerificationModal purpose="account" phone={user.phone} onClose={() => setVerifyPhone(false)} onVerified={async () => { setVerifyPhone(false); await refreshProductionData(); setMessage('当前手机号已验证'); }} />}
+  );
+  const verification = verifyPhone && <PaymentPhoneVerificationModal purpose="account" phone={user.phone} onClose={() => setVerifyPhone(false)} onVerified={async () => { setVerifyPhone(false); await refreshProductionData(); setMessage('当前手机号已验证'); }} />;
+
+  if (embedded) return <>{form}{verification && createPortal(verification, document.body)}</>;
+
+  return <>
+    <button ref={trigger} type="button" onClick={() => setOpen(true)} className="mt-2 rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs font-bold text-[var(--sw-brand)]">账号设置</button>
+    {open && createPortal(<>
+      <MemberIdentityShell closeDisabled={busy} onClose={close}>{form}</MemberIdentityShell>
+      {verification}
     </>, document.body)}
   </>;
 }
