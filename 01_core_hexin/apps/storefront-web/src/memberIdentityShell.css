@@ -189,3 +189,58 @@
   }
 }
 
+/* Keep the storefront document out of the scroll chain while settings are open. */
+:root:has(.member-identity-dialog),
+body:has(> .member-identity-dialog) {
+  overflow: hidden;
+}
+
+.member-identity-dialog {
+  overflow-y: auto;
+  scrollbar-gutter: stable both-edges;
+}
+
+.member-identity-dialog .morvia-auth-content {
+  min-block-size: 48rem;
+}
+
+@media (min-width: 901px) and (min-height: 560px) {
+  .member-identity-dialog {
+    overflow: hidden;
+    scrollbar-gutter: auto;
+  }
+
+  .member-identity-dialog .morvia-auth-page {
+    block-size: 100dvh;
+    min-block-size: 0;
+  }
+
+  .member-identity-dialog .morvia-auth-shell {
+    block-size: min(800px, 100%);
+    min-block-size: 0;
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .member-identity-dialog .morvia-auth-surface {
+    display: grid;
+    min-block-size: 0;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .member-identity-dialog .morvia-auth-content {
+    min-block-size: 0;
+    overflow-y: auto;
+    scrollbar-gutter: stable both-edges;
+  }
+}
+
+@media (min-width: 901px) and (560px <= height < 896px) {
+  .member-identity-dialog .morvia-auth-brand {
+    padding-block: clamp(16px, calc((100dvh - 500px) * 0.2), 52px);
+  }
+
+  .member-identity-dialog .morvia-auth-message {
+    padding-block: clamp(8px, calc(12dvh - 48px), 56px);
+  }
+}
+

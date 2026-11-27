@@ -15,7 +15,7 @@ export function MemberIdentityShell({ children, closeDisabled, onClose }: Member
     closeButton.current?.focus({ preventScroll: true });
   }, []);
   return (
-    <div role="dialog" aria-modal="true" aria-label="账号设置" className="fixed inset-0 z-[75] overflow-y-auto overscroll-contain">
+    <div role="dialog" aria-modal="true" aria-label="账号设置" className="member-identity-dialog fixed inset-0 z-[75] overscroll-contain">
       <main className="morvia-auth-page" data-brand="morvia">
         <section className="morvia-auth-shell">
           <aside className="morvia-auth-brand">
@@ -60,14 +60,16 @@ export function MemberIdentityShell({ children, closeDisabled, onClose }: Member
                 <button ref={closeButton} type="button" disabled={closeDisabled} onClick={onClose} className="identity-channel-button min-h-10 rounded-xl border bg-white px-3 text-xs font-bold">关闭</button>
               </div>
             </header>
-            <div className="morvia-auth-body">
-              <div className="mb-7">
-                <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--sw-brand)]">
-                  <ShieldCheck className="h-4 w-4" aria-hidden="true" />会员渠道
+            <div className="morvia-auth-content">
+              <div className="morvia-auth-body">
+                <div className="mb-7">
+                  <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--sw-brand)]">
+                    <ShieldCheck className="h-4 w-4" aria-hidden="true" />会员渠道
+                  </div>
+                  <h2 className="mt-2 text-3xl font-bold tracking-[-0.035em] text-[#111111]">账号设置</h2>
                 </div>
-                <h2 className="mt-2 text-3xl font-bold tracking-[-0.035em] text-[#111111]">账号设置</h2>
+                {children}
               </div>
-              {children}
             </div>
           </div>
         </section>
