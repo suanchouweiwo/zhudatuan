@@ -13,7 +13,7 @@ interface LaptopCartCheckoutPageProps {
 export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ onSelectTab, surface = 'laptop' }) => {
   const { cart, updateCartQuantity, removeCartItem, user, addresses, showToast, navigateTo, checkoutSelectedCart,
     refreshCheckoutAddresses, sessionStatus, isSubmittingOrder, activePaymentSession,
-    refreshCheckoutAfterCartChange } = useMall();
+    refreshCheckoutAfterCartChange, checkoutPublicationError } = useMall();
   const surfaceCopy = STOREFRONT_WEB_SURFACE_COPY[surface];
 
   const [useWelfareDeduction, setUseWelfareDeduction] = useState<boolean>(true);
@@ -30,6 +30,9 @@ export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ 
   const chooserId = useId();
   const selectedAddress = checkoutDeliveryAddress(addresses, addressId);
   const cartChanged = activePaymentSession?.checkoutFailure === 'cart-changed';
+  const checkoutStatus = cartChanged
+    ? (checkoutRefreshFailed ? '暂时无法刷新结算信息，请重试。' : '购物车有变化，本次未创建订单。刷新后请重新核对结算信息。')
+    : checkoutPublicationError;
 
   const toggleAddressChooser = async () => {
     if (addressChooserOpen) { setAddressChooserOpen(false); return; }
@@ -281,7 +284,7 @@ export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ 
               <button
                 onClick={cartChanged ? refreshCheckout : handleCheckout}
                 disabled={isSubmittingOrder || refreshingCheckout}
-                aria-describedby={cartChanged ? checkoutStatusId : undefined}
+                aria-describedby={checkoutStatus ? checkoutStatusId : undefined}
                 className="w-full bg-[var(--sw-brand)] hover:bg-blue-700 text-white font-extrabold py-3 rounded-lg text-xs transition-all cursor-pointer shadow-md flex items-center justify-center gap-1.5"
               >
                 {cartChanged ? <RefreshCw className="w-4 h-4" /> : <Zap className="w-4 h-4 text-yellow-300" />}
@@ -291,9 +294,9 @@ export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ 
                 <ArrowRight className="w-4 h-4" />
               </button>
 
-              {cartChanged && (
+              {checkoutStatus && (
                 <div id={checkoutStatusId} role="status" className="rounded border border-blue-200 bg-blue-50/60 px-2.5 py-2 text-[11px] leading-relaxed text-gray-700">
-                  {checkoutRefreshFailed ? '暂时无法刷新结算信息，请重试。' : '购物车有变化，本次未创建订单。刷新后请重新核对结算信息。'}
+                  {checkoutStatus}
                 </div>
               )}
 

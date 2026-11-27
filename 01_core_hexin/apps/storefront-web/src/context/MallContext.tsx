@@ -80,6 +80,7 @@ export const MallProvider: React.FC<MallProviderProps> = ({ children, showcaseSe
   const [catalogSyncStatus, setCatalogSyncStatus] = useState<'idle' | 'syncing' | 'ready' | 'error'>(isShowcase ? 'ready' : 'idle');
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+  const [checkoutPublicationFailure, setCheckoutPublicationFailure] = useState<{ scope: string; message: string } | null>(null);
   const [paymentPhoneVerificationOpen, setPaymentPhoneVerificationOpen] = useState(false);
   const [activePaymentSession, setActivePaymentSession] = useState<PaymentRecoveryRecord | null>(null);
   const activePaymentId = activePaymentSession?.paymentId ?? null;
@@ -630,6 +631,7 @@ export const MallProvider: React.FC<MallProviderProps> = ({ children, showcaseSe
       return false;
     }
     if (!tryBeginPaymentSubmission(paymentInFlightRef)) return activePaymentSessionRef.current !== null;
+    setCheckoutPublicationFailure(null);
     setIsSubmittingOrder(true);
     let freshCheckoutKey: string | undefined;
     try {
@@ -688,7 +690,11 @@ export const MallProvider: React.FC<MallProviderProps> = ({ children, showcaseSe
         if (current.idempotencyKey === freshCheckoutKey) clearPaymentRecovery(current.scope);
         else patchActivePaymentSession({ stage: 'failed' });
         activatePaymentSession(null);
-        showToast(error.message, 'warning');
+        if (navigation.appMode === 'pc' || navigation.appMode === 'laptop-web') {
+          setCheckoutPublicationFailure({ scope: current.scope, message: error.message });
+        } else {
+          showToast(error.message, 'warning');
+        }
         return false;
       }
       if ((navigation.appMode === 'pc' || navigation.appMode === 'laptop-web')
@@ -901,6 +907,7 @@ export const MallProvider: React.FC<MallProviderProps> = ({ children, showcaseSe
           activatePaymentSession(null);
         },
         refreshCheckoutAfterCartChange,
+        checkoutPublicationError: checkoutPublicationFailure?.scope === currentPaymentScope ? checkoutPublicationFailure.message : null,
         continueActivePayment,
         recordPaymentResult,
         checkoutSelectedCart,
