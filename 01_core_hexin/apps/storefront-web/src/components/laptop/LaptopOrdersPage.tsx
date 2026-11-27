@@ -95,13 +95,15 @@ export const LaptopOrdersPage: React.FC<LaptopOrdersPageProps> = ({ onReturnToCh
                         </div>
                         <div className="min-w-0">
                           <div className="font-bold text-gray-800 truncate text-xs">{item.product.title}</div>
-                          <div className="text-[10px] text-gray-400 mt-0.5">规格：标准企业版 × {item.quantity}</div>
+                          <div className="text-[10px] text-gray-400 mt-0.5">规格：{item.specText} × {item.quantity}</div>
                         </div>
                       </div>
 
                       <div className="text-right flex-shrink-0">
                         <div className="font-bold text-gray-900">¥{item.priceAtPurchase.toFixed(2)}</div>
-                        <div className="text-[10px] text-gray-400">福利卡全额抵扣</div>
+                        {order.status !== 'pending_payment' && (
+                          <div className="text-[10px] text-gray-400">福利卡全额抵扣</div>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -117,7 +119,7 @@ export const LaptopOrdersPage: React.FC<LaptopOrdersPageProps> = ({ onReturnToCh
                     <span className="text-[var(--sw-brand-dark)] font-bold">福利卡扣减: -¥{order.welfareDeduction.toFixed(2)}</span>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  {order.status !== 'pending_payment' && <div className="flex items-center gap-2">
                     <button
                       onClick={() => triggerPendingFeature('电子发票下载', '专票PDF已生成，支持直接存入发票抬头库')}
                       className="bg-white border border-gray-300 hover:border-[var(--sw-brand)] text-gray-700 hover:text-[var(--sw-brand)] font-bold px-2.5 py-1 rounded flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
@@ -133,7 +135,7 @@ export const LaptopOrdersPage: React.FC<LaptopOrdersPageProps> = ({ onReturnToCh
                       <Truck className="w-3.5 h-3.5" />
                       <span>查看物流状态</span>
                     </button>
-                  </div>
+                  </div>}
                 </div>
               </div>
             ))}

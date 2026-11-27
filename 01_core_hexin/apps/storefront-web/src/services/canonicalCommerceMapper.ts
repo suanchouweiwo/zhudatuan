@@ -86,7 +86,7 @@ function mapOrder(item: Record<string, unknown>): ApiOrder {
     items: lines.map((line) => ({
       productId: text(line.listing, 'order.line.listing'),
       productTitle: text(line.title, 'order.line.title'),
-      productImage: null,
+      productImage: optionalText(line.coverUrl),
       priceCents: nonNegativeInteger(line.unitMinor, 'order.line.unitMinor'),
       quantity: nonNegativeInteger(line.quantity, 'order.line.quantity'),
       specs: {},
