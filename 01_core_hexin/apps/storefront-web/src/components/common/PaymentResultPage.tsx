@@ -9,6 +9,7 @@ import { productionApi, type ApiPaymentResult, type ApiPaymentResultState, Produ
 interface PaymentResultPageProps {
   readonly paymentId?: string;
   readonly session?: PaymentRecoveryRecord;
+  readonly compact?: boolean;
 }
 
 type PaymentDisplayStage = PaymentFlowStage | 'preparing';
@@ -85,7 +86,7 @@ export function paymentOrderStatusLabel(stage: PaymentDisplayStage, orderId: str
   return ['failed', 'expired', 'cancelled'].includes(stage) ? '尚未确认订单' : '正在建立订单';
 }
 
-export function PaymentResultPage({ paymentId, session }: PaymentResultPageProps) {
+export function PaymentResultPage({ paymentId, session, compact = false }: PaymentResultPageProps) {
   const {
     closePaymentResult,
     continueActivePayment,
@@ -185,9 +186,9 @@ export function PaymentResultPage({ paymentId, session }: PaymentResultPageProps
   };
 
   return (
-    <section className="min-h-[72vh] bg-[radial-gradient(circle_at_50%_-8%,rgba(210,232,255,0.95)_0%,rgba(244,248,252,0.98)_36%,#f5f7fa_72%)] px-4 py-8 motion-safe:animate-[paymentCarrierIn_160ms_ease-out] md:py-14">
-      <div className="mx-auto max-w-[680px] overflow-hidden rounded-[30px] border border-white/90 bg-white/95 shadow-[0_24px_72px_rgba(31,78,126,0.11),0_2px_12px_rgba(36,102,170,0.06)] backdrop-blur-sm">
-        <div className="flex items-center justify-between border-b border-slate-100/80 px-5 py-4 md:px-8">
+    <section className={`bg-[radial-gradient(circle_at_50%_-8%,rgba(210,232,255,0.95)_0%,rgba(244,248,252,0.98)_36%,#f5f7fa_72%)] px-4 motion-safe:animate-[paymentCarrierIn_160ms_ease-out] ${compact ? 'py-5 md:py-7' : 'min-h-[72vh] py-8 md:py-14'}`}>
+      <div className={`mx-auto overflow-hidden border border-white/90 bg-white/95 shadow-[0_24px_72px_rgba(31,78,126,0.11),0_2px_12px_rgba(36,102,170,0.06)] backdrop-blur-sm ${compact ? 'max-w-[440px] rounded-2xl' : 'max-w-[680px] rounded-[30px]'}`}>
+        <div className={`flex items-center justify-between border-b border-slate-100/80 px-5 ${compact ? 'py-2.5' : 'py-4 md:px-8'}`}>
           <div className="flex min-w-0 items-center gap-2.5">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-[#1769e8]"><ShieldCheck className="h-[18px] w-[18px]" strokeWidth={2} /></span>
             <span className="truncate text-sm font-semibold text-slate-700">{session?.mallName ?? '安心支付'}</span>
@@ -195,16 +196,22 @@ export function PaymentResultPage({ paymentId, session }: PaymentResultPageProps
           <span className="shrink-0 rounded-full bg-[#f4f8ff] px-3 py-1 text-[11px] font-medium text-[#5175a4]">{orderId ? '微信支付' : '安全结算'}</span>
         </div>
 
-        <div className="px-5 pb-7 pt-8 text-center md:px-10 md:pb-10 md:pt-10" aria-live="polite">
-          <PaymentStatusMark stage={stage} refreshing={refreshing} />
-          <p className="mt-5 text-xs font-semibold tracking-[0.14em] text-[#6483a8]">{copy.eyebrow}</p>
-          <h1 className="mt-2 text-[25px] font-bold tracking-tight text-[#13233a] md:text-[30px]">{copy.title}</h1>
-          <p className="mx-auto mt-2 max-w-[480px] text-sm leading-6 text-slate-500">{error ?? copy.detail}</p>
+        <div className={`px-5 ${compact ? 'py-4' : 'pb-7 pt-8 text-center md:px-10 md:pb-10 md:pt-10'}`} aria-live="polite">
+          <div className={compact ? 'flex items-center gap-3' : undefined}>
+            <PaymentStatusMark stage={stage} refreshing={refreshing} compact={compact} />
+            <div>
+              <p className={`text-xs font-semibold tracking-[0.14em] text-[#6483a8] ${compact ? '' : 'mt-5'}`}>{copy.eyebrow}</p>
+              <h1 className={`font-bold tracking-tight text-[#13233a] ${compact ? 'mt-0.5 text-lg' : 'mt-2 text-[25px] md:text-[30px]'}`}>{copy.title}</h1>
+            </div>
+          </div>
+          <p className={`mt-2 text-sm text-slate-500 ${compact ? 'leading-5' : 'mx-auto max-w-[480px] leading-6'}`}>{error ?? copy.detail}</p>
 
-          <div className="mt-7 rounded-[22px] border border-[#e9f1fb] bg-[linear-gradient(145deg,#f9fcff_0%,#f2f7fd_100%)] px-5 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
-            <p className="text-[11px] font-medium tracking-[0.08em] text-slate-400">{orderId ? '本次支付' : '本次结算'}</p>
-            <p className="mt-1 text-[38px] font-bold tabular-nums tracking-[-0.04em] text-[#14243b]">{amount}</p>
-            <div className="mx-auto mt-3 flex w-fit items-center gap-2 rounded-full bg-white/90 px-3 py-1.5 text-xs text-slate-500 shadow-[0_1px_5px_rgba(35,75,120,0.06)]">
+          <div className={`border border-[#e9f1fb] bg-[linear-gradient(145deg,#f9fcff_0%,#f2f7fd_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] ${compact ? 'mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-xl px-3 py-2.5' : 'mt-7 rounded-[22px] px-5 py-5'}`}>
+            <div className={compact ? 'flex flex-wrap items-baseline gap-x-2' : undefined}>
+              <p className="text-[11px] font-medium tracking-[0.08em] text-slate-400">{orderId ? '本次支付' : '本次结算'}</p>
+              <p className={`font-bold tabular-nums tracking-[-0.04em] text-[#14243b] ${compact ? 'text-lg' : 'mt-1 text-[38px]'}`}>{amount}</p>
+            </div>
+            <div className={`flex w-fit items-center gap-2 rounded-full bg-white/90 px-3 py-1.5 text-xs text-slate-500 shadow-[0_1px_5px_rgba(35,75,120,0.06)] ${compact ? '' : 'mx-auto mt-3'}`}>
               <ReceiptText className="h-3.5 w-3.5 text-[#2a75df]" /><span>{paymentOrderStatusLabel(stage, orderId)}</span>
             </div>
           </div>
@@ -225,7 +232,7 @@ export function PaymentResultPage({ paymentId, session }: PaymentResultPageProps
             </details>
           ) : null}
 
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
+          <div className={`flex flex-col gap-3 sm:flex-row sm:justify-center ${compact ? 'mt-3 empty:hidden' : 'mt-6'}`}>
             {captured ? (
               <><PrimaryButton onClick={goToOrders}>查看订单<ArrowRight className="h-4 w-4" /></PrimaryButton><SecondaryButton onClick={goHome}><Home className="h-4 w-4" />返回首页</SecondaryButton></>
             ) : null}
@@ -247,7 +254,14 @@ export function PaymentResultPage({ paymentId, session }: PaymentResultPageProps
   );
 }
 
-function PaymentStatusMark({ stage, refreshing }: Readonly<{ stage: PaymentDisplayStage; refreshing: boolean }>) {
+function PaymentStatusMark({ stage, refreshing, compact }: Readonly<{ stage: PaymentDisplayStage; refreshing: boolean; compact: boolean }>) {
+  if (compact) {
+    if (stage === 'captured') return <span className="flex size-9 shrink-0 items-center justify-center rounded-full border border-emerald-200 bg-white text-emerald-600 motion-safe:animate-[paymentSuccess_280ms_ease-out]"><Check className="size-5" strokeWidth={2.5} /></span>;
+    if (stage === 'failed' || stage === 'expired' || stage === 'cancelled') {
+      return <span className="flex size-9 shrink-0 items-center justify-center rounded-full border border-[#dfeaf5] bg-white text-[#60758e]">{stage === 'cancelled' ? <Clock3 className="size-5" /> : <CircleAlert className="size-5" />}</span>;
+    }
+    return <span className="flex size-9 shrink-0 items-center justify-center rounded-full border border-[#cfe3f8]/90 bg-[#f4f8ff] text-[#2677d5]"><LoaderCircle className={`size-5 ${refreshing ? 'animate-spin motion-reduce:animate-none' : ''}`} strokeWidth={1.8} /></span>;
+  }
   if (stage === 'captured') {
     return <div className="relative mx-auto flex h-24 w-24 items-center justify-center"><span className="absolute inset-1 rounded-full bg-emerald-100/70 blur-xl" /><span className="relative flex h-[74px] w-[74px] items-center justify-center rounded-full border border-emerald-200 bg-white text-emerald-600 shadow-[0_8px_28px_rgba(16,185,129,0.16)] motion-safe:animate-[paymentSuccess_280ms_ease-out]"><Check className="h-9 w-9" strokeWidth={2.5} /></span></div>;
   }

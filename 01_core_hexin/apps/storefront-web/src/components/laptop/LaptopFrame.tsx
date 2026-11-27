@@ -99,8 +99,8 @@ export const StorefrontWebFrame: React.FC<StorefrontWebFrameProps> = ({ surface 
     const checkoutInPlace = activePaymentSession?.checkoutFailure === 'cart-changed'
       || (laptopPage === 'cart' && !showShippingAddress && !activePaymentSession?.orderId
         && (activePaymentSession?.stage === 'validating' || activePaymentSession?.stage === 'creating-order'));
-    if (activePaymentSession && !checkoutInPlace) return <PaymentResultPage session={activePaymentSession} />;
-    if (activePaymentId) return <PaymentResultPage paymentId={activePaymentId} />;
+    if (activePaymentSession && !checkoutInPlace) return <PaymentResultPage session={activePaymentSession} compact />;
+    if (activePaymentId) return <PaymentResultPage paymentId={activePaymentId} compact />;
     if (showShippingAddress) {
       return (
         <section className="sw-web-container mx-auto max-w-[1240px] px-3 py-6">
