@@ -21,7 +21,8 @@ interface PublicationRow {
 export class ExperienceJobProcessor implements JobProcessor {
   private readonly publisher: CdnPublisher;
 
-  constructor(private readonly pool: DatabasePool, objects: ObjectStore, private readonly cache: Cache) { this.publisher = new CdnPublisher(objects); }
+  constructor(private readonly pool: DatabasePool, objects: ObjectStore, private readonly cache?: Cache,
+    private readonly scope?: string) { this.publisher = new CdnPublisher(objects); }
 
   async process(job: ClaimedJob, signal: AbortSignal): Promise<void> {
     if (job.kind !== 'experiencepublish') throw new Error('JOB_KIND_MISMATCH');
@@ -34,7 +35,8 @@ export class ExperienceJobProcessor implements JobProcessor {
     const expected = text(payload.hash, 'EXPERIENCE_HASH_REQUIRED');
     const selected = await this.pool.query<PublicationRow>(`select release.id release_id,release.application_id,release.version_id,release.state,release.effective_at,
       version.configuration,version.configuration_hash from experience.release release join experience.version version on version.id=release.version_id
-      where release.id=$1`, [release]);
+      join experience.application application on application.id=release.application_id
+      where release.id=$1 and ($2::text is null or application.scope_id=$2)`, [release, this.scope ?? null]);
     const target = selected.rows[0];
     if (!target) throw new Error('EXPERIENCE_RELEASE_NOT_FOUND');
     if (target.application_id !== payload.application || target.version_id !== payload.version || target.configuration_hash !== expected) {
@@ -80,17 +82,17 @@ export class ExperienceJobProcessor implements JobProcessor {
       await database.query('commit');
     } catch (cause) { await database.query('rollback'); throw cause; }
     finally { database.release(); }
-    if (active) await this.publishCache(malls, target, path);
+    if (active && this.cache) await this.publishCache(this.cache, malls, target, path);
   }
 
-  private async publishCache(malls: readonly string[], target: PublicationRow, path: string): Promise<void> {
+  private async publishCache(cache: Cache, malls: readonly string[], target: PublicationRow, path: string): Promise<void> {
     const value: PublishedExperience = Object.freeze({ release: target.release_id, version: target.version_id, hash: target.configuration_hash,
       document: target.configuration, effective_at: target.effective_at, object_key: path });
     await Promise.all(malls.map(async (mall) => {
       const versionKey = VersionedKey.create('experience', { mall, version: target.version_id });
       const activeKey = VersionedKey.create('experience', { mall, version: 'active' });
-      if (await this.cache.put(versionKey, value, CACHE_CATALOG.experience.maximumSeconds)) {
-        await this.cache.put(activeKey, target.version_id, Math.max(1, CACHE_CATALOG.experience.staleSeconds));
+      if (await cache.put(versionKey, value, CACHE_CATALOG.experience.maximumSeconds)) {
+        await cache.put(activeKey, target.version_id, Math.max(1, CACHE_CATALOG.experience.staleSeconds));
       }
     }));
   }

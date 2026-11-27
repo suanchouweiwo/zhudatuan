@@ -10,6 +10,8 @@ import type { Job } from '../foundation/application/Job';
 import type { JobProcessor, JobRunnerConfig } from '../foundation/application/JobRunner';
 import { HttpObjectStore, type ObjectStore } from '../foundation/infrastructure/ObjectStore';
 import { QueueJob } from '../foundation/infrastructure/QueueJob';
+import { OutboxRelay } from '../foundation/infrastructure/OutboxRelay';
+import { RuntimeEventPublisher } from '../foundation/infrastructure/RuntimeEventPublisher';
 import { WorkloadSecretStore } from '../foundation/infrastructure/SecretStore';
 import { createPool, type DatabasePool } from '../foundation/persistence/Pool';
 import { JobMetrics } from '../foundation/telemetry/JobMetrics';
@@ -23,6 +25,7 @@ import { catalogMediaTargets } from '../modules/catalog/04_adapters_shixian/conf
 import { createCatalogMediaStorageResolver } from '../modules/catalog/04_adapters_shixian/object_storage/CatalogMediaStorageResolver';
 import { PgCatalogMediaPersistence } from '../modules/catalog/04_adapters_shixian/persistence/PgCatalogMediaPersistence';
 import { ExportJobRunner } from '../modules/reporting/05_interface_jieru/job/ExportJobRunner';
+import { ExperienceJobProcessor } from '../modules/experience/05_interface_jieru/job/ExperienceJobs';
 
 export interface CatalogJobsEnvironment {
   readonly APP_ENV: string;
@@ -211,6 +214,16 @@ export function createCatalogJobs(
       undefined,
       new JobMetrics(commerceTelemetry()),
     ));
+  }
+  if (mallScope) {
+    const publicationWorker = `${worker}:experience`;
+    const relay = new OutboxRelay(pool, new RuntimeEventPublisher(pool), publicationWorker, 1,
+      { scope: mallScope, eventType: 'experience.published' });
+    jobs.push(
+      { id: 'experience-outbox', execute: (_input, { signal }) => relay.run(signal, 8, 1_000) },
+      new QueueJob('experiencepublish', pool, { ...configuration, worker: publicationWorker, owner: 'experience', scope: mallScope, concurrency: 1 },
+        new ExperienceJobProcessor(pool, objects, undefined, mallScope), undefined, new JobMetrics(commerceTelemetry())),
+    );
   }
   return Object.freeze(jobs);
 }

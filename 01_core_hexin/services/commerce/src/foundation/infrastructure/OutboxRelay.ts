@@ -1,6 +1,6 @@
 import type { DatabasePool } from '../persistence/Pool';
 import { Semaphore } from '../performance/Semaphore';
-import { OutboxStore, type OutboxEvent } from './OutboxStore';
+import { OutboxStore, type OutboxEvent, type OutboxSelection } from './OutboxStore';
 
 export type { OutboxEvent } from './OutboxStore';
 
@@ -11,13 +11,14 @@ export interface EventPublisher {
 export class OutboxRelay {
   private readonly semaphore: Semaphore;
   private readonly store: OutboxStore;
-  constructor(pool: DatabasePool, private readonly publisher: EventPublisher, private readonly owner: string, concurrency = 8) {
+  constructor(pool: DatabasePool, private readonly publisher: EventPublisher, private readonly owner: string, concurrency = 8,
+    private readonly selection?: OutboxSelection) {
     this.semaphore = new Semaphore(concurrency);
     this.store = new OutboxStore(pool);
   }
 
   async relay(batch: number): Promise<number> {
-    const events = await this.store.claim(this.owner, batch);
+    const events = await this.store.claim(this.owner, batch, undefined, this.selection);
     await Promise.all(events.map((event) => this.semaphore.use(async () => {
         try {
           await this.publisher.publish(event);

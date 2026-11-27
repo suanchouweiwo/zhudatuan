@@ -17,6 +17,11 @@ export interface OutboxEvent extends QueryResultRow {
   readonly attempts: number;
 }
 
+export interface OutboxSelection {
+  readonly scope: string;
+  readonly eventType: string;
+}
+
 export class OutboxStore {
   private readonly unit: PgUnitOfWork;
 
@@ -24,7 +29,7 @@ export class OutboxStore {
     this.unit = new PgUnitOfWork(pool);
   }
 
-  claim(owner: string, batch: number, leaseSeconds = 30): Promise<readonly OutboxEvent[]> {
+  claim(owner: string, batch: number, leaseSeconds = 30, selection?: OutboxSelection): Promise<readonly OutboxEvent[]> {
     if (!owner || !Number.isSafeInteger(batch) || batch < 1 || batch > 1000 || !Number.isSafeInteger(leaseSeconds) || leaseSeconds < 5 || leaseSeconds > 900) {
       throw new Error('OUTBOX_CLAIM_INVALID');
     }
@@ -32,6 +37,7 @@ export class OutboxStore {
       const result = await transaction.query<OutboxEvent>(`with eligible as (
         select target.id,row_number() over(partition by target.aggregate_id order by target.occurred_at,target.id) aggregate_sequence
         from runtime.outbox target where target.published_at is null and target.failed_at is null and target.available_at<=clock_timestamp()
+          and ($4::text is null or target.scope_id=$4) and ($5::text is null or target.event_type=$5)
           and (target.claim_until is null or target.claim_until<=clock_timestamp())
           and not exists(select 1 from runtime.outbox earlier where earlier.aggregate_id=target.aggregate_id and earlier.published_at is null
             and earlier.failed_at is null and (earlier.occurred_at,earlier.id)<(target.occurred_at,target.id))
@@ -39,7 +45,7 @@ export class OutboxStore {
         select id from eligible where aggregate_sequence=1 order by id for update skip locked limit $1
       ) update runtime.outbox target set claimed_by=$2,claim_until=clock_timestamp()+make_interval(secs=>$3),attempts=target.attempts+1
         from candidates where target.id=candidates.id returning target.id,target.event_type,target.event_version,target.aggregate_id,target.scope_id,
-        target.payload,target.trace_id,target.attempts`, [batch, owner, leaseSeconds]);
+        target.payload,target.trace_id,target.attempts`, [batch, owner, leaseSeconds, selection?.scope ?? null, selection?.eventType ?? null]);
       return result.rows;
     });
   }

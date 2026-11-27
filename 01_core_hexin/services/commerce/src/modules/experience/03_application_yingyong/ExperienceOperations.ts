@@ -9,6 +9,7 @@ import { CACHE } from '../../../foundation/cache/Cache';
 import { VersionedKey } from '../../../foundation/cache/VersionedKey';
 import { DATABASE_POOL } from '../../../foundation/persistence/Pool';
 import { PublishPolicy } from '../02_domain_yewu/policy/PublishPolicy';
+import { experienceObjectKey } from '../04_adapters_shixian/adapter/CdnPublisher';
 
 export function experienceOperations(context: ModuleContext): ModuleOperations {
   const pool = context.container.get(DATABASE_POOL);
@@ -131,7 +132,7 @@ export function experienceOperations(context: ModuleContext): ModuleOperations {
     'experience.versions.publish': async (request, database) => {
       const access = requireAccess(request);
       if (request.input.expectedVersion === undefined) throw new Error('EXPECTED_VERSION_REQUIRED');
-      const loaded = await database.query<{ application_id: string; validation_state: string; configuration: unknown }>(`select version.application_id,version.validation_state,version.configuration
+      const loaded = await database.query<{ application_id: string; validation_state: string; configuration: unknown; configuration_hash: string }>(`select version.application_id,version.validation_state,version.configuration,version.configuration_hash
         from experience.version version join experience.application application on application.id=version.application_id
         where version.id=$1 and application.version=$2 for update of version,application`,
       [request.input.path.versionid!, request.input.expectedVersion]);
@@ -147,9 +148,10 @@ export function experienceOperations(context: ModuleContext): ModuleOperations {
         values($1,$2,$3,'scheduled',clock_timestamp(),$4) returning *`, [release, version.application_id, request.input.path.versionid!, access.actor.id]);
       await database.query(`insert into runtime.outbox(id,event_type,event_version,aggregate_type,aggregate_id,scope_id,payload,trace_id,occurred_at,available_at)
         select $1,'experience.published',1,'experience',$2,application.scope_id,jsonb_build_object('release',$3,'application',$2,'version',$4,'hash',version.configuration_hash,
-          'key','experience/'||$2||'/'||version.configuration_hash||'.json'),$5,clock_timestamp(),clock_timestamp()
+          'key',$6::text),$5,clock_timestamp(),clock_timestamp()
         from experience.application application join experience.version version on version.id=$4 where application.id=$2`,
-      [`event:${randomUUID()}`, version.application_id, release, request.input.path.versionid!, access.trace]);
+      [`event:${randomUUID()}`, version.application_id, release, request.input.path.versionid!, access.trace,
+        experienceObjectKey(version.application_id, version.configuration_hash)]);
       return rowResult(result, 202);
     },
     'experience.versions.restore': async (request, database) => {

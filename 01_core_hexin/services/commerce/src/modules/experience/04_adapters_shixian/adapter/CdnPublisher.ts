@@ -2,6 +2,11 @@ import { createHash } from 'node:crypto';
 import { serializeExperience } from '@shop/contract';
 import type { ObjectStore, StoredObject } from '../../../../foundation/infrastructure/ObjectStore';
 
+export function experienceObjectKey(application: string, contentHash: string): string {
+  const directory = createHash('sha256').update(application).digest('hex');
+  return `experience/${directory}/${contentHash}.json`;
+}
+
 export class CdnPublisher {
   constructor(private readonly objects: ObjectStore) {}
 
