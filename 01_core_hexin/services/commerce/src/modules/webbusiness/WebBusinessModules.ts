@@ -1,5 +1,6 @@
 import { defineSelectedModule } from '../../bootstrap/DefinedModule';
 import { cartOperations } from '../cart';
+import { fulfillmentOperations } from '../fulfillment/03_application_yingyong/FulfillmentOperations';
 import { organizationOperations } from '../organization';
 import { webBenefitOperations } from './WebBenefitOperations';
 import { webCatalogOperations } from './WebCatalogOperations';
@@ -13,6 +14,7 @@ import {
   WEB_CART_OPERATION_IDS,
   WEB_CATALOG_OPERATION_IDS,
   WEB_INVENTORY_OPERATION_IDS,
+  WEB_FULFILLMENT_OPERATION_IDS,
   WEB_MEMBER_OPERATION_IDS,
   WEB_ORDER_OPERATION_IDS,
   WEB_ORGANIZATION_OPERATION_IDS,
@@ -30,6 +32,7 @@ export const WebInventoryModule = defineSelectedModule('inventory', WEB_INVENTOR
 export const WebReportingModule = defineSelectedModule('reporting', WEB_REPORTING_OPERATION_IDS, webReportingOperations);
 export const WebCartModule = defineSelectedModule('cart', WEB_CART_OPERATION_IDS, cartOperations);
 export const WebOrderModule = defineSelectedModule('order', WEB_ORDER_OPERATION_IDS, webOrderOperations);
+const WebFulfillmentModule = defineSelectedModule('fulfillment', WEB_FULFILLMENT_OPERATION_IDS, fulfillmentOperations);
 export const WebBenefitModule = defineSelectedModule('benefit', WEB_BENEFIT_OPERATION_IDS, webBenefitOperations);
 
 export const WEB_BUSINESS_MODULES = Object.freeze([
@@ -41,5 +44,6 @@ export const WEB_BUSINESS_MODULES = Object.freeze([
   WebReportingModule,
   WebCartModule,
   WebOrderModule,
+  WebFulfillmentModule,
   WebBenefitModule,
 ]);

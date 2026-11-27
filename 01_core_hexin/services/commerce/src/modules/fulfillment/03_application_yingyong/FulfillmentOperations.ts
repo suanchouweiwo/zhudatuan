@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { ModuleContext } from '../../../bootstrap/ModuleRegistry';
 import { AUDIT_SINK } from '../../../foundation/application/AuditSink';
-import { ModuleOperations, requireAccess, rowResult } from '../../../foundation/application/ModuleOperations';
+import { ModuleOperations, reject, requireAccess, rowResult } from '../../../foundation/application/ModuleOperations';
 import { bodyRecord, textField } from '../../../foundation/interface/Validation';
 import { DATABASE_POOL } from '../../../foundation/persistence/Pool';
 
@@ -26,19 +26,37 @@ export function fulfillmentOperations(context: ModuleContext): ModuleOperations 
     },
     'fulfillment.shipments.create': async (request, database) => {
       const access = requireAccess(request);
-      const mall = access.mall_id;
-      if (!mall) throw new Error('SCOPE_DENIED');
       const body = bodyRecord(request);
       const fulfillment = request.input.path.fulfillmentid!;
-      const loaded = await database.query<{ order_id: string }>(`select order_id from fulfillment.fulfillmentorder
-        where mall_id=$1 and id=$2 for update`, [mall, fulfillment]);
-      if (!loaded.rows[0]) throw new Error('RESOURCE_NOT_FOUND');
       const tracking = textField(body, 'tracking', 128);
+      const loaded = await database.query<{ order_id: string; mall_id: string; can_ship: boolean }>(`select orders.id order_id,orders.mall_id,
+        (orders.payment_state='paid' and orders.lifecycle_state='active' and shipment.kind='shipment'
+          and shipment.state not in('completed','cancelled')) can_ship
+        from ordering.orderrecord orders join fulfillment.fulfillmentorder shipment on shipment.mall_id=orders.mall_id and shipment.order_id=orders.id
+        where shipment.id=$1 and ($2::text is null or orders.mall_id=$2)
+        and case $3::text when 'supplier' then shipment.partner_id=$4 when 'store' then shipment.store_id=$4
+          when 'mall' then orders.mall_id=$4 else exists (
+            select 1 from organization.unitclosure closure where closure.ancestor_id=$4 and closure.descendant_id=orders.mall_id) end
+        for update of orders,shipment`, [fulfillment, access.mall_id ?? null, access.scope.kind, access.scope.id]);
+      const target = loaded.rows[0];
+      if (!target) reject(404, 'RESOURCE_NOT_FOUND');
+      if (!target.can_ship) reject(409, 'SHIPMENT_NOT_AVAILABLE');
       const result = await database.query(`with milestone as (insert into fulfillment.milestone(id,mall_id,fulfillment_id,kind,state,external_id,evidence,occurred_at)
-        values($1,$2,$3,'shipment','shipped',$4,$5::jsonb,clock_timestamp()) returning *), changed as
+        select $1,$2,$3,'shipment','shipped',$4,$5::jsonb,clock_timestamp() where not exists (
+          select 1 from fulfillment.milestone prior where prior.mall_id=$2 and prior.fulfillment_id=$3
+          and prior.kind='shipment' and prior.state='shipped') returning external_id), changed as
         (update fulfillment.fulfillmentorder set state='processing',version=version+1,updated_at=clock_timestamp()
-          where mall_id=$2 and id=$3 and state in('pending','failed') returning *) select changed.*,milestone.external_id tracking from changed join milestone on true`,
-      [`milestone:${randomUUID()}`, mall, fulfillment, tracking, JSON.stringify({ carrier: body.carrier ?? null, actor: access.actor.id })]);
+          where mall_id=$2 and id=$3 and exists(select 1 from milestone) returning *)
+        select changed.*,milestone.external_id tracking from changed cross join milestone`,
+      [`milestone:${randomUUID()}`, target.mall_id, fulfillment, tracking, JSON.stringify({ carrier: body.carrier ?? null, actor: access.actor.id })]);
+      if (!result.rows[0]) reject(409, 'SHIPMENT_ALREADY_RECORDED');
+      await database.query(`update ordering.orderrecord orders set fulfillment_state='shipped',updated_at=clock_timestamp(),version=version+1
+        where orders.id=$1 and orders.mall_id=$2 and orders.fulfillment_state in('unallocated','allocated','processing')
+        and not exists (
+          select 1 from fulfillment.fulfillmentorder shipment where shipment.mall_id=$2 and shipment.order_id=$1
+            and shipment.kind='shipment' and shipment.state<>'cancelled' and not exists (
+              select 1 from fulfillment.milestone milestone where milestone.mall_id=$2 and milestone.fulfillment_id=shipment.id
+                and milestone.kind='shipment' and milestone.state='shipped'))`, [target.order_id, target.mall_id]);
       return rowResult(result, 201);
     },
     'fulfillment.returns.receive': async (request, database) => {

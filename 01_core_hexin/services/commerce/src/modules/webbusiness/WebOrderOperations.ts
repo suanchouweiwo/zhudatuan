@@ -95,7 +95,7 @@ export function webOrderOperations(context: ModuleContext): ModuleOperations {
           'lines',coalesce((select jsonb_agg(jsonb_build_object('lineId',line.order_line_id,'quantity',line.quantity) order by line.order_line_id)
             from fulfillment.line line where line.fulfillment_id=fulfillment.id),'[]'::jsonb),
           'milestones',coalesce((select jsonb_agg(jsonb_build_object('id',milestone.id,'kind',milestone.kind,'state',milestone.state,
-            'occurredAt',milestone.occurred_at) order by milestone.occurred_at,milestone.id)
+            'occurredAt',milestone.occurred_at,'tracking',case when milestone.kind='shipment' then milestone.external_id end) order by milestone.occurred_at,milestone.id)
             from fulfillment.milestone milestone where milestone.fulfillment_id=fulfillment.id),'[]'::jsonb)) order by fulfillment.id) items
           from fulfillment.fulfillmentorder fulfillment where $15::boolean and fulfillment.order_id=orders.id) fulfillments on true
         left join lateral(select jsonb_build_object('intentId',intent.id,'intentState',intent.state,'amountMinor',intent.amount_minor,

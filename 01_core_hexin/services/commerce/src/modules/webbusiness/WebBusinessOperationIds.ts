@@ -38,6 +38,10 @@ export const WEB_ORDER_OPERATION_IDS = Object.freeze([
   'order.orders.read',
 ] as const satisfies readonly OperationId[]);
 
+export const WEB_FULFILLMENT_OPERATION_IDS = Object.freeze([
+  'fulfillment.shipments.create',
+] as const satisfies readonly OperationId[]);
+
 export const WEB_BENEFIT_OPERATION_IDS = Object.freeze([
   'benefit.accounts.read',
   'benefit.ledgers.read',
@@ -52,5 +56,6 @@ export const WEB_BUSINESS_OPERATION_IDS = Object.freeze([
   ...WEB_REPORTING_OPERATION_IDS,
   ...WEB_CART_OPERATION_IDS,
   ...WEB_ORDER_OPERATION_IDS,
+  ...WEB_FULFILLMENT_OPERATION_IDS,
   ...WEB_BENEFIT_OPERATION_IDS,
 ] as const satisfies readonly OperationId[]);
