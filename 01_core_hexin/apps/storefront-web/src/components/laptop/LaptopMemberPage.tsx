@@ -1,4 +1,4 @@
-import { ArrowLeft, ChevronRight, CreditCard, Gift } from 'lucide-react';
+import { ArrowLeft, ChevronRight, CreditCard, Gift, UserRound } from 'lucide-react';
 import { useMall } from '../../context/MallContext';
 import type { LaptopPage } from '../../context/MallContext.types';
 import { MemberAccountSettings } from '../MemberAccountSettings';
@@ -7,13 +7,15 @@ import { defaultStorefrontWebPage, type StorefrontWebSurface } from './Storefron
 
 export function LaptopMemberEntry({ onSelectTab }: { onSelectTab: (page: LaptopPage) => void }) {
   const { user } = useMall();
-
   return (
     <button type="button" onClick={() => onSelectTab('member')} className="flex w-full items-center gap-2.5 border-b border-gray-100 pb-3 text-left">
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-sm font-bold text-[var(--sw-brand)]">
-        {Array.from(user.name)[0]}
+      <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-teal-800 to-teal-600 text-white shadow-2xs">
+        <UserRound className="h-5 w-5" />
       </span>
-      <span className="min-w-0 flex-1 truncate text-xs font-bold text-gray-900">{user.name}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-xs font-extrabold text-gray-900">会员</span>
+        <span className="block truncate text-[11px] text-gray-500">{user.phone}</span>
+      </span>
       <span className="flex shrink-0 items-center gap-0.5 whitespace-nowrap text-[11px] font-bold text-[var(--sw-brand)]">
         我的会员 <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
       </span>
