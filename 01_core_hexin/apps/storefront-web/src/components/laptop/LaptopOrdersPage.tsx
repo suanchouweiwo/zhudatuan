@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useMall } from '../../context/MallContext';
 import { ArrowLeft, FileText, Truck, Download } from 'lucide-react';
+import type { OrderStatus } from '../../types';
 import { STOREFRONT_WEB_SURFACE_COPY, type StorefrontWebSurface } from './StorefrontWebStandard';
 
 interface LaptopOrdersPageProps {
@@ -8,18 +9,27 @@ interface LaptopOrdersPageProps {
   surface?: StorefrontWebSurface;
 }
 
-export const LaptopOrdersPage: React.FC<LaptopOrdersPageProps> = ({ onReturnToCheckout, surface = 'laptop' }) => {
-  const { triggerPendingFeature, presentationOrders: MOCK_ORDERS } = useMall();
-  const surfaceCopy = STOREFRONT_WEB_SURFACE_COPY[surface];
-  const [activeStatus, setActiveStatus] = useState<string>('all');
+type OrderFilter = 'all' | 'unpaid' | 'shipping' | 'completed';
 
-  const filteredOrders = MOCK_ORDERS.filter((o) => {
-    if (activeStatus === 'all') return true;
-    if (activeStatus === 'unpaid') return o.status === 'pending_payment';
-    if (activeStatus === 'shipping') return o.status === 'pending_shipment' || o.status === 'pending_receipt';
-    if (activeStatus === 'completed') return o.status === 'completed';
-    return true;
-  });
+const orderFilters: ReadonlyArray<{ id: OrderFilter; name: string; statuses: readonly OrderStatus[] }> = [
+  { id: 'all', name: '全部企采订单', statuses: [] },
+  { id: 'unpaid', name: '待付款 / 待划扣', statuses: ['pending_payment'] },
+  { id: 'shipping', name: '待发货 / 运输中', statuses: ['pending_shipment', 'pending_receipt'] },
+  { id: 'completed', name: '已完成 / 已开票', statuses: ['completed'] },
+];
+
+export const LaptopOrdersPage: React.FC<LaptopOrdersPageProps> = ({ onReturnToCheckout, surface = 'laptop' }) => {
+  const { triggerPendingFeature, presentationOrders } = useMall();
+  const surfaceCopy = STOREFRONT_WEB_SURFACE_COPY[surface];
+  const [activeStatus, setActiveStatus] = useState<OrderFilter>('all');
+
+  const tabs = orderFilters.map((filter) => ({
+    ...filter,
+    orders: filter.id === 'all'
+      ? presentationOrders
+      : presentationOrders.filter((order) => filter.statuses.includes(order.status)),
+  }));
+  const filteredOrders = tabs.find((tab) => tab.id === activeStatus)?.orders ?? presentationOrders;
 
   return (
     <div className="w-full bg-[#F5F7FA] min-h-[80vh] pb-8 font-sans">
@@ -44,19 +54,14 @@ export const LaptopOrdersPage: React.FC<LaptopOrdersPageProps> = ({ onReturnToCh
           <div className="sw-web-orders-sidebar md:col-span-3 bg-white border border-gray-200 rounded-lg p-2.5 shadow-2xs space-y-1 text-xs">
             <div className="font-bold text-gray-800 pb-2 border-b border-gray-100 text-[11px] uppercase tracking-wider text-gray-400">订单状态筛选</div>
 
-            {[
-              { id: 'all', name: '全部企采订单', count: MOCK_ORDERS.length },
-              { id: 'unpaid', name: '待付款 / 待划扣', count: 1 },
-              { id: 'shipping', name: '待发货 / 运输中', count: 1 },
-              { id: 'completed', name: '已完成 / 已开票', count: MOCK_ORDERS.length - 2 },
-            ].map((tab) => (
+            {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveStatus(tab.id)}
                 className={`w-full text-left px-2.5 py-2 rounded font-bold cursor-pointer transition-colors flex items-center justify-between ${activeStatus === tab.id ? 'bg-[var(--sw-brand)] text-white' : 'hover:bg-gray-100 text-gray-700'}`}
               >
                 <span>{tab.name}</span>
-                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${activeStatus === tab.id ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'}`}>{tab.count}</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${activeStatus === tab.id ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'}`}>{tab.orders.length}</span>
               </button>
             ))}
 
@@ -106,7 +111,7 @@ export const LaptopOrdersPage: React.FC<LaptopOrdersPageProps> = ({ onReturnToCh
                 <div className="bg-gray-50/60 p-2.5 border-t border-gray-100 flex items-center justify-between flex-wrap gap-2 text-[11px]">
                   <div className="flex items-center gap-2 text-gray-600">
                     <span>
-                      总额: <strong className="text-gray-900">¥{order.totalAmount.toFixed(2)}</strong>
+                      总额: <strong className="text-gray-900">¥{(order.payment.payableAmount ?? order.totalAmount).toFixed(2)}</strong>
                     </span>
                     <span>·</span>
                     <span className="text-[var(--sw-brand-dark)] font-bold">福利卡扣减: -¥{order.welfareDeduction.toFixed(2)}</span>

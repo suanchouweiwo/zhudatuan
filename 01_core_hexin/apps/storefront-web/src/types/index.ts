@@ -151,6 +151,7 @@ export interface OrderItem {
 
 export interface OrderPaymentDetail {
   totalGoodsAmount: number;
+  payableAmount?: number;
   shippingFee: number;
   welfareDeducted: number; // 福利卡扣减
   mealDeducted: number; // 餐卡扣减

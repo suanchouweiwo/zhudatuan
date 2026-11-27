@@ -114,6 +114,7 @@ export function mapApiOrder(order: ApiOrder, scope: { enterpriseId: string; ente
     })),
     payment: {
       totalGoodsAmount: order.goodsAmountCents / 100,
+      payableAmount: order.payableCents / 100,
       shippingFee: 0,
       welfareDeducted: (order.welfarePaidCents ?? order.paidCents) / 100,
       mealDeducted: (order.mealPaidCents ?? 0) / 100,
