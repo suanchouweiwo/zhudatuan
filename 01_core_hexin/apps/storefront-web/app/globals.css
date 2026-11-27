@@ -65,9 +65,13 @@
   }
 }
 
-.sw-checkout-order-details:focus {
+.sw-checkout-order-details:focus,
+.sw-checkout-order-status:focus {
   outline: 1px solid var(--sw-brand);
   outline-offset: 2px;
+}
+
+.sw-checkout-order-details:focus {
   border-radius: 4px;
 }
 

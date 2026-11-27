@@ -225,7 +225,7 @@ export function PaymentResultPage({ paymentId, session, compact = false }: Payme
             </div>
           </div>
           <p className={`mt-2 text-slate-500 ${compact ? 'text-xs leading-5' : 'mx-auto max-w-[480px] text-sm leading-6'}`}>
-            {error ?? (compact && stage === 'recovery' && orderId ? '订单已保留，确认期间请勿重复付款。' : copy.detail)}
+            {error ?? (compact && stage === 'recovery' && orderId ? '订单已保留，可随时查看状态，请勿重复付款。' : copy.detail)}
           </p>
 
           {!compact && <div className="mt-7 rounded-[22px] border border-[#e9f1fb] bg-[linear-gradient(145deg,#f9fcff_0%,#f2f7fd_100%)] px-5 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
@@ -253,7 +253,7 @@ export function PaymentResultPage({ paymentId, session, compact = false }: Payme
             ) : null}
             {retryPayment && !orderId ? <PrimaryButton onClick={goToCart}>返回购物车确认</PrimaryButton> : null}
             {pending && (showStatusAction || error || (compact && orderId)) ? (
-              <button type="button" onClick={goToOrders} className={`inline-flex items-center justify-center gap-1.5 rounded-full text-xs font-semibold text-[#426b9b] transition-colors duration-150 hover:bg-blue-50 active:bg-blue-100 motion-reduce:transition-none ${compact ? 'min-h-8' : 'mx-auto min-h-10 px-4'}`}>查看订单状态<ArrowRight className="h-3.5 w-3.5" /></button>
+              <button type="button" onClick={goToOrders} className={`inline-flex items-center justify-center gap-1.5 rounded-full text-xs font-semibold text-[#426b9b] transition-colors duration-150 hover:bg-blue-50 active:bg-blue-100 motion-reduce:transition-none ${compact ? 'sw-checkout-order-status min-h-8' : 'mx-auto min-h-10 px-4'}`}>查看订单状态<ArrowRight className="h-3.5 w-3.5" /></button>
             ) : null}
           </div>
           {compact && orderDetails}
