@@ -111,6 +111,7 @@ export function mapApiOrder(order: ApiOrder, scope: { enterpriseId: string; ente
     supplierName: '供应商拆单汇总',
     supplierType: 'third_party',
     status: statusMap[order.status] ?? 'pending_payment',
+    ...(order.hasAftersale ? { hasAftersale: true } : {}),
     ...(order.hasShipment ? { hasShipment: true } : {}),
     ...(order.trackingNo ? { trackingNo: order.trackingNo } : {}),
     createTime: order.createdAt,

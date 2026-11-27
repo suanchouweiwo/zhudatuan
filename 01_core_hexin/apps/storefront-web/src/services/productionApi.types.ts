@@ -31,6 +31,7 @@ export interface ApiProduct {
 
 export interface ApiOrder {
   id: string;
+  hasAftersale?: boolean;
   orderNo: string;
   status: string;
   hasShipment?: boolean;
@@ -46,6 +47,13 @@ export interface ApiOrder {
   createdAt: string;
   updatedAt: string;
   items?: Array<{ productId: string; productTitle: string; productImage: string | null; priceCents: number; quantity: number; specs: Record<string, string>; itemType: string }>;
+}
+
+export interface ApiOrderReturn {
+  id: string;
+  title: string;
+  state: string;
+  refunds: Array<{ id: string; amountMinor: number; currency: string }>;
 }
 
 export type ApiPaymentResultState = 'preparing' | 'pending' | 'recovery' | 'captured' | 'failed' | 'expired';

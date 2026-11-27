@@ -1,4 +1,4 @@
-import type { ApiAccount, ApiAccountLedger, ApiCartItem, ApiOrder } from './productionApi.types';
+import type { ApiAccount, ApiAccountLedger, ApiCartItem, ApiOrder, ApiOrderReturn } from './productionApi.types';
 import { asDate, invalid, nextCursor, nonNegativeInteger, optionalText, pageItems, record, records, text, version } from './canonicalShape';
 
 export function mapCanonicalAccounts(value: unknown): ApiAccount[] {
@@ -66,6 +66,28 @@ export function mapCanonicalOrders(value: unknown): { items: ApiOrder[]; nextCur
   };
 }
 
+export function mapCanonicalOrderReturns(value: unknown, orderId: string): ApiOrderReturn[] {
+  const order = pageItems(value, 'order.orders').find(({ id }) => id === orderId);
+  if (!order) return [];
+  const lines = records(order.lines ?? [], 'order.lines');
+  const payment = order.payment_fact == null ? undefined : record(order.payment_fact, 'order.payment_fact');
+  const refunds = records(payment?.refunds ?? [], 'order.payment_fact.refunds');
+  return records(order.aftersales ?? [], 'order.aftersales').filter(({ kind }) => kind === 'return').map((sale) => {
+    const id = text(sale.id, 'order.aftersale.id');
+    const line = lines.find(({ id: lineId }) => lineId === sale.lineId);
+    return {
+      id,
+      title: optionalText(line?.title) ?? (sale.lineId == null ? '整单退货' : '退货商品'),
+      state: text(sale.state, 'order.aftersale.state'),
+      refunds: refunds.filter((refund) => refund.aftersaleId === id && refund.state === 'succeeded').map((refund) => ({
+        id: text(refund.id, 'order.refund.id'),
+        amountMinor: nonNegativeInteger(refund.amountMinor, 'order.refund.amountMinor'),
+        currency: text(refund.currency, 'order.refund.currency'),
+      })),
+    };
+  });
+}
+
 function mapOrder(item: Record<string, unknown>): ApiOrder {
   const total = nonNegativeInteger(item.total_minor, 'order.total_minor');
   const paymentState = optionalText(item.payment_state) ?? 'unpaid';
@@ -78,6 +100,7 @@ function mapOrder(item: Record<string, unknown>): ApiOrder {
     id: text(item.id, 'order.id'),
     orderNo: text(item.order_number, 'order.order_number'),
     status: orderStatus(item),
+    ...(typeof item.aftersale_state === 'string' && item.aftersale_state !== 'none' ? { hasAftersale: true } : {}),
     hasShipment: optionalText(item.fulfillment_state) === 'shipped' || Boolean(trackingNo),
     ...(trackingNo ? { trackingNo } : {}),
     goodsAmountCents: lines.reduce((sum, line) => sum + nonNegativeInteger(line.totalMinor, 'order.line.totalMinor'), 0),

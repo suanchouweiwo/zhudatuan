@@ -3,6 +3,7 @@ import { useMall } from '../../context/MallContext';
 import { ArrowLeft, FileText, Truck } from 'lucide-react';
 import type { OrderStatus } from '../../types';
 import { STOREFRONT_WEB_SURFACE_COPY, type StorefrontWebSurface } from './StorefrontWebStandard';
+import { OrderReturnProgress } from './OrderReturnProgress';
 
 interface LaptopOrdersPageProps {
   onReturnToCheckout?: () => void;
@@ -138,6 +139,7 @@ export const LaptopOrdersPage: React.FC<LaptopOrdersPageProps> = ({ onReturnToCh
                     </button>
                   ) : null}
                 </div>
+                {order.hasAftersale && <OrderReturnProgress orderId={order.orderId} />}
                 {order.status === 'pending_payment' && orderToPay === order.orderId && (
                   <section aria-label="继续结算原订单" className="flex flex-wrap items-center justify-between gap-2 border-t border-blue-100 bg-blue-50/60 px-3 py-2.5">
                     <div className="space-y-0.5">

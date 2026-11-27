@@ -4,7 +4,7 @@ import { createSecureId } from '@shop/sdk/context';
 import { checkoutWithCanonicalPayment, continueWithCanonicalPayment } from './canonicalCheckout';
 import { readCanonicalPaymentResult } from './canonicalPaymentResult';
 import { mapCanonicalProductPage } from './canonicalCatalogMapper';
-import { mapCanonicalAccounts, mapCanonicalCart, mapCanonicalLedgers, mapCanonicalOrders } from './canonicalCommerceMapper';
+import { mapCanonicalAccounts, mapCanonicalCart, mapCanonicalLedgers, mapCanonicalOrders, mapCanonicalOrderReturns } from './canonicalCommerceMapper';
 import { mapCanonicalAddresses, mapCanonicalBootstrap, mapCanonicalSession } from './canonicalIdentityMapper';
 import { boolean, nextCursor, nonNegativeInteger, optionalText, pageItems, record, text } from './canonicalShape';
 import { ProductionApiError } from './productionApi.error';
@@ -204,6 +204,11 @@ export const productionApi = {
 
   async listOrders(): Promise<{ items: ApiOrder[] }> {
     return { items: await orders() };
+  },
+
+  async readOrderReturns(orderId: string) {
+    const value = await canonicalCall(() => canonicalClient().order.ordersRead({ query: { order: orderId, limit: 1 } }, sessionContext()));
+    return mapCanonicalOrderReturns(value, orderId);
   },
 
   async listCart(): Promise<{ items: ApiCartItem[] }> {

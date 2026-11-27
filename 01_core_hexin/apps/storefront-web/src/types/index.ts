@@ -177,6 +177,7 @@ export interface Order {
   status: OrderStatus;
   createTime: string;
   items: OrderItem[];
+  hasAftersale?: boolean;
   address?: DeliveryAddress;
   payment: OrderPaymentDetail;
   invoice?: InvoiceInfo;
