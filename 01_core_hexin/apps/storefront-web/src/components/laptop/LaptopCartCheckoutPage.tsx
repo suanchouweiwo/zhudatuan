@@ -1,6 +1,6 @@
 import React, { useId, useState } from 'react';
 import { useMall, LaptopPage } from '../../context/MallContext';
-import { ShoppingCart, Trash2, Plus, Minus, CreditCard, Gift, ShieldCheck, CheckCircle2, Building, MapPin, FileText, Zap, ArrowRight } from 'lucide-react';
+import { ShoppingCart, Trash2, Plus, Minus, CreditCard, Gift, ShieldCheck, CheckCircle2, Building, MapPin, FileText, Zap, ArrowRight, RefreshCw } from 'lucide-react';
 import { getLoadedChinaRegions, loadChinaRegions } from '../../features/miniprogram/address/chinaRegions';
 import { STOREFRONT_WEB_SURFACE_COPY, type StorefrontWebSurface } from './StorefrontWebStandard';
 import { checkoutDeliveryAddress } from '../../context/checkoutSelectedCart';
@@ -12,7 +12,8 @@ interface LaptopCartCheckoutPageProps {
 
 export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ onSelectTab, surface = 'laptop' }) => {
   const { cart, updateCartQuantity, removeCartItem, user, addresses, showToast, navigateTo, checkoutSelectedCart,
-    refreshCheckoutAddresses, sessionStatus, isSubmittingOrder } = useMall();
+    refreshCheckoutAddresses, sessionStatus, isSubmittingOrder, activePaymentSession,
+    refreshCheckoutAfterCartChange } = useMall();
   const surfaceCopy = STOREFRONT_WEB_SURFACE_COPY[surface];
 
   const [useWelfareDeduction, setUseWelfareDeduction] = useState<boolean>(true);
@@ -23,8 +24,12 @@ export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ 
   const [addressChooserOpen, setAddressChooserOpen] = useState(false);
   const [refreshingAddresses, setRefreshingAddresses] = useState(false);
   const [addressRefreshFailed, setAddressRefreshFailed] = useState(false);
+  const [refreshingCheckout, setRefreshingCheckout] = useState(false);
+  const [checkoutRefreshFailed, setCheckoutRefreshFailed] = useState(false);
+  const checkoutStatusId = useId();
   const chooserId = useId();
   const selectedAddress = checkoutDeliveryAddress(addresses, addressId);
+  const cartChanged = activePaymentSession?.checkoutFailure === 'cart-changed';
 
   const toggleAddressChooser = async () => {
     if (addressChooserOpen) { setAddressChooserOpen(false); return; }
@@ -57,6 +62,19 @@ export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ 
   const handleCheckout = async () => {
     if (await checkoutSelectedCart(addressId)) {
       onSelectTab('orders');
+    }
+  };
+
+  const refreshCheckout = async () => {
+    setRefreshingCheckout(true);
+    setCheckoutRefreshFailed(false);
+    try {
+      const refreshed = await refreshCheckoutAfterCartChange();
+      setCheckoutRefreshFailed(!refreshed);
+    } catch {
+      setCheckoutRefreshFailed(true);
+    } finally {
+      setRefreshingCheckout(false);
     }
   };
 
@@ -260,16 +278,24 @@ export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ 
                 </div>
               </div>
 
-              {/* 提交按钮 (必须不可被遮挡) */}
               <button
-                onClick={handleCheckout}
-                disabled={isSubmittingOrder}
+                onClick={cartChanged ? refreshCheckout : handleCheckout}
+                disabled={isSubmittingOrder || refreshingCheckout}
+                aria-describedby={cartChanged ? checkoutStatusId : undefined}
                 className="w-full bg-[var(--sw-brand)] hover:bg-blue-700 text-white font-extrabold py-3 rounded-lg text-xs transition-all cursor-pointer shadow-md flex items-center justify-center gap-1.5"
               >
-                <Zap className="w-4 h-4 text-yellow-300" />
-                {isSubmittingOrder ? '安全提交中…' : '确认并提交真实订单'}
+                {cartChanged ? <RefreshCw className="w-4 h-4" /> : <Zap className="w-4 h-4 text-yellow-300" />}
+                {cartChanged
+                  ? (refreshingCheckout ? '正在刷新…' : '刷新购物车并继续')
+                  : (isSubmittingOrder ? '安全提交中…' : '确认并提交真实订单')}
                 <ArrowRight className="w-4 h-4" />
               </button>
+
+              {cartChanged && (
+                <div id={checkoutStatusId} role="status" className="rounded border border-blue-200 bg-blue-50/60 px-2.5 py-2 text-[11px] leading-relaxed text-gray-700">
+                  {checkoutRefreshFailed ? '暂时无法刷新结算信息，请重试。' : '购物车有变化，本次未创建订单。刷新后请重新核对结算信息。'}
+                </div>
+              )}
 
               <div className="text-[10px] text-gray-400 text-center flex items-center justify-center gap-1">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />

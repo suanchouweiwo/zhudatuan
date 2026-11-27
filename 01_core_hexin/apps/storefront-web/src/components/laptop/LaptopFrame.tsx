@@ -96,7 +96,10 @@ export const StorefrontWebFrame: React.FC<StorefrontWebFrameProps> = ({ surface 
   };
 
   const renderLaptopContent = () => {
-    if (activePaymentSession) return <PaymentResultPage session={activePaymentSession} />;
+    const checkoutInPlace = activePaymentSession?.checkoutFailure === 'cart-changed'
+      || (laptopPage === 'cart' && !showShippingAddress && !activePaymentSession?.orderId
+        && (activePaymentSession?.stage === 'validating' || activePaymentSession?.stage === 'creating-order'));
+    if (activePaymentSession && !checkoutInPlace) return <PaymentResultPage session={activePaymentSession} />;
     if (activePaymentId) return <PaymentResultPage paymentId={activePaymentId} />;
     if (showShippingAddress) {
       return (

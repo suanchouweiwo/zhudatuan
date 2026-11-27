@@ -779,6 +779,7 @@ export const MallProvider: React.FC<MallProviderProps> = ({ children, showcaseSe
     const [refreshed] = await Promise.all([refreshServerCart(), refreshCheckoutAddresses()]);
     if (!refreshed || activePaymentSessionRef.current !== current) return false;
     clearPaymentRecovery(current.scope);
+    activatePaymentSession(null);
     return true;
   };
 
