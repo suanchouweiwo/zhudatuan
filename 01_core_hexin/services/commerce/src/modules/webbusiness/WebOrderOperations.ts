@@ -48,21 +48,27 @@ export function webOrderOperations(context: ModuleContext): ModuleOperations {
         coalesce(financefacts.items,'[]'::jsonb) finance_facts,coalesce(aftersales.items,'[]'::jsonb) aftersales,
         coalesce(operations.items,'[]'::jsonb) operations
         from selected_orders orders
-        left join lateral(select coalesce(jsonb_agg(jsonb_build_object('id',line.id,'sku',line.sku_id,'listing',line.listing_id,'title',line.title_snapshot,
+        left join lateral(select coalesce(jsonb_agg((jsonb_build_object('id',line.id,'sku',line.sku_id,'listing',line.listing_id,'title',line.title_snapshot,
           'quantity',line.quantity,'unitMinor',line.unit_minor,'totalMinor',line.total_minor,'discountMinor',line.discount_minor,
-          'payableMinor',line.payable_minor,'provider',line.provider,'partner',line.partner_id,'product',line.product_id,
+          'payableMinor',line.payable_minor)
+          || case when $1::boolean then jsonb_build_object('coverUrl',product.attributes->>'coverUrl') else '{}'::jsonb end
+          || case when $15::boolean then jsonb_build_object(
+          'provider',line.provider,'partner',line.partner_id,'product',line.product_id,
           'routeId',line.route_id,'routeVersion',line.route_version,'operatingNodeId',line.operating_node_id,
           'participantNodeId',line.participant_node_id,'participantMembershipId',line.participant_membership_id,
           'supplierId',line.supplier_id,'supplierRelationshipId',line.supplier_relationship_id,'contractId',line.contract_id,
           'contractHash',line.contract_hash,'fulfillmentPartyId',line.fulfillment_party_id,'settlementPartyId',line.settlement_party_id,
-          'invoicePartyId',line.invoice_party_id,'routeSnapshot',line.route_snapshot) order by line.id)
-          filter(where $15::boolean),'[]'::jsonb) items,
+          'invoicePartyId',line.invoice_party_id,'routeSnapshot',line.route_snapshot) else '{}'::jsonb end) order by line.id)
+          filter(where $15::boolean or $1::boolean),'[]'::jsonb) items,
           case when count(*)=0 then null else jsonb_build_object(
             'title',(array_agg(line.title_snapshot order by line.id))[1],
             'sku',(array_agg(line.sku_id order by line.id))[1],
             'quantity',least(sum(line.quantity),2147483647)::integer,
             'lineCount',least(count(*),2147483647)::integer) end summary
-          from ordering.line line where line.order_id=orders.id) lines on true
+          from ordering.line line
+          left join catalog.sku sku on $1::boolean and line.product_id is null and sku.id=line.sku_id
+          left join catalog.product product on $1::boolean and product.id=coalesce(line.product_id,sku.product_id)
+          where line.order_id=orders.id) lines on true
         left join lateral(select jsonb_agg(jsonb_build_object('id',leg.id,'routeId',leg.route_id,'routeVersion',leg.route_version,
           'supplierId',leg.supplier_id,'supplierRelationshipId',leg.supplier_relationship_id,'contractId',leg.contract_id,
           'fulfillmentPartyId',leg.fulfillment_party_id,'settlementPartyId',leg.settlement_party_id,'invoicePartyId',leg.invoice_party_id,
