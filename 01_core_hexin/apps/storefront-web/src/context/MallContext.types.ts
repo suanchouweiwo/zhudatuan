@@ -100,6 +100,7 @@ export interface MallContextType {
   activePaymentId: string | null;
   activePaymentSession: PaymentRecoveryRecord | null;
   closePaymentResult: () => void;
+  refreshCheckoutAfterCartChange: () => Promise<boolean>;
   continueActivePayment: () => Promise<void>;
   recordPaymentResult: (result: ApiPaymentResult) => void;
   checkoutSelectedCart: (addressId?: string) => Promise<boolean>;

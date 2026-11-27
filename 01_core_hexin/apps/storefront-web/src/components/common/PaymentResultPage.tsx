@@ -87,11 +87,13 @@ export function paymentOrderStatusLabel(stage: PaymentDisplayStage, orderId: str
 
 export function PaymentResultPage({ paymentId, session }: PaymentResultPageProps) {
   const {
+    appMode,
     closePaymentResult,
     continueActivePayment,
     isSubmittingOrder,
     navigateTo,
     recordPaymentResult,
+    refreshCheckoutAfterCartChange,
     setAndroidPage,
     setLaptopPage,
     setMpPage,
@@ -103,6 +105,8 @@ export function PaymentResultPage({ paymentId, session }: PaymentResultPageProps
   const [refreshing, setRefreshing] = useState(Boolean(resolvedPaymentId));
   const [cycle, setCycle] = useState(0);
   const [showStatusAction, setShowStatusAction] = useState(false);
+  const [refreshingCart, setRefreshingCart] = useState(false);
+  const [cartRefreshError, setCartRefreshError] = useState(false);
 
   useEffect(() => {
     if (!resolvedPaymentId) {
@@ -154,7 +158,11 @@ export function PaymentResultPage({ paymentId, session }: PaymentResultPageProps
   const currency = result?.currency ?? session?.currency ?? 'CNY';
   const amount = useMemo(() => formatPaymentAmount(amountMinor, currency), [amountMinor, currency]);
   const orderId = result?.orderId ?? session?.orderId ?? null;
-  const copy = paymentDisplayCopy(stage, orderId);
+  const cartChanged = (appMode === 'pc' || appMode === 'laptop-web')
+    && stage === 'failed' && orderId === null && resolvedPaymentId === null && session?.checkoutFailure === 'cart-changed';
+  const copy = cartChanged
+    ? { eyebrow: '结算需要重新确认', title: '购物车有变化，本次未创建订单', detail: '刷新后，请核对商品、收货地址和金额，再提交订单。' }
+    : paymentDisplayCopy(stage, orderId);
   const retryPayment = stage === 'cancelled' || stage === 'failed' || stage === 'expired';
   const captured = stage === 'captured';
   const pending = !retryPayment && !captured;
@@ -183,6 +191,22 @@ export function PaymentResultPage({ paymentId, session }: PaymentResultPageProps
     navigateTo('cart');
     closePaymentResult();
   };
+  const refreshCartAndContinue = async () => {
+    setRefreshingCart(true);
+    setCartRefreshError(false);
+    let refreshed = false;
+    try {
+      refreshed = await refreshCheckoutAfterCartChange();
+    } catch {
+      // Keep the result open so the customer can retry the refresh.
+    }
+    if (refreshed) {
+      goToCart();
+      return;
+    }
+    setCartRefreshError(true);
+    setRefreshingCart(false);
+  };
 
   return (
     <section className="min-h-[72vh] bg-[radial-gradient(circle_at_50%_-8%,rgba(210,232,255,0.95)_0%,rgba(244,248,252,0.98)_36%,#f5f7fa_72%)] px-4 py-8 motion-safe:animate-[paymentCarrierIn_160ms_ease-out] md:py-14">
@@ -199,13 +223,13 @@ export function PaymentResultPage({ paymentId, session }: PaymentResultPageProps
           <PaymentStatusMark stage={stage} refreshing={refreshing} />
           <p className="mt-5 text-xs font-semibold tracking-[0.14em] text-[#6483a8]">{copy.eyebrow}</p>
           <h1 className="mt-2 text-[25px] font-bold tracking-tight text-[#13233a] md:text-[30px]">{copy.title}</h1>
-          <p className="mx-auto mt-2 max-w-[480px] text-sm leading-6 text-slate-500">{error ?? copy.detail}</p>
+          <p className="mx-auto mt-2 max-w-[480px] text-sm leading-6 text-slate-500">{cartChanged && cartRefreshError ? '暂时无法刷新结算信息，请重试。' : error ?? copy.detail}</p>
 
           <div className="mt-7 rounded-[22px] border border-[#e9f1fb] bg-[linear-gradient(145deg,#f9fcff_0%,#f2f7fd_100%)] px-5 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
             <p className="text-[11px] font-medium tracking-[0.08em] text-slate-400">{orderId ? '本次支付' : '本次结算'}</p>
             <p className="mt-1 text-[38px] font-bold tabular-nums tracking-[-0.04em] text-[#14243b]">{amount}</p>
             <div className="mx-auto mt-3 flex w-fit items-center gap-2 rounded-full bg-white/90 px-3 py-1.5 text-xs text-slate-500 shadow-[0_1px_5px_rgba(35,75,120,0.06)]">
-              <ReceiptText className="h-3.5 w-3.5 text-[#2a75df]" /><span>{paymentOrderStatusLabel(stage, orderId)}</span>
+              <ReceiptText className="h-3.5 w-3.5 text-[#2a75df]" /><span>{cartChanged ? '未创建订单' : paymentOrderStatusLabel(stage, orderId)}</span>
             </div>
           </div>
 
@@ -232,7 +256,11 @@ export function PaymentResultPage({ paymentId, session }: PaymentResultPageProps
             {retryPayment && orderId ? (
               <><PrimaryButton onClick={() => void continueActivePayment()} disabled={isSubmittingOrder}>{isSubmittingOrder ? <LoaderCircle className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : <RefreshCw className="h-4 w-4" />}{stage === 'cancelled' ? '继续付款' : '重新支付'}</PrimaryButton><SecondaryButton onClick={goToOrders}>查看订单</SecondaryButton></>
             ) : null}
-            {retryPayment && !orderId ? <PrimaryButton onClick={goToCart}>返回购物车确认</PrimaryButton> : null}
+            {retryPayment && !orderId ? (
+              <PrimaryButton onClick={cartChanged ? () => void refreshCartAndContinue() : goToCart} disabled={cartChanged && refreshingCart}>
+                {cartChanged ? (refreshingCart ? '正在刷新…' : '刷新购物车并继续') : '返回购物车确认'}
+              </PrimaryButton>
+            ) : null}
             {pending && (showStatusAction || error) ? (
               <button type="button" onClick={goToOrders} className="mx-auto inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full px-4 text-xs font-semibold text-[#426b9b] transition-colors duration-150 hover:bg-blue-50 active:bg-blue-100 motion-reduce:transition-none">查看订单状态<ArrowRight className="h-3.5 w-3.5" /></button>
             ) : null}
