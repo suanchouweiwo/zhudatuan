@@ -23,6 +23,9 @@ export function assertPurchaseTarget(target: string): void {
 }
 
 export function assertPurchaseQuote(quote: CheckoutQuote): void {
+  if (quote.rejections.some(({ reasons }) => reasons.includes('EXPERIENCE_NOT_PUBLISHED'))) {
+    throw new Error('EXPERIENCE_PUBLICATION_MISSING');
+  }
   if (quote.rejections.length > 0) throw new Error('CHECKOUT_REJECTED');
   if (!Number.isSafeInteger(quote.payableMinor) || quote.payableMinor <= 0) throw new Error('PAYMENT_AMOUNT_INVALID');
   if (!Number.isSafeInteger(quote.personalMinor) || quote.personalMinor < 0) throw new Error('PAYMENT_EXTERNAL_AMOUNT_INVALID');

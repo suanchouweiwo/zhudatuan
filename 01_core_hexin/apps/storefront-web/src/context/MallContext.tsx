@@ -684,6 +684,13 @@ export const MallProvider: React.FC<MallProviderProps> = ({ children, showcaseSe
         return false;
       }
       const current = activePaymentSessionRef.current;
+      if (error instanceof ProductionApiError && error.code === 'EXPERIENCE_PUBLICATION_MISSING' && current?.orderId === null) {
+        if (current.idempotencyKey === freshCheckoutKey) clearPaymentRecovery(current.scope);
+        else patchActivePaymentSession({ stage: 'failed' });
+        activatePaymentSession(null);
+        showToast(error.message, 'warning');
+        return false;
+      }
       if ((navigation.appMode === 'pc' || navigation.appMode === 'laptop-web')
         && error instanceof ProductionApiError && error.code === 'CART_CHANGED'
         && current?.orderId === null && current.paymentId === null && current.idempotencyKey === freshCheckoutKey) {
