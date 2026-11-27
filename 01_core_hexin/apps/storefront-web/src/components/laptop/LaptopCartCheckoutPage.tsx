@@ -18,7 +18,7 @@ function formatDeduction(amount: number): string {
 }
 
 export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ onSelectTab, onViewCheckoutOrder, surface = 'laptop' }) => {
-  const { cart, updateCartQuantity, removeCartItem, user, addresses, showToast, navigateTo, checkoutSelectedCart,
+  const { cart, updateCartQuantity, removeCartItem, user, addresses, orders, showToast, navigateTo, checkoutSelectedCart,
     refreshCheckoutAddresses, isSubmittingOrder, activePaymentSession, sessionStatus, currentMall,
     refreshCheckoutAfterCartChange, checkoutPublicationError } = useMall();
   const surfaceCopy = STOREFRONT_WEB_SURFACE_COPY[surface];
@@ -43,6 +43,11 @@ export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ 
   const waitingForOrder = isSubmittingOrder && activePaymentSession?.orderId === null
     && (activePaymentSession.stage === 'validating' || activePaymentSession.stage === 'creating-order');
   const paymentResult = cartChanged || waitingForOrder ? null : activePaymentSession;
+  const capturedPayment = paymentResult?.stage === 'captured' ? paymentResult : null;
+  const paidAmount = capturedPayment ? capturedPayment.amountMinor / 100 : null;
+  const paidDeductions = capturedPayment
+    ? orders.find((order) => order.id === capturedPayment.orderId)?.payment.confirmedCardDeductions
+    : undefined;
   const checkoutStatus = cartChanged
     ? (checkoutRefreshFailed ? '暂时无法刷新结算信息，请重试。' : '购物车有变化，本次未创建订单。刷新后请重新核对结算信息。')
     : checkoutPublicationError;
@@ -272,7 +277,7 @@ export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ 
             <div className="sw-web-checkout-summary md:col-span-4 bg-white border border-gray-200 rounded-lg p-3.5 shadow-xs space-y-3 sticky top-[100px]">
               <div className="font-extrabold text-sm text-gray-900 border-b border-gray-100 pb-2">结算汇总与福利卡扣减</div>
 
-              {cart.length > 0 && <>
+              {cart.length > 0 && !capturedPayment && <>
               {/* 抵扣勾选项 */}
               <div className="space-y-2 text-xs">
                 <label className="p-2 bg-blue-50/80 rounded border border-blue-200 flex items-center justify-between cursor-pointer">
@@ -293,28 +298,31 @@ export const LaptopCartCheckoutPage: React.FC<LaptopCartCheckoutPageProps> = ({ 
                   <span className={`font-bold tabular-nums ${maxMealDeduction ? 'text-emerald-700' : 'text-gray-500'}`}>{formatDeduction(maxMealDeduction)}</span>
                 </label>
               </div>
+              </>}
 
               {/* 金额拆解明细 */}
+              {(cart.length > 0 || paidAmount !== null) && (
               <div className="space-y-1.5 border-t border-gray-100 pl-7 pr-2 pt-2.5 text-xs tabular-nums text-gray-600">
+                {cart.length > 0 && <>
                 <div className="flex justify-between">
                   <span>商品金额小计:</span>
                   <span className="font-bold text-gray-800">¥{subtotal.toFixed(2)}</span>
                 </div>
-                <div className={`flex justify-between ${maxWelfareDeduction ? 'text-[var(--sw-brand)]' : 'text-gray-500'}`}>
+                </>}
+                <div className={`flex justify-between ${(capturedPayment ? paidDeductions?.welfare : maxWelfareDeduction) ? 'text-[var(--sw-brand)]' : 'text-gray-500'}`}>
                   <span>福利卡抵扣:</span>
-                  <span>{formatDeduction(maxWelfareDeduction)}</span>
+                  <span>{capturedPayment && !paidDeductions ? '—' : formatDeduction(paidDeductions?.welfare ?? maxWelfareDeduction)}</span>
                 </div>
-                <div className={`flex justify-between ${maxMealDeduction ? 'text-emerald-700' : 'text-gray-500'}`}>
+                <div className={`flex justify-between ${(capturedPayment ? paidDeductions?.meal : maxMealDeduction) ? 'text-emerald-700' : 'text-gray-500'}`}>
                   <span>餐卡抵扣:</span>
-                  <span>{formatDeduction(maxMealDeduction)}</span>
+                  <span>{capturedPayment && !paidDeductions ? '—' : formatDeduction(paidDeductions?.meal ?? maxMealDeduction)}</span>
                 </div>
                 <div className="flex justify-between font-bold text-gray-900 pt-1 border-t border-gray-100 text-sm">
-                  <span>需补差额支付:</span>
-                  <span className="text-[#E5484D] font-black text-base">¥{gapPayment.toFixed(2)}</span>
+                  <span>{paidAmount === null ? '需补差额支付:' : '已支付:'}</span>
+                  <span className="text-[#E5484D] font-black text-base">¥{(paidAmount ?? gapPayment).toFixed(2)}</span>
                 </div>
               </div>
-
-              </>}
+              )}
 
               {paymentResult ? (
                 <PaymentResultPage key={paymentResult.idempotencyKey} session={paymentResult} compact onViewCheckoutOrder={onViewCheckoutOrder} />

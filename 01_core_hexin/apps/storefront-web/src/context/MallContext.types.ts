@@ -104,6 +104,7 @@ export interface MallContextType {
   checkoutPublicationError: string | null;
   continueActivePayment: () => Promise<void>;
   continueOrderPayment: (orderId: string) => Promise<void>;
+  readPaymentResult: (paymentId: string) => Promise<ApiPaymentResult>;
   recordPaymentResult: (result: ApiPaymentResult) => void;
   checkoutSelectedCart: (addressId?: string) => Promise<boolean>;
   refreshCheckoutAddresses: () => Promise<void>;

@@ -156,6 +156,7 @@ export interface OrderPaymentDetail {
   shippingFee: number;
   welfareDeducted: number; // 福利卡扣减
   mealDeducted: number; // 餐卡扣减
+  confirmedCardDeductions?: Readonly<{ welfare: number; meal: number }>;
   wechatPaid: number; // 微信支付/补差
   finalPaidAmount: number;
   payMethodText: string;
@@ -180,6 +181,7 @@ export interface Order {
   payment: OrderPaymentDetail;
   invoice?: InvoiceInfo;
   userRemark?: string;
+  hasShipment?: boolean;
   trackingNo?: string;
   expressCompany?: string;
   verificationCode?: string; // 虚拟核销码/兑换码

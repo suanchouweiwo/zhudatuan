@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useMall } from '../../context/MallContext';
-import { ArrowLeft, FileText, Truck, Download } from 'lucide-react';
+import { ArrowLeft, FileText, Truck } from 'lucide-react';
 import type { OrderStatus } from '../../types';
 import { STOREFRONT_WEB_SURFACE_COPY, type StorefrontWebSurface } from './StorefrontWebStandard';
 
@@ -82,7 +82,13 @@ export const LaptopOrdersPage: React.FC<LaptopOrdersPageProps> = ({ onReturnToCh
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-[#E5484D]">{order.status === 'completed' ? '已完成' : order.status === 'pending_shipment' || order.status === 'pending_receipt' ? '运输中' : '待付款'}</span>
+                    <span className="font-bold text-[#E5484D]">
+                      {order.status === 'pending_receipt'
+                        ? '运输中'
+                        : order.status === 'pending_shipment' || order.status === 'completed'
+                          ? order.statusText
+                          : '待付款'}
+                    </span>
                   </div>
                 </div>
 
@@ -102,9 +108,6 @@ export const LaptopOrdersPage: React.FC<LaptopOrdersPageProps> = ({ onReturnToCh
 
                       <div className="text-right flex-shrink-0">
                         <div className="font-bold text-gray-900">¥{item.priceAtPurchase.toFixed(2)}</div>
-                        {order.status !== 'pending_payment' && (
-                          <div className="text-[10px] text-gray-400">福利卡全额抵扣</div>
-                        )}
                       </div>
                     </div>
                   ))}
@@ -117,7 +120,7 @@ export const LaptopOrdersPage: React.FC<LaptopOrdersPageProps> = ({ onReturnToCh
                       总额: <strong className="text-gray-900">¥{(order.payment.payableAmount ?? order.totalAmount).toFixed(2)}</strong>
                     </span>
                     <span>·</span>
-                    <span className="text-[var(--sw-brand-dark)] font-bold">福利卡扣减: -¥{order.welfareDeduction.toFixed(2)}</span>
+                    <span className="text-[var(--sw-brand-dark)] font-bold">福利卡扣减: {order.welfareDeduction > 0 ? '-' : ''}¥{order.welfareDeduction.toFixed(2)}</span>
                   </div>
 
                   {order.status === 'pending_payment' ? (
@@ -125,23 +128,15 @@ export const LaptopOrdersPage: React.FC<LaptopOrdersPageProps> = ({ onReturnToCh
                       className="rounded bg-[var(--sw-brand)] px-2.5 py-1 font-bold text-white hover:bg-blue-700">
                       继续付款
                     </button>
-                  ) : <div className="flex items-center gap-2">
+                  ) : (order.hasShipment || order.trackingNo) ? (
                     <button
-                      onClick={() => triggerPendingFeature('电子发票下载', '专票PDF已生成，支持直接存入发票抬头库')}
-                      className="bg-white border border-gray-300 hover:border-[var(--sw-brand)] text-gray-700 hover:text-[var(--sw-brand)] font-bold px-2.5 py-1 rounded flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
-                    >
-                      <Download className="w-3.5 h-3.5 text-[var(--sw-brand)]" />
-                      <span>下载电子专票</span>
-                    </button>
-
-                    <button
-                      onClick={() => triggerPendingFeature('物流追踪', '京东快递：单号JD20260722881，预估明日送达')}
+                      onClick={() => triggerPendingFeature('物流追踪', order.trackingNo ? `运单号：${order.trackingNo}` : '订单已发货，运单号暂未同步。')}
                       className="bg-[var(--sw-brand)] hover:bg-blue-700 text-white font-bold px-2.5 py-1 rounded flex items-center gap-1 cursor-pointer transition-colors shadow-xs"
                     >
                       <Truck className="w-3.5 h-3.5" />
                       <span>查看物流状态</span>
                     </button>
-                  </div>}
+                  ) : null}
                 </div>
                 {order.status === 'pending_payment' && orderToPay === order.orderId && (
                   <section aria-label="继续结算原订单" className="flex flex-wrap items-center justify-between gap-2 border-t border-blue-100 bg-blue-50/60 px-3 py-2.5">

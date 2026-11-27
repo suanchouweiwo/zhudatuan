@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ArrowRight, Check, ChevronDown, CircleAlert, Clock3, Home, LoaderCircle, ReceiptText, RefreshCw, ShieldCheck } from 'lucide-react';
 import { useMall } from '../../context/MallContext';
 import type { PaymentFlowStage, PaymentRecoveryRecord } from '../../services/paymentRecovery';
-import { productionApi, type ApiPaymentResult, type ApiPaymentResultState, ProductionApiError } from '../../services/productionApi';
+import { type ApiPaymentResult, type ApiPaymentResultState, ProductionApiError } from '../../services/productionApi';
 
 interface PaymentResultPageProps {
   readonly paymentId?: string;
@@ -71,7 +71,8 @@ export function selectPaymentResult(previous: ApiPaymentResult | null, next: Api
 }
 
 export function paymentDisplayStage(session: PaymentRecoveryRecord | undefined, result: ApiPaymentResult | null): PaymentDisplayStage {
-  if (result?.state === 'captured' || result?.state === 'failed' || result?.state === 'expired') return result.state;
+  if (session?.stage === 'captured' || result?.state === 'captured') return 'captured';
+  if (result?.state === 'failed' || result?.state === 'expired') return result.state;
   if (session?.stage === 'cancelled') return 'cancelled';
   if (result?.state === 'recovery') return 'recovery';
   if (result?.state === 'pending') return 'verifying';
@@ -93,6 +94,7 @@ export function PaymentResultPage({ paymentId, session, compact = false, onViewC
     continueActivePayment,
     isSubmittingOrder,
     navigateTo,
+    readPaymentResult,
     recordPaymentResult,
     setAndroidPage,
     setLaptopPage,
@@ -105,17 +107,23 @@ export function PaymentResultPage({ paymentId, session, compact = false, onViewC
   const [refreshing, setRefreshing] = useState(Boolean(resolvedPaymentId));
   const [cycle, setCycle] = useState(0);
   const [showStatusAction, setShowStatusAction] = useState(false);
+  const readingResult = useRef(false);
+  const shouldReadResult = Boolean(resolvedPaymentId) && session?.stage !== 'captured'
+    && !(result?.intentId === resolvedPaymentId && result?.state === 'captured');
 
   useEffect(() => {
-    if (!resolvedPaymentId) {
+    if (!resolvedPaymentId || !shouldReadResult) {
       setRefreshing(false);
+      setError(null);
       return undefined;
     }
     let active = true;
     let timer: number | undefined;
+    readingResult.current = true;
     setRefreshing(true);
-    void productionApi.readPaymentResult(resolvedPaymentId).then((next) => {
+    void readPaymentResult(resolvedPaymentId).then((next) => {
       if (!active) return;
+      readingResult.current = false;
       setResult((previous) => selectPaymentResult(previous, next));
       recordPaymentResult(next);
       setError(null);
@@ -126,6 +134,7 @@ export function PaymentResultPage({ paymentId, session, compact = false, onViewC
       }
     }).catch((cause: unknown) => {
       if (!active) return;
+      readingResult.current = false;
       const failure = paymentResultReadFailure(cause);
       setError(failure.message);
       setRefreshing(false);
@@ -133,23 +142,31 @@ export function PaymentResultPage({ paymentId, session, compact = false, onViewC
     });
     return () => {
       active = false;
+      readingResult.current = false;
       if (timer !== undefined) window.clearTimeout(timer);
     };
-  }, [cycle, recordPaymentResult, resolvedPaymentId]);
+  }, [cycle, readPaymentResult, recordPaymentResult, resolvedPaymentId, shouldReadResult]);
 
   useEffect(() => {
     const reveal = window.setTimeout(() => setShowStatusAction(true), 8_000);
+    return () => window.clearTimeout(reveal);
+  }, [resolvedPaymentId]);
+
+  useEffect(() => {
+    if (!shouldReadResult) return;
     const refreshAfterReturn = () => {
-      if (document.visibilityState !== 'hidden') setCycle((value) => value + 1);
+      if (!readingResult.current && document.visibilityState !== 'hidden') setCycle((value) => value + 1);
     };
-    window.addEventListener('pageshow', refreshAfterReturn);
+    const refreshAfterRestore = (event: PageTransitionEvent) => {
+      if (event.persisted) refreshAfterReturn();
+    };
+    window.addEventListener('pageshow', refreshAfterRestore);
     document.addEventListener('visibilitychange', refreshAfterReturn);
     return () => {
-      window.clearTimeout(reveal);
-      window.removeEventListener('pageshow', refreshAfterReturn);
+      window.removeEventListener('pageshow', refreshAfterRestore);
       document.removeEventListener('visibilitychange', refreshAfterReturn);
     };
-  }, [resolvedPaymentId]);
+  }, [shouldReadResult]);
 
   const stage = paymentDisplayStage(session, result);
   const amountMinor = result?.amountMinor ?? session?.amountMinor ?? 0;

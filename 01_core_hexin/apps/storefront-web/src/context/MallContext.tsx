@@ -99,6 +99,7 @@ export const MallProvider: React.FC<MallProviderProps> = ({ children, showcaseSe
   const refreshCartRequestRef = useRef<Promise<boolean> | null>(null);
   const activePaymentSessionRef = useRef<PaymentRecoveryRecord | null>(null);
   const paymentInFlightRef = useRef(false);
+  const paymentResultRequestsRef = useRef(new Map<string, Promise<ApiPaymentResult>>());
   const verificationAddressRef = useRef<{ scope: string; addressId: string | undefined } | null>(null);
   const dismissedPaymentKeyRef = useRef<string | null>(null);
   const capturedPaymentsRef = useRef(new Set<string>());
@@ -251,6 +252,8 @@ export const MallProvider: React.FC<MallProviderProps> = ({ children, showcaseSe
     },
     !isShowcase
   );
+  const refreshProductionDataRef = useRef(refreshProductionData);
+  refreshProductionDataRef.current = refreshProductionData;
   useEffect(() => {
     if (showcaseService) return;
     if (sessionStatus !== 'authenticated') {
@@ -561,11 +564,23 @@ export const MallProvider: React.FC<MallProviderProps> = ({ children, showcaseSe
     }
   };
 
-  const completeCapturedPayment = useCallback((paymentId: string) => {
+  const readPaymentResult = useCallback((paymentId: string): Promise<ApiPaymentResult> => {
+    const requests = paymentResultRequestsRef.current;
+    const key = `${sessionGenerationRef.current}:${paymentId}`;
+    const pending = requests.get(key);
+    if (pending) return pending;
+    const request = loadProductionApi().then((api) => api.readPaymentResult(paymentId)).finally(() => {
+      requests.delete(key);
+    });
+    requests.set(key, request);
+    return request;
+  }, []);
+
+  const completeCapturedPayment = useCallback((paymentId: string, confirmedAmount?: Pick<ApiPaymentResult, 'amountMinor' | 'currency'>) => {
     const current = activePaymentSessionRef.current;
     if (!current || capturedPaymentsRef.current.has(paymentId)) return;
     capturedPaymentsRef.current.add(paymentId);
-    const captured = updatePaymentRecovery(current, { stage: 'captured', paymentId });
+    const captured = updatePaymentRecovery(current, { stage: 'captured', paymentId, ...confirmedAmount });
     activePaymentSessionRef.current = captured;
     setActivePaymentSession(captured);
     clearPaymentRecovery(captured.scope);
@@ -574,16 +589,16 @@ export const MallProvider: React.FC<MallProviderProps> = ({ children, showcaseSe
     showToastRef.current('支付成功，订单已为你保留', 'success');
     void loadProductionApi().then(async (productionApi) => {
       await Promise.allSettled(captured.cartItemIds.map((itemId) => productionApi.deleteCartItem(itemId)));
-      await Promise.allSettled([refreshServerCartRef.current(), refreshProductionData()]);
+      await Promise.allSettled([refreshServerCartRef.current(), refreshProductionDataRef.current()]);
     }).catch(() => undefined);
-  }, [refreshProductionData]);
+  }, []);
 
   const recordPaymentResult = useCallback((result: ApiPaymentResult) => {
     const current = activePaymentSessionRef.current;
-    if (!current || (current.orderId !== null && current.orderId !== result.orderId)
+    if (!current || current.stage === 'captured' || (current.orderId !== null && current.orderId !== result.orderId)
       || (current.paymentId !== null && current.paymentId !== result.intentId)) return;
     if (result.state === 'captured') {
-      completeCapturedPayment(result.intentId);
+      completeCapturedPayment(result.intentId, { amountMinor: result.amountMinor, currency: result.currency });
       return;
     }
     if (result.state === 'failed' || result.state === 'expired') {
@@ -605,8 +620,7 @@ export const MallProvider: React.FC<MallProviderProps> = ({ children, showcaseSe
       patchActivePaymentSession({ stage: 'verifying' });
       if (paymentId) {
         try {
-          const productionApi = await loadProductionApi();
-          recordPaymentResult(await productionApi.readPaymentResult(paymentId));
+          recordPaymentResult(await readPaymentResult(paymentId));
         } catch {
           patchActivePaymentSession({ stage: 'recovery' });
         }
@@ -747,7 +761,7 @@ export const MallProvider: React.FC<MallProviderProps> = ({ children, showcaseSe
     try {
       const productionApi = await loadProductionApi();
       if (current.paymentId) {
-        const result = await productionApi.readPaymentResult(current.paymentId);
+        const result = await readPaymentResult(current.paymentId);
         recordPaymentResult(result);
         if (result.state === 'captured') return;
         if (result.action) {
@@ -937,6 +951,7 @@ export const MallProvider: React.FC<MallProviderProps> = ({ children, showcaseSe
         checkoutPublicationError: checkoutPublicationFailure?.scope === currentPaymentScope ? checkoutPublicationFailure.message : null,
         continueActivePayment,
         continueOrderPayment,
+        readPaymentResult,
         recordPaymentResult,
         checkoutSelectedCart,
         refreshCheckoutAddresses,

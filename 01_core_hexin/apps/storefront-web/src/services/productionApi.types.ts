@@ -33,6 +33,8 @@ export interface ApiOrder {
   id: string;
   orderNo: string;
   status: string;
+  hasShipment?: boolean;
+  trackingNo?: string;
   goodsAmountCents: number;
   discountCents: number;
   payableCents: number;
@@ -40,6 +42,7 @@ export interface ApiOrder {
   paidCents: number;
   welfarePaidCents?: number;
   mealPaidCents?: number;
+  benefitAllocations?: ReadonlyArray<{ accountId: string; amountCents: number }>;
   createdAt: string;
   updatedAt: string;
   items?: Array<{ productId: string; productTitle: string; productImage: string | null; priceCents: number; quantity: number; specs: Record<string, string>; itemType: string }>;

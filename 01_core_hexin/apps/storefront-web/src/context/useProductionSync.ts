@@ -274,7 +274,7 @@ export function useProductionSync(setters: ProductionSyncSetters, enabled = true
       welfareBalance: (welfare?.balanceCents ?? 0) / 100,
       mealBalance: (meal?.balanceCents ?? 0) / 100,
     }));
-    setters.setOrders(orderResult.items.map((order) => mapApiOrder(order, bootstrap.scope)));
+    setters.setOrders(orderResult.items.map((order) => mapApiOrder(order, bootstrap.scope, accounts.items)));
     setters.setAccountLogs(
       ledgerResult.items.map((ledger) => ({
         id: ledger.id,

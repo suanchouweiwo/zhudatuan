@@ -1,6 +1,6 @@
 import type { CartItem, Order, OrderStatus, Product, ProductItemType } from '../types';
 import { isStrictTaxonomyPath } from '../domain/catalog/taxonomy';
-import type { ApiCartItem, ApiOrder, ApiProduct } from '../services/productionApi';
+import type { ApiAccount, ApiCartItem, ApiOrder, ApiProduct } from '../services/productionApi';
 
 const CATEGORY_MAP: Record<string, { id: string; name: string }> = {
   food: { id: 'cat_food', name: '食品饮料' },
@@ -77,7 +77,18 @@ export function mapApiCartItems(items: ApiCartItem[], products: Product[]): Cart
   });
 }
 
-export function mapApiOrder(order: ApiOrder, scope: { enterpriseId: string; enterpriseName: string; mallId: string; mallName: string }): Order {
+function confirmedCardDeductions(allocations: ApiOrder['benefitAllocations'], accounts: readonly ApiAccount[]) {
+  if (!allocations) return undefined;
+  const deductions = { welfare: 0, meal: 0 };
+  for (const { accountId, amountCents } of allocations) {
+    const account = accounts.find(({ id }) => id === accountId);
+    if (!account) return undefined;
+    deductions[account.type] += amountCents;
+  }
+  return { welfare: deductions.welfare / 100, meal: deductions.meal / 100 };
+}
+
+export function mapApiOrder(order: ApiOrder, scope: { enterpriseId: string; enterpriseName: string; mallId: string; mallName: string }, accounts: readonly ApiAccount[] = []): Order {
   const statusMap: Record<string, OrderStatus> = {
     pending_payment: 'pending_payment',
     paid: 'pending_shipment',
@@ -88,6 +99,7 @@ export function mapApiOrder(order: ApiOrder, scope: { enterpriseId: string; ente
     refund_pending: 'after_sale',
     refunded: 'after_sale',
   };
+  const deductions = confirmedCardDeductions(order.benefitAllocations, accounts);
   return {
     id: order.id,
     orderNo: order.orderNo,
@@ -99,6 +111,8 @@ export function mapApiOrder(order: ApiOrder, scope: { enterpriseId: string; ente
     supplierName: '供应商拆单汇总',
     supplierType: 'third_party',
     status: statusMap[order.status] ?? 'pending_payment',
+    ...(order.hasShipment ? { hasShipment: true } : {}),
+    ...(order.trackingNo ? { trackingNo: order.trackingNo } : {}),
     createTime: order.createdAt,
     items: (order.items ?? []).map((item) => ({
       productId: item.productId,
@@ -119,6 +133,7 @@ export function mapApiOrder(order: ApiOrder, scope: { enterpriseId: string; ente
       shippingFee: 0,
       welfareDeducted: (order.welfarePaidCents ?? order.paidCents) / 100,
       mealDeducted: (order.mealPaidCents ?? 0) / 100,
+      ...(deductions === undefined ? {} : { confirmedCardDeductions: deductions }),
       wechatPaid: 0,
       finalPaidAmount: order.paidCents / 100,
       payMethodText: order.paidCents > 0 ? '内部福利账户支付' : '待支付',

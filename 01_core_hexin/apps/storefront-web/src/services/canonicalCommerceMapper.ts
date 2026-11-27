@@ -71,11 +71,15 @@ function mapOrder(item: Record<string, unknown>): ApiOrder {
   const paymentState = optionalText(item.payment_state) ?? 'unpaid';
   const lines = records(item.lines ?? [], 'order.lines');
   const benefitPaid = paymentState === 'paid' ? benefitTenderAmount(item.evidence, total) : 0;
+  const benefitAllocations = paymentState === 'paid' ? paidBenefitAllocations(item.evidence) : undefined;
   const personalPayableCents = personalTenderAmount(item.evidence);
+  const trackingNo = optionalText(item.tracking_no);
   return {
     id: text(item.id, 'order.id'),
     orderNo: text(item.order_number, 'order.order_number'),
     status: orderStatus(item),
+    hasShipment: optionalText(item.fulfillment_state) === 'shipped' || Boolean(trackingNo),
+    ...(trackingNo ? { trackingNo } : {}),
     goodsAmountCents: lines.reduce((sum, line) => sum + nonNegativeInteger(line.totalMinor, 'order.line.totalMinor'), 0),
     discountCents: lines.reduce((sum, line) => sum + nonNegativeInteger(line.discountMinor, 'order.line.discountMinor'), 0),
     payableCents: total,
@@ -83,6 +87,7 @@ function mapOrder(item: Record<string, unknown>): ApiOrder {
     paidCents: paymentState === 'paid' || paymentState.includes('refund') ? total : 0,
     welfarePaidCents: benefitPaid,
     mealPaidCents: 0,
+    ...(benefitAllocations === undefined ? {} : { benefitAllocations }),
     createdAt: asDate(item.created_at),
     updatedAt: asDate(item.updated_at),
     items: lines.map((line) => ({
@@ -122,6 +127,21 @@ function personalTenderAmount(value: unknown): number | undefined {
     total += amount;
   }
   return Number.isSafeInteger(total) ? total : undefined;
+}
+
+function paidBenefitAllocations(value: unknown): ApiOrder['benefitAllocations'] {
+  if (value === null || typeof value !== 'object') return undefined;
+  const tenders = Reflect.get(value, 'tenders');
+  if (!Array.isArray(tenders) || tenders.length === 0) return undefined;
+  const allocations = [];
+  for (const tender of tenders) {
+    if (!tender || typeof tender.kind !== 'string') return undefined;
+    if (tender.kind !== 'benefit') continue;
+    const { reference, amountMinor } = tender;
+    if (typeof reference !== 'string' || !reference || !Number.isSafeInteger(amountMinor) || amountMinor < 0) return undefined;
+    allocations.push({ accountId: reference, amountCents: amountMinor });
+  }
+  return allocations;
 }
 
 function benefitTenderAmount(value: unknown, fallback: number): number {
