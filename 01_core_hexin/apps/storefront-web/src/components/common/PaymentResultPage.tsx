@@ -273,7 +273,8 @@ function PaymentStatusMark({ stage, refreshing, compact }: Readonly<{ stage: Pay
     if (stage === 'failed' || stage === 'expired' || stage === 'cancelled') {
       return <span className="flex size-9 shrink-0 items-center justify-center rounded-full border border-[#dfeaf5] bg-white text-[#60758e]">{stage === 'cancelled' ? <Clock3 className="size-5" /> : <CircleAlert className="size-5" />}</span>;
     }
-    return <span className="flex size-9 shrink-0 items-center justify-center rounded-full border border-[#cfe3f8]/90 bg-[#f4f8ff] text-[#2677d5]"><LoaderCircle className={`size-5 ${refreshing ? 'animate-spin motion-reduce:animate-none' : ''}`} strokeWidth={1.8} /></span>;
+    const confirming = stage === 'verifying' || stage === 'recovery';
+    return <span className="flex size-9 shrink-0 items-center justify-center rounded-full border border-[#cfe3f8]/90 bg-[#f4f8ff] text-[#2677d5]"><LoaderCircle className={`size-5 ${refreshing || confirming ? 'motion-safe:animate-spin' : ''}`} strokeWidth={1.8} /></span>;
   }
   if (stage === 'captured') {
     return <div className="relative mx-auto flex h-24 w-24 items-center justify-center"><span className="absolute inset-1 rounded-full bg-emerald-100/70 blur-xl" /><span className="relative flex h-[74px] w-[74px] items-center justify-center rounded-full border border-emerald-200 bg-white text-emerald-600 shadow-[0_8px_28px_rgba(16,185,129,0.16)] motion-safe:animate-[paymentSuccess_280ms_ease-out]"><Check className="h-9 w-9" strokeWidth={2.5} /></span></div>;
